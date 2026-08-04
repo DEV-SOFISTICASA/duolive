@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DuoLive · Multichat da live</title>
+<style>
+  :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--azul:#38bdf8;--rosa:#f472b6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none}
+  .st{width:9px;height:9px;border-radius:50%;background:#f87171;flex:none}
+  .st.on{background:var(--ok);box-shadow:0 0 8px rgba(74,222,128,.7)}
+  header b{font-size:13px}
+  header small{color:var(--text-3);font-size:11px}
+  .conts{margin-left:auto;display:flex;gap:12px;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+  .vendas{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex:none;background:rgba(74,222,128,.05)}
+  .vendas b{font-size:12.5px;color:var(--ok)}
+  .vendas .tot{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+  .vendas button{margin-left:auto}
+  .btn{display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:600;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text-2)}
+  .btn:hover{filter:brightness(1.12)}
+  #formVenda{display:none;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--card)}
+  #formVenda .row{display:flex;gap:6px;align-items:center}
+  #formVenda input{background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:6px 8px;color:var(--text);font-size:12.5px;width:110px}
+  #formVenda .plat{display:flex;gap:4px}
+  #formVenda .plat span{padding:5px 10px;border:1px solid var(--line);border-radius:99px;font-size:11px;cursor:pointer;color:var(--text-3)}
+  #formVenda .plat span.on{color:#fff;border-color:var(--accent);background:rgba(255,92,53,.25)}
+  .chips{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+  .chip{font-size:11px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none}
+  .chip.on{color:var(--text);border-color:var(--accent);background:rgba(255,92,53,.12)}
+  /* a fonte do chat acompanha a largura do painel: alargou pela barrinha, letra cresce */
+  #feed{flex:1;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column-reverse;gap:6px;font-size:clamp(13px,2.1vw,26px)}
+  .ev{display:flex;gap:.6em;align-items:baseline;padding:.5em .75em;border-radius:9px;background:var(--card);border:1px solid var(--line);animation:chega .25s ease}
+  @keyframes chega{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .ev .ico{flex:none;width:1.4em;height:1.4em;display:inline-flex;align-items:center;justify-content:center;align-self:center;border-radius:.35em}
+  .ev .ico.tiktok{background:#000}
+  .ev .ico.shopee{background:#ee4d2d}
+  .ev .ico svg{width:.95em;height:.95em}
+  .ev b{font-size:1em}
+  .ev .txt{color:var(--text);font-weight:700;word-break:break-word}
+  .ev.seguidor{border-color:rgba(56,189,248,.4)}
+  .ev.presente{border-color:rgba(244,114,182,.45)}
+  .ev.venda{border-color:rgba(74,222,128,.5);background:linear-gradient(135deg,var(--card),rgba(74,222,128,.1))}
+  .ev small{margin-left:auto;color:var(--text-3);font-size:.7em;flex:none}
+  #off{padding:14px;margin:10px 12px;border:1px dashed var(--line);border-radius:10px;color:var(--text-2);font-size:12px;line-height:1.7;display:none}
+  #off code{font-family:ui-monospace,Consolas,monospace;background:var(--card-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11px}
+  .dica{flex:none;padding:8px 12px;border-top:1px solid var(--line);font-size:10.5px;color:var(--text-3);line-height:1.45}
+</style>
+</head>
+<body>
+  <header>
+    <span class="st" id="st"></span>
+    <div><b>💬 Multichat da live</b><br><small id="quem">ligando…</small></div>
+    <div class="conts"><span title="pessoas assistindo agora">👀 <span id="cVis">–</span></span><span title="curtidas">❤️ <span id="cLikes">–</span></span></div>
+  </header>
+
+  <div class="vendas">
+    <b>🛒 Vendas da live:</b>
+    <span class="tot"><span id="vQtd">0</span> venda(s) · R$ <span id="vTot">0,00</span></span>
+    <button class="btn" id="btnVenda">+ anotar venda</button>
+    <button class="btn ghost" id="btnZerar" title="Começar a contagem do zero (nova live)">zerar</button>
+  </div>
+  <div id="formVenda">
+    <div class="row">
+      <div class="plat" id="platSel"><span data-p="shopee" class="on">Shopee</span><span data-p="tiktok">TikTok</span></div>
+      <input id="vQuem" placeholder="usuário de quem comprou" style="width:150px">
+      <input id="vValor" placeholder="valor (ex.: 89,90)" inputmode="decimal">
+      <button class="btn" id="btnVendaOk">anotar</button>
+      <button class="btn ghost" id="btnVendaCanc">cancelar</button>
+    </div>
+  </div>
+
+  <div class="chips" id="chips">
+    <span class="chip on" data-t="mensagem">💬 Mensagens</span>
+    <span class="chip on" data-t="venda">🛒 Vendas</span>
+    <span class="chip on" data-t="seguidor">⭐ Seguidores</span>
+    <span class="chip on" data-t="presente">🎁 Presentes</span>
+    <span class="chip" data-t="entrada">👋 Entradas</span>
+  </div>
+
+  <div id="off">
+    <b>O chat do TikTok ainda não está ligado.</b> Para ligar (uma vez só):<br>
+    1. Instale o programa gratuito <b>Node.js</b> (site nodejs.org, botão verde).<br>
+    2. Abra a pasta <code>conector</code> do DuoLive, clique na barra de endereço, digite <code>cmd</code> e aperte Enter.<br>
+    3. Na janela preta, digite <code>npm install</code> e aperte Enter (só na primeira vez).<br>
+    4. Depois digite <code>npm start -- @seuusuario</code> (o @ da conta TikTok que vai fazer a live).<br>
+    Pronto — quando a live começar, as mensagens aparecem aqui sozinhas.<br>
+    <span style="color:var(--text-3)">Para ver como fica sem estar ao vivo: digite <code>set DUOLIVE_TESTE=1</code>, Enter, e depois <code>npm start</code>.</span>
+  </div>
+
+  <div id="feed"></div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var feed=$('feed'), MAX=200;
+  var filtros={mensagem:true,venda:true,seguidor:true,presente:true,entrada:false,share:true};
+  var K_VENDAS='ld-multichat-vendas';
+  var vendas=[]; try{ vendas=JSON.parse(localStorage.getItem(K_VENDAS))||[]; }catch(e){}
+  var platVenda='shopee';
+
+  document.querySelectorAll('.chip').forEach(function(c){
+    c.onclick=function(){
+      var t=c.dataset.t; filtros[t]=!filtros[t]; c.classList.toggle('on',filtros[t]);
+      feed.querySelectorAll('.ev.'+t).forEach(function(e){ e.style.display=filtros[t]?'':'none'; });
+    };
+  });
+
+  function hora(ts){ var d=new Date(ts||Date.now()); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+
+  // logos das plataformas (desenhadas aqui mesmo, sem baixar nada)
+  var LOGO_TIKTOK='<svg viewBox="0 0 24 24" fill="#fff" aria-label="TikTok"><path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>';
+  var LOGO_SHOPEE='<svg viewBox="0 0 24 24" fill="#fff" aria-label="Shopee"><path d="M12 1.5c-2 0-3.6 1.9-3.9 4.3H4.6c-.5 0-.9.4-1 .9L2.7 21c-.1.8.5 1.5 1.3 1.5h16c.8 0 1.4-.7 1.3-1.5l-.9-14.3c-.1-.5-.5-.9-1-.9h-3.5C15.6 3.4 14 1.5 12 1.5zm0 1.6c1.1 0 2.1 1.2 2.3 2.7H9.7c.2-1.5 1.2-2.7 2.3-2.7zm.1 5.5c1.7 0 3 .9 3.1 1l-.7 1.1s-1.1-.8-2.4-.8c-1 0-1.6.5-1.6 1.1 0 .7.8 1 1.9 1.4 1.5.5 3.1 1.1 3.1 2.9 0 1.6-1.5 2.7-3.4 2.7-2 0-3.4-1.2-3.5-1.3l.7-1.1s1.3 1.1 2.8 1.1c1.1 0 1.9-.5 1.9-1.3 0-.8-.9-1.2-2-1.5-1.4-.5-3-1-3-2.8 0-1.5 1.4-2.5 3.1-2.5z"/></svg>';
+
+  function add(tipo, emoji, quem, txt, ts, plataforma){
+    var e=document.createElement('div'); e.className='ev '+tipo;
+    if(!filtros[tipo]) e.style.display='none';
+    // à esquerda: a logo do aplicativo de onde veio (TikTok ou Shopee)
+    var ico = plataforma==='shopee' ? '<span class="ico shopee">'+LOGO_SHOPEE+'</span>'
+            : plataforma==='tiktok' ? '<span class="ico tiktok">'+LOGO_TIKTOK+'</span>'
+            : '<span class="ico">'+emoji+'</span>';
+    // mensagens ficam "usuário: texto"; os outros tipos ganham o emoji junto do texto
+    var pref = (tipo==='mensagem') ? '' : (emoji+' ');
+    e.innerHTML=ico+'<b></b><span class="txt"></span><small>'+hora(ts)+'</small>';
+    e.querySelector('b').textContent=(quem||'')+(tipo==='mensagem'?':':'');
+    e.querySelector('.txt').textContent=pref+(txt||'');
+    feed.prepend(e);
+    while(feed.children.length>MAX) feed.removeChild(feed.lastChild);
+  }
+
+  // ---- vendas anotadas à mão ----
+  function dinheiro(n){ return n.toFixed(2).replace('.',','); }
+  function somaVendas(){
+    $('vQtd').textContent=vendas.length;
+    var t=0; vendas.forEach(function(v){ t+=v.valor||0; });
+    $('vTot').textContent=dinheiro(t);
+  }
+  function gravaVendas(){
+    try{ localStorage.setItem(K_VENDAS,JSON.stringify(vendas)); }catch(e){}
+    somaVendas();
+    // repassa para o conector — assim o Analytics também mostra as vendas da Shopee/TikTok
+    try{ fetch('/vendas',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(vendas)}).catch(function(){}); }catch(e){}
+  }
+  $('btnVenda').onclick=function(){ $('formVenda').style.display='block'; $('vQuem').focus(); };
+  $('btnVendaCanc').onclick=function(){ $('formVenda').style.display='none'; };
+  document.querySelectorAll('#platSel span').forEach(function(s){
+    s.onclick=function(){
+      platVenda=s.dataset.p;
+      document.querySelectorAll('#platSel span').forEach(function(x){ x.classList.toggle('on',x===s); });
+    };
+  });
+  $('btnVendaOk').onclick=function(){
+    var v=parseFloat($('vValor').value.replace(/\./g,'').replace(',','.'))||0;
+    var quem=$('vQuem').value.trim().replace(/^@/,'');
+    vendas.push({valor:v, plataforma:platVenda, quem:quem, ts:Date.now()});
+    gravaVendas();
+    add('venda','🛒', quem||'Venda anotada', 'comprou'+(v?(' · R$ '+dinheiro(v)):''), Date.now(), platVenda);
+    $('vValor').value=''; $('vQuem').value=''; $('formVenda').style.display='none';
+  };
+  $('vValor').addEventListener('keydown',function(e){ if(e.key==='Enter') $('btnVendaOk').click(); });
+  $('vQuem').addEventListener('keydown',function(e){ if(e.key==='Enter') $('vValor').focus(); });
+  $('btnZerar').onclick=function(){
+    if(!confirm('Zerar a contagem de vendas? (faça isso ao começar uma live nova)')) return;
+    vendas=[]; gravaVendas();
+  };
+  somaVendas();
+
+  // ---- eventos que chegam do conector (TikTok) ----
+  function trata(ev){
+    if(ev.tipo==='status'){
+      $('st').className='st'+(ev.conectado?' on':'');
+      $('quem').textContent=ev.conectado?('TikTok ao vivo · @'+ev.usuario):('TikTok sem live · @'+(ev.usuario||'?'));
+      return;
+    }
+    if(ev.tipo==='contadores'){
+      if(ev.espectadores!=null) $('cVis').textContent=ev.espectadores;
+      if(ev.likes!=null) $('cLikes').textContent=ev.likes;
+      return;
+    }
+    var p=ev.plataforma||'tiktok';
+    if(ev.tipo==='mensagem') add('mensagem','💬',ev.quem,ev.texto,ev.ts,p);
+    else if(ev.tipo==='seguidor') add('seguidor','⭐',ev.quem,'começou a seguir você!',ev.ts,p);
+    else if(ev.tipo==='presente') add('presente','🎁',ev.quem,'mandou '+(ev.qtd>1?ev.qtd+'× ':'')+(ev.presente||'presente'),ev.ts,p);
+    else if(ev.tipo==='entrada') add('entrada','👋',ev.quem,'entrou na live',ev.ts,p);
+    else if(ev.tipo==='share') add('share','🔁',ev.quem,'compartilhou a live',ev.ts,p);
+    else if(ev.tipo==='venda') add('venda','🛒',ev.quem||'Venda',ev.texto||'',ev.ts,p);
+  }
+
+  function conecta(){
+    var proto=(location.protocol==='https:')?'wss://':'ws://';
+    var url=proto+(location.host||'127.0.0.1:9797');
+    var ws;
+    try{ ws=new WebSocket(url); }catch(e){ desligado(); return; }
+    ws.onopen=function(){ $('off').style.display='none'; };
+    ws.onmessage=function(m){ try{ trata(JSON.parse(m.data)); }catch(e){} };
+    ws.onclose=desligado; ws.onerror=function(){};
+  }
+  function desligado(){
+    $('st').className='st';
+    $('quem').textContent='chat do TikTok desligado';
+    $('off').style.display='block';
+    setTimeout(conecta,3000);
+  }
+  conecta();
+})();
+</script>
+</body>
+</html>

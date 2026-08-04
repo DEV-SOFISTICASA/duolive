@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DuoLive · Painel completo</title>
+<style>
+  :root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
+  /* seletor de lojas (dropdown) — um botao que abre a lista */
+  .barraLojas{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);flex:none;font:12px -apple-system,'Segoe UI',Roboto,Arial,sans-serif;position:relative}
+  .barraLojas .titulo{color:var(--text-3);font-size:11px;flex:none}
+  #btnLoja{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:12.5px;min-width:180px}
+  #btnLoja .nome{font-weight:600}
+  #btnLoja .tt{font-size:10.5px;color:var(--text-3)}
+  #btnLoja .seta{margin-left:auto;color:var(--text-3);font-size:10px}
+  #menuLojas{position:absolute;top:40px;left:8px;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:5px;min-width:230px;max-height:60vh;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none}
+  #menuLojas.aberto{display:block}
+  #menuLojas .item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;color:var(--text-2);cursor:pointer;white-space:nowrap}
+  #menuLojas .item:hover{background:var(--card-2,#1d1d24)}
+  #menuLojas .item.on{color:#fff;background:rgba(255,92,53,.15)}
+  #menuLojas .item .nome{flex:1}
+  #menuLojas .item .tt{font-size:10.5px;color:var(--text-3)}
+  #menuLojas .item .ed{opacity:.5;font-size:11px;padding:0 3px}
+  #menuLojas .item:hover .ed{opacity:1}
+  #menuLojas .add{color:var(--text-3);border-top:1px solid var(--line);margin-top:4px;padding:8px 9px;cursor:pointer;font-size:12px}
+  #menuLojas .add:hover{color:var(--text)}
+  /* o template do desenho: esquerda = Analytics em cima + Ofertas embaixo; direita = Multichat inteiro */
+  .grade{display:grid;flex:1;min-height:0;gap:0;padding:6px;grid-template-columns:minmax(300px,var(--esq,46%)) 10px 1fr}
+  .esq{display:grid;gap:6px;grid-template-rows:46% 1fr;min-width:0}
+  /* a barrinha do meio: segure e arraste para mudar o tamanho do Multichat */
+  #divisor{cursor:col-resize;display:flex;align-items:center;justify-content:center;border-radius:6px}
+  #divisor::before{content:'';width:4px;height:46px;border-radius:99px;background:var(--line)}
+  #divisor:hover::before,body.arrastando #divisor::before{background:var(--accent)}
+  body.arrastando{cursor:col-resize;user-select:none}
+  body.arrastando iframe{pointer-events:none}
+  .caixa{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card);min-height:0}
+  .caixa iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
+  .rotulo{position:absolute;top:6px;right:8px;font:10px -apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:var(--text-3);background:rgba(13,13,16,.7);padding:2px 8px;border-radius:99px;pointer-events:none}
+  #semConector{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:20px;text-align:center;background:var(--card);color:var(--text-2);font:13px/1.8 -apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+  #semConector code{font-family:ui-monospace,Consolas,monospace;background:#1d1d24;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11.5px;color:var(--text)}
+  #btnCfg{position:absolute;top:4px;right:6px;z-index:5;background:rgba(13,13,16,.7);border:1px solid var(--line);color:var(--text-3);border-radius:6px;font-size:12px;cursor:pointer;padding:2px 6px}
+  #btnCfg:hover{color:var(--text)}
+  @media(max-width:760px){ .grade{grid-template-columns:1fr;grid-template-rows:auto auto minmax(300px,1fr)} .esq{grid-template-rows:auto auto} #divisor{display:none} }
+</style>
+</head>
+<body>
+  <div class="barraLojas" id="barraLojas">
+    <span class="titulo">🏪 Loja:</span>
+    <button id="btnLoja">
+      <span class="nome" id="lojaNome">escolher…</span>
+      <span class="tt" id="lojaTT"></span>
+      <span class="seta">▼</span>
+    </button>
+    <div id="menuLojas"></div>
+  </div>
+  <div class="grade">
+    <div class="esq">
+      <div class="caixa"><span class="rotulo">Analytics</span><iframe src="analytics.html" title="Analytics"></iframe></div>
+      <div class="caixa"><span class="rotulo">Ofertas</span><iframe src="sacolinha-controle.html" title="Ofertas"></iframe></div>
+    </div>
+    <div id="divisor" title="Arraste para mudar o tamanho"></div>
+    <div class="caixa">
+      <span class="rotulo">Multichat</span>
+      <button id="btnCfg" title="Endereço do conector">⚙</button>
+      <iframe id="mc" title="Multichat"></iframe>
+      <div id="semConector">
+        <div>
+          <b style="color:var(--text)">💬 O Multichat abre aqui quando o conector estiver ligado.</b><br>
+          <span id="dicaLocal">No seu PC (pasta <code>conector</code>): <code>npm start -- @seuusuario</code></span><br>
+          <span style="color:var(--text-3);font-size:11.5px">Usando na nuvem? Clique no ⚙ e cole o endereço do seu servidor (Render).</span>
+        </div>
+      </div>
+    </div>
+  </div>
+<script>
+(function(){
+  // Endereco do conector: no PC e' 127.0.0.1:9797; na nuvem e' a URL do Render.
+  // Fica salvo no navegador. Da' para trocar pelo botao engrenagem, ou pela URL: ?api=...
+  function apiBase(){
+    try{
+      var q=new URLSearchParams(location.search).get('api');
+      if(q){ localStorage.setItem('ld-api', q); }
+      return localStorage.getItem('ld-api') || 'http://127.0.0.1:9797';
+    }catch(e){ return 'http://127.0.0.1:9797'; }
+  }
+  var URL_MC=apiBase().replace(/\/+$/,'');
+  var mc=document.getElementById('mc'), aviso=document.getElementById('semConector');
+  var ligado=false;
+  function confere(){
+    var base=apiBase().replace(/\/+$/,'');
+    if(base!==URL_MC){
+      URL_MC=base; ligado=false; mc.removeAttribute('src');
+      // trocou o endereco do conector: reenvia a conta da loja selecionada
+      if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta((mapaTT()[lojaSel])||''); }catch(e){} }
+    }
+    fetch(URL_MC+'/', {mode:'no-cors', cache:'no-store'}).then(function(){
+      if(!ligado){ ligado=true; mc.src=URL_MC+'/'; aviso.style.display='none'; }
+    }).catch(function(){
+      if(ligado||!mc.src){ ligado=false; mc.removeAttribute('src'); aviso.style.display='flex'; }
+    });
+    // passa endereco + loja selecionada para o Analytics (sem apagar o filtro)
+    var af=document.querySelector('.esq .caixa iframe');
+    if(af){
+      var l=(typeof lojaSel!=='undefined' && lojaSel)?lojaSel:'';
+      var novo='analytics.html?api='+encodeURIComponent(URL_MC)+(l?'&loja='+encodeURIComponent(l):'');
+      if(af.getAttribute('src')!==novo) af.setAttribute('src', novo);
+    }
+  }
+  document.getElementById('btnCfg').onclick=function(){
+    var atual=localStorage.getItem('ld-api')||'';
+    var v=prompt('Endereço do conector (deixe vazio para usar o seu PC):\n\nNa nuvem, cole a URL do Render, ex.: https://duolive-xxxx.onrender.com', atual);
+    if(v===null) return;
+    v=v.trim();
+    try{ if(v) localStorage.setItem('ld-api', v); else localStorage.removeItem('ld-api'); }catch(e){}
+    confere();
+    // ja reenvia a conta da loja atual para o novo endereco
+    if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta((mapaTT()[lojaSel])||''); }catch(e){} }
+  };
+  aviso.style.display='flex';
+  confere();
+  setInterval(confere, 3000);
+
+  /* ===== Seletor de lojas (igual ao LiveDash): lista vem do Supabase; o @ do
+     TikTok de cada loja fica salvo aqui; selecionar troca a conta no conector. ===== */
+  var SUPA_URL='https://nqgfxpbzybobzsrevvom.supabase.co';
+  var SUPA_ANON='sb_publishable_9XkQ6Q8IDUF30qXXKmbp1w_xE2wMC02';
+  var lojas=[];               // nomes das lojas (do Supabase)
+  var lojaSel='';             // loja ativa
+  function mapaTT(){ try{ return JSON.parse(localStorage.getItem('ld-loja-tt'))||{}; }catch(e){ return {}; } }
+  function setTT(loja,tt){ var m=mapaTT(); if(tt) m[loja]=tt; else delete m[loja]; try{ localStorage.setItem('ld-loja-tt', JSON.stringify(m)); }catch(e){} }
+  function lojasExtra(){ try{ return JSON.parse(localStorage.getItem('ld-lojas-extra'))||[]; }catch(e){ return []; } }
+
+  function postConta(tt){
+    try{ fetch(URL_MC+'/conta',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tiktok:tt||''})}).catch(function(){}); }catch(e){}
+  }
+  function fechaMenu(){ document.getElementById('menuLojas').classList.remove('aberto'); }
+  function selecionar(loja){
+    lojaSel=loja;
+    try{ localStorage.setItem('ld-loja-sel', loja); }catch(e){}
+    var tt=mapaTT()[loja]||'';
+    if(!tt){
+      tt=(prompt('Qual é o @ do TikTok da loja "'+loja+'"? (a conta que faz a live)','')||'').trim().replace(/^@/,'');
+      if(tt) setTT(loja,tt);
+    }
+    postConta(tt);
+    var af=document.querySelector('.esq .caixa iframe');
+    if(af) af.setAttribute('src','analytics.html?api='+encodeURIComponent(URL_MC)+'&loja='+encodeURIComponent(loja));
+    fechaMenu();
+    renderLojas();
+  }
+  function renderLojas(){
+    var m=mapaTT();
+    // botao mostra a loja atual
+    document.getElementById('lojaNome').textContent = lojaSel || 'escolher…';
+    document.getElementById('lojaTT').textContent = (lojaSel && m[lojaSel]) ? ('@'+m[lojaSel]) : '';
+    // menu com todas as lojas
+    var menu=document.getElementById('menuLojas'); menu.innerHTML='';
+    lojas.forEach(function(loja){
+      var d=document.createElement('div'); d.className='item'+(loja===lojaSel?' on':'');
+      d.innerHTML='<span class="nome"></span>'+(m[loja]?'<span class="tt">@'+m[loja]+'</span>':'<span class="tt">sem @</span>')+'<span class="ed" title="Editar @ do TikTok">✎</span>';
+      d.querySelector('.nome').textContent=loja;
+      d.onclick=function(ev){
+        if(ev.target.classList.contains('ed')){
+          ev.stopPropagation();
+          var novo=(prompt('@ do TikTok da loja "'+loja+'":', m[loja]||'')||'').trim().replace(/^@/,'');
+          setTT(loja,novo); if(loja===lojaSel) postConta(novo); renderLojas(); return;
+        }
+        selecionar(loja);
+      };
+      menu.appendChild(d);
+    });
+    var add=document.createElement('div'); add.className='add'; add.textContent='+ adicionar loja';
+    add.onclick=function(){
+      var nome=(prompt('Nome da nova loja:','')||'').trim();
+      if(!nome) return;
+      var ex=lojasExtra(); if(ex.indexOf(nome)<0){ ex.push(nome); try{ localStorage.setItem('ld-lojas-extra', JSON.stringify(ex)); }catch(e){} }
+      if(lojas.indexOf(nome)<0){ lojas.push(nome); lojas.sort(); }
+      selecionar(nome);
+    };
+    menu.appendChild(add);
+  }
+  document.getElementById('btnLoja').onclick=function(ev){
+    ev.stopPropagation();
+    document.getElementById('menuLojas').classList.toggle('aberto');
+  };
+  document.addEventListener('click', function(ev){
+    if(!document.getElementById('barraLojas').contains(ev.target)) fechaMenu();
+  });
+  function carregarLojas(){
+    fetch(SUPA_URL+'/rest/v1/livedash_state?key=like.tts_lives:*&select=key',{headers:{apikey:SUPA_ANON,Authorization:'Bearer '+SUPA_ANON}})
+      .then(function(r){ return r.ok?r.json():[]; })
+      .then(function(rows){
+        var nomes=rows.map(function(r){ return String(r.key).replace('tts_lives:',''); });
+        lojasExtra().forEach(function(n){ if(nomes.indexOf(n)<0) nomes.push(n); });
+        lojas=nomes.sort();
+        var salva=''; try{ salva=localStorage.getItem('ld-loja-sel')||''; }catch(e){}
+        renderLojas();
+        if(salva && lojas.indexOf(salva)>=0) selecionar(salva);
+      })
+      .catch(function(){ lojas=lojasExtra().sort(); renderLojas(); });
+  }
+  carregarLojas();
+
+  // barrinha do meio: arrasta para aumentar/diminuir o Multichat (e fica salvo)
+  var divisor=document.getElementById('divisor');
+  try{
+    var salvo=localStorage.getItem('ld-painel-esq');
+    if(salvo) document.documentElement.style.setProperty('--esq', salvo);
+  }catch(e){}
+  divisor.addEventListener('pointerdown', function(ev){
+    ev.preventDefault();
+    divisor.setPointerCapture(ev.pointerId);
+    document.body.classList.add('arrastando');
+    function move(e){
+      var larg=Math.max(300, Math.min(e.clientX-6, window.innerWidth*0.75));
+      document.documentElement.style.setProperty('--esq', larg+'px');
+    }
+    function solta(){
+      document.body.classList.remove('arrastando');
+      divisor.removeEventListener('pointermove', move);
+      divisor.removeEventListener('pointerup', solta);
+      try{ localStorage.setItem('ld-painel-esq', document.documentElement.style.getPropertyValue('--esq')); }catch(e){}
+    }
+    divisor.addEventListener('pointermove', move);
+    divisor.addEventListener('pointerup', solta);
+  });
+})();
+</script>
+</body>
+</html>

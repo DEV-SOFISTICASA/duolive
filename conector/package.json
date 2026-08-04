@@ -1,0 +1,22 @@
+{
+  "name": "duolive-conector",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Conector local do DuoLive: capta eventos da live do TikTok e alimenta o dock de alertas no OBS",
+  "scripts": {
+    "start": "node duolive-conector.js",
+    "login-shopee": "node shopee-login.js",
+    "robo-shopee": "node robo-shopee.js",
+    "ensaio-oferta": "node oferta-shopee-ensaio.js",
+    "login-tiktok": "node tiktok-login.js",
+    "ensaio-oferta-tiktok": "node oferta-tiktok-ensaio.js",
+    "robo-vendas": "node robo-vendas.js",
+    "robo-console": "node robo-console.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "playwright-core": "^1.48.0",
+    "tiktok-live-connector": "^2.4.3",
+    "ws": "^8.18.0"
+  }
+}

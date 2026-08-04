@@ -1,0 +1,22 @@
+# DuoLive · Deploy do conector do chat no Render (always-on, 24h)
+# Como usar:
+#  1. No Render: New +  ->  Blueprint  ->  conecte o repositorio gbdev-bjj/duolive
+#  2. Ele le este arquivo e cria o servico. Preencha as duas variaveis:
+#       DUOLIVE_SIGN_KEY   = sua chave do eulerstream.com
+#       DUOLIVE_TIKTOK_USER= o @ da conta do TikTok (sem @)
+#  3. Deploy. Copie a URL publica (algo como https://duolive-xxxx.onrender.com)
+#  4. No painel (site), clique no engrenagem do Multichat e cole essa URL.
+services:
+  - type: web
+    name: duolive-conector
+    runtime: node
+    plan: free
+    rootDir: conector
+    buildCommand: npm install
+    startCommand: node duolive-conector.js
+    healthCheckPath: /vendas
+    envVars:
+      - key: DUOLIVE_SIGN_KEY
+        sync: false          # voce preenche no painel do Render (secreto)
+      - key: DUOLIVE_TIKTOK_USER
+        sync: false          # o @ da conta do TikTok, sem o @

@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DuoLive · Números da live</title>
+<style>
+  :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:14px}
+  h1{font-size:15px}
+  .sub{font-size:11px;color:var(--text-3);margin:2px 0 12px}
+  .filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .chip{font-size:11.5px;padding:4px 12px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none;background:var(--card)}
+  .chip.on{color:var(--text);border-color:var(--accent);background:rgba(255,92,53,.12)}
+  .chip.vivo.on{border-color:var(--vivo);background:rgba(244,63,94,.12)}
+  .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+  #liveInfo{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:none}
+  #liveInfo .status{font-size:10.5px;font-weight:700}
+  #liveInfo .status.no-ar{color:var(--vivo)}
+  #liveInfo .status.encerrada{color:var(--text-3)}
+  #liveInfo b{font-size:14px;display:block;margin:2px 0}
+  #liveInfo small{color:var(--text-3);font-size:11px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .tile small{font-size:10.5px;color:var(--text-3);display:block}
+  .tile b{font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .tabelaBox{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:640px}
+  th,td{padding:8px 12px;text-align:right;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  th{color:var(--text-3);font-weight:600;font-size:10.5px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
+  td{border-bottom:1px solid var(--line);color:var(--text-2)}
+  tr:last-child td{border-bottom:none}
+  th:nth-child(1),td:nth-child(1),th:nth-child(2),td:nth-child(2){text-align:left}
+  td:nth-child(2){max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  td.dinheiro{color:var(--ok);font-weight:600}
+  .aviso{margin-top:12px;font-size:11px;color:var(--text-3);line-height:1.6}
+  #erro{display:none;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:12.5px;color:var(--text-2);line-height:1.7}
+  .carregando{color:var(--text-3);font-size:12px;padding:20px;text-align:center}
+  #vazio{display:none;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:12.5px;color:var(--text-2)}
+  @keyframes pisca{0%,100%{opacity:1}50%{opacity:.3}}
+  /* modo caixinha: painel estreito (metade da tela) mostra só o essencial */
+  @media(max-width:560px){
+    body{padding:10px}
+    .tiles{grid-template-columns:1fr 1fr;gap:8px}
+    .tile{padding:9px 11px}
+    .tile b{font-size:17px}
+    table{min-width:0}
+    th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4),th:nth-child(7),td:nth-child(7){display:none}
+    td:nth-child(2){max-width:120px}
+  }
+</style>
+</head>
+<body>
+  <h1>📊 Números da live</h1>
+
+  <!-- painel AO VIVO (tempo real) da loja selecionada -->
+  <div id="aoVivoBox" style="display:none;background:linear-gradient(135deg,var(--card),rgba(244,63,94,.06));border:1px solid rgba(244,63,94,.4);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--vivo);box-shadow:0 0 8px var(--vivo);animation:pisca 1.2s infinite"></span>
+      <b style="font-size:12.5px">AO VIVO</b><small id="avConta" style="color:var(--text-3)"></small>
+      <small id="avTempo" style="margin-left:auto;color:var(--warn);font-variant-numeric:tabular-nums;font-weight:700"></small>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px">
+      <div class="tile"><small>👀 Assistindo</small><b id="avVis">–</b></div>
+      <div class="tile"><small>❤️ Curtidas</small><b id="avLikes">–</b></div>
+      <div class="tile"><small>🛒 Vendas</small><b id="avVendas">–</b></div>
+      <div class="tile"><small>📦 Pedidos</small><b id="avPed">–</b></div>
+    </div>
+    <div id="avOferta" style="display:none;margin-top:8px;padding:7px 10px;border-radius:8px;background:rgba(255,92,53,.12);border:1px solid rgba(255,92,53,.4);font-size:12px">
+      ⚡ <b id="avOfNome"></b> <span id="avOfPreco" style="color:var(--ok)"></span> <span id="avOfTempo" style="color:var(--warn);float:right;font-variant-numeric:tabular-nums"></span>
+    </div>
+    <div style="font-size:9.5px;color:var(--text-3);margin-top:6px">Ao vivo: 👀❤️⏱️ do chat · 💰📦 GMV e pedidos do console de lives (cookies, como o LiveDash).</div>
+  </div>
+
+  <div class="filtros" id="filtros"></div>
+
+  <div id="erro">Não consegui buscar os números agora. Confira a internet e recarregue a página (F5).</div>
+  <div id="vazio">Nenhuma live encontrada ainda. Assim que o robô coletar a primeira, ela aparece aqui.</div>
+
+  <div id="liveInfo">
+    <span class="status" id="liStatus"></span>
+    <b id="liTitulo"></b>
+    <small id="liMeta"></small>
+  </div>
+
+  <div class="tiles" id="tiles" style="display:none">
+    <div class="tile"><small>💰 Vendas (GMV)</small><b id="tGmv">–</b></div>
+    <div class="tile"><small>📦 Pedidos</small><b id="tPed">–</b></div>
+    <div class="tile"><small>👀 Pessoas que assistiram</small><b id="tViews">–</b></div>
+    <div class="tile"><small id="tHorasLbl">⏱️ Tempo de live</small><b id="tHoras">–</b></div>
+    <div class="tile" id="tileSho" style="display:none;border-color:rgba(255,92,53,.4)"><small>🧡 Shopee — vendas anotadas</small><b id="tSho">–</b></div>
+    <div class="tile" id="tileShoMsg" style="display:none;border-color:rgba(255,92,53,.4)"><small>🧡 Shopee — chat da live</small><b id="tShoMsg">–</b></div>
+    <div class="tile" id="tileTik" style="display:none"><small>🎵 TikTok — vendas anotadas</small><b id="tTik">–</b></div>
+  </div>
+
+  <div id="shoTit" style="display:none;font-size:12px;color:var(--text-2);margin:4px 0 6px">🧡 <b>Lives da Shopee</b></div>
+  <div class="tabelaBox" id="shoBox" style="display:none;margin-bottom:14px">
+    <table style="min-width:420px">
+      <thead><tr><th>Data</th><th>Duração</th><th>Chat</th><th>Vendas</th><th>Total</th></tr></thead>
+      <tbody id="shoCorpo"></tbody>
+    </table>
+  </div>
+  <div id="shoOfTit" style="display:none;font-size:12px;color:var(--text-2);margin:4px 0 6px">🧡 <b>Shopee — números do site</b></div>
+  <div class="tabelaBox" id="shoOfBox" style="display:none;margin-bottom:14px">
+    <table style="min-width:480px">
+      <thead><tr><th>Data</th><th>Live</th><th>Duração</th><th>Pessoas</th><th>Pedidos</th><th>Vendas</th></tr></thead>
+      <tbody id="shoOfCorpo"></tbody>
+    </table>
+  </div>
+
+  <div class="tabelaBox" id="tabelaBox" style="display:none">
+    <table>
+      <thead><tr><th>Data</th><th>Live</th><th>Duração</th><th>Pessoas</th><th>Pedidos</th><th>Vendas</th><th>R$ por hora</th></tr></thead>
+      <tbody id="corpo"></tbody>
+    </table>
+  </div>
+  <div class="carregando" id="carregando">Buscando os números…</div>
+
+
+<script>
+(function(){
+  var SB='https://nqgfxpbzybobzsrevvom.supabase.co';
+  function apiBase(){ try{ var q=new URLSearchParams(location.search).get('api'); return (q||localStorage.getItem('ld-api')||'http://127.0.0.1:9797').replace(/\/+$/,''); }catch(e){ return 'http://127.0.0.1:9797'; } }
+  var ANON='sb_publishable_9XkQ6Q8IDUF30qXXKmbp1w_xE2wMC02';
+  var $=function(id){return document.getElementById(id)};
+  // loja escolhida no seletor do painel chega por ?loja=
+  var lojaInicial='(todas)'; try{ var lq=new URLSearchParams(location.search).get('loja'); if(lq) lojaInicial=lq; }catch(e){}
+  var lojas=[], lojaSel=lojaInicial, dias=30, modo='aovivo', todasLives=[];
+
+  function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function inteiro(n){ return (n||0).toLocaleString('pt-BR'); }
+  function ddmm(d){ return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)
+    +' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+
+  function chip(txt, ligado, classe, aoClicar){
+    var c=document.createElement('span');
+    c.className='chip '+(classe||'')+(ligado?' on':'');
+    c.textContent=txt; c.onclick=aoClicar;
+    return c;
+  }
+  function filtros(){
+    var el=$('filtros'); el.innerHTML='';
+    el.appendChild(chip('🔴 Live atual', modo==='aovivo', 'vivo', function(){ modo='aovivo'; render(); }));
+    el.appendChild(chip('Histórico', modo==='historico', '', function(){ modo='historico'; render(); }));
+    if(lojas.length>1){
+      var sep=document.createElement('span'); sep.className='sep'; el.appendChild(sep);
+      lojas.forEach(function(l){
+        el.appendChild(chip(l, l===lojaSel, '', function(){ lojaSel=l; render(); }));
+      });
+    }
+    if(modo==='historico'){
+      var sep2=document.createElement('span'); sep2.className='sep'; el.appendChild(sep2);
+      [[7,'7 dias'],[30,'30 dias'],[90,'90 dias']].forEach(function(par){
+        el.appendChild(chip(par[1], par[0]===dias, '', function(){ dias=par[0]; render(); }));
+      });
+    }
+  }
+
+  function daLoja(){
+    return todasLives.filter(function(l){ return lojaSel==='(todas)'||l.loja===lojaSel; });
+  }
+
+  var shoLives=null;   // registro das lives da Shopee (chat/vendas, vem do conector)
+  var shoOficial=null; // numeros oficiais capturados pelo robo da Shopee
+
+  function renderShopee(){
+    var aoVivoAgora = modo==='aovivo';
+    // caixinha do chat da live atual da Shopee
+    var l = (shoLives&&shoLives.length) ? shoLives[shoLives.length-1] : null;
+    var rolando = l && (Date.now()-l.fim) < 75*60000;
+    if(aoVivoAgora && rolando){
+      $('tShoMsg').textContent = inteiro(l.mensagens)+' msg';
+      $('tileShoMsg').style.display='';
+    } else $('tileShoMsg').style.display='none';
+    // tabela do histórico da Shopee
+    if(modo==='historico' && shoLives && shoLives.length){
+      var corpo=$('shoCorpo'); corpo.innerHTML='';
+      shoLives.slice().reverse().forEach(function(x){
+        var tr=document.createElement('tr');
+        tr.innerHTML='<td>'+ddmm(new Date(x.inicio))+'</td>'
+          +'<td>'+Math.max(1,Math.round((x.fim-x.inicio)/60000))+' min</td>'
+          +'<td>'+inteiro(x.mensagens)+'</td>'
+          +'<td>'+inteiro(x.vendas)+'</td>'
+          +'<td class="dinheiro">'+real(x.total)+'</td>';
+        corpo.appendChild(tr);
+      });
+      $('shoTit').style.display=''; $('shoBox').style.display='';
+    } else { $('shoTit').style.display='none'; $('shoBox').style.display='none'; }
+    // numeros oficiais do robo da Shopee (se o usuario ja rodou npm run robo-shopee)
+    if(modo==='historico' && shoOficial && shoOficial.length){
+      var c2=$('shoOfCorpo'); c2.innerHTML='';
+      shoOficial.forEach(function(x){
+        var tr=document.createElement('tr');
+        tr.innerHTML='<td>'+(x.started_at?ddmm(new Date(x.started_at)):'–')+'</td><td></td>'
+          +'<td>'+(x.duration_min||0)+' min</td>'
+          +'<td>'+inteiro(x.views)+'</td>'
+          +'<td>'+inteiro(x.orders)+'</td>'
+          +'<td class="dinheiro">'+real(x.gmv)+'</td>';
+        tr.children[1].textContent=x.title||'(sem título)';
+        c2.appendChild(tr);
+      });
+      $('shoOfTit').style.display=''; $('shoOfBox').style.display='';
+    } else { $('shoOfTit').style.display='none'; $('shoOfBox').style.display='none'; }
+  }
+
+  function renderAoVivo(){
+    var lives=daLoja().sort(function(a,b){ return new Date(b.started_at)-new Date(a.started_at); });
+    $('tabelaBox').style.display='none';
+    if(!lives.length){
+      // sem lives do TikTok ainda — mas as caixinhas da Shopee continuam aparecendo
+      $('vazio').style.display='block'; $('liveInfo').style.display='none';
+      $('tGmv').textContent='–'; $('tPed').textContent='–'; $('tViews').textContent='–'; $('tHoras').textContent='–';
+      $('tiles').style.display='';
+      return;
+    }
+    $('vazio').style.display='none';
+    var l=lives[0];
+    var fim=new Date(l.finished_at||l.started_at).getTime();
+    var pareceNoAr=(Date.now()-fim) < 75*60000; // o robô "encerra" a live na hora da coleta
+    $('liStatus').textContent = pareceNoAr ? '🔴 LIVE DE AGORA (números de até ~1h atrás)' : 'ÚLTIMA LIVE (encerrada)';
+    $('liStatus').className = 'status '+(pareceNoAr?'no-ar':'encerrada');
+    $('liTitulo').textContent = l.title||'(sem título)';
+    $('liMeta').textContent = '['+l.loja+'] começou '+ddmm(new Date(l.started_at));
+    $('liveInfo').style.display='block';
+    $('tGmv').textContent=real(l.gmv);
+    $('tPed').textContent=inteiro(l.orders);
+    $('tViews').textContent=inteiro(l.views);
+    $('tHorasLbl').textContent='⏱️ Tempo de live';
+    $('tHoras').textContent=(l.duration_min||0)+' min';
+    $('tiles').style.display='';
+  }
+
+  function renderHistorico(){
+    $('liveInfo').style.display='none'; $('vazio').style.display='none';
+    var corte=Date.now()-dias*86400000;
+    var lives=daLoja().filter(function(l){ return new Date(l.started_at).getTime()>=corte; })
+      .sort(function(a,b){ return new Date(b.started_at)-new Date(a.started_at); });
+    var gmv=0,ped=0,views=0,min=0;
+    lives.forEach(function(l){ gmv+=l.gmv||0; ped+=l.orders||0; views+=l.views||0; min+=l.duration_min||0; });
+    $('tGmv').textContent=real(gmv);
+    $('tPed').textContent=inteiro(ped);
+    $('tViews').textContent=inteiro(views);
+    $('tHorasLbl').textContent='⏱️ Tempo somado';
+    $('tHoras').textContent=Math.floor(min/60)+'h '+(min%60)+'min';
+    var corpo=$('corpo'); corpo.innerHTML='';
+    lives.forEach(function(l){
+      var tr=document.createElement('tr');
+      var horas=(l.duration_min||0)/60;
+      tr.innerHTML='<td>'+ddmm(new Date(l.started_at))+'</td><td></td>'
+        +'<td>'+(l.duration_min||0)+' min</td>'
+        +'<td>'+inteiro(l.views)+'</td>'
+        +'<td>'+inteiro(l.orders)+'</td>'
+        +'<td class="dinheiro">'+real(l.gmv)+'</td>'
+        +'<td>'+(horas>0?real((l.gmv||0)/horas):'–')+'</td>';
+      tr.children[1].textContent=(lojaSel==='(todas)'?('['+l.loja+'] '):'')+(l.title||'(sem título)');
+      corpo.appendChild(tr);
+    });
+    $('tiles').style.display='';
+    $('tabelaBox').style.display='';
+  }
+
+  function render(){
+    filtros();
+    $('carregando').style.display='none';
+    if(modo==='aovivo') renderAoVivo(); else renderHistorico();
+    renderShopee();
+  }
+
+  var jaCarregou=false;
+  function carregar(){
+    fetch(SB+'/rest/v1/livedash_state?key=like.tts_lives:*&select=key,data',{
+      headers:{ apikey:ANON, Authorization:'Bearer '+ANON }
+    }).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(rows){
+      lojas=[]; todasLives=[];
+      rows.forEach(function(r){
+        var loja=(r.data&&r.data.loja)||String(r.key).replace('tts_lives:','');
+        if(lojas.indexOf(loja)<0) lojas.push(loja);
+        ((r.data&&r.data.lives)||[]).forEach(function(l){ todasLives.push(l); });
+      });
+      lojas.sort();
+      jaCarregou=true; $('erro').style.display='none';
+      render();
+    }).catch(function(){
+      if(jaCarregou) return; // já tem números na tela; tenta de novo no próximo ciclo
+      $('carregando').style.display='none';
+      $('erro').style.display='block';
+    });
+  }
+  carregar();
+  setInterval(carregar, 5*60*1000); // atualiza sozinho a cada 5 minutos
+
+  // vendas anotadas no Multichat (Shopee e TikTok) — chegam pelo conector no seu PC
+  function pegaAnotadas(){
+    fetch(apiBase()+'/vendas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
+      if(modo!=='aovivo'||!Array.isArray(v)){ esconde(); return; }
+      var sho={n:0,t:0}, tik={n:0,t:0};
+      v.forEach(function(x){
+        var d=(x.plataforma==='tiktok')?tik:sho;
+        d.n++; d.t+=x.valor||0;
+      });
+      $('tSho').textContent=real(sho.t); $('tileSho').style.display='';
+      $('tileSho').querySelector('small').textContent='🧡 Shopee — '+sho.n+' venda(s) anotada(s)';
+      $('tTik').textContent=real(tik.t); $('tileTik').style.display='';
+      $('tileTik').querySelector('small').textContent='🎵 TikTok — '+tik.n+' venda(s) anotada(s)';
+    }).catch(esconde);
+    function esconde(){ $('tileSho').style.display='none'; $('tileTik').style.display='none'; }
+  }
+  pegaAnotadas();
+  setInterval(pegaAnotadas, 10*1000); // a cada 10s, enquanto o conector estiver ligado
+
+  // registro das lives da Shopee (chat + vendas), guardado pelo conector no seu PC
+  function pegaShopee(){
+    fetch(apiBase()+'/shopee-lives',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
+      shoLives=Array.isArray(v)?v:null; renderShopee();
+    }).catch(function(){ shoLives=null; renderShopee(); });
+  }
+  pegaShopee();
+  setInterval(pegaShopee, 15*1000);
+
+  function pegaShopeeOficial(){
+    fetch(apiBase()+'/shopee-oficial',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
+      shoOficial=Array.isArray(v)?v:null; renderShopee();
+    }).catch(function(){ shoOficial=null; renderShopee(); });
+  }
+  pegaShopeeOficial();
+  setInterval(pegaShopeeOficial, 60*1000);
+
+  // ===== painel AO VIVO (tempo real) =====
+  var av={inicio:0, oferta:null};
+  function real2(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function pegaAoVivo(){
+    fetch(apiBase()+'/ao-vivo',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(!d || !d.aoVivo){ $('aoVivoBox').style.display='none'; av.inicio=0; return; }
+      $('aoVivoBox').style.display='';
+      $('avConta').textContent = d.usuario ? ('@'+d.usuario) : '';
+      $('avVis').textContent = inteiro(d.espectadores);
+      $('avLikes').textContent = inteiro(d.likes);
+      $('avVendas').textContent = real2(d.total);
+      $('avPed').textContent = inteiro(d.pedidos);
+      av.inicio = d.inicio||0;
+    }).catch(function(){ $('aoVivoBox').style.display='none'; av.inicio=0; });
+    fetch(apiBase()+'/oferta',{cache:'no-store'}).then(function(r){return r.json();}).then(function(o){
+      av.oferta = (o&&o.nome)?o:null;
+      var box=$('avOferta');
+      if(av.oferta){ box.style.display=''; $('avOfNome').textContent=av.oferta.nome;
+        $('avOfPreco').textContent=(av.oferta.por?('R$ '+String(av.oferta.por).replace(/^R\$\s*/,'')):''); }
+      else box.style.display='none';
+    }).catch(function(){});
+  }
+  // relogios (tempo de live e da oferta) correm suave a cada segundo
+  function relogios(){
+    if(av.inicio){
+      var s=Math.max(0,Math.floor((Date.now()-av.inicio)/1000));
+      var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
+      $('avTempo').textContent=(h?h+'h ':'')+('0'+m).slice(-2)+':'+('0'+ss).slice(-2);
+    } else $('avTempo').textContent='';
+    if(av.oferta && av.oferta.fim){
+      var r=Math.max(0,Math.round((av.oferta.fim-Date.now())/1000));
+      $('avOfTempo').textContent=Math.floor(r/60)+':'+('0'+(r%60)).slice(-2);
+    } else $('avOfTempo').textContent='';
+  }
+  pegaAoVivo();
+  setInterval(pegaAoVivo, 4000);   // dados: a cada 4s
+  setInterval(relogios, 1000);     // relogios: a cada 1s
+})();
+</script>
+</body>
+</html>

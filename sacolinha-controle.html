@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DuoLive · Ofertas da live (painel do streamer)</title>
+<style>
+  :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--azul:#38bdf8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:12px}
+  h1{font-size:14px;margin-bottom:2px}
+  .sub{font-size:11px;color:var(--text-3);margin-bottom:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+  label{display:block;font-size:10.5px;color:var(--text-3);margin:8px 0 3px}
+  input,textarea{width:100%;background:var(--card-2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;color:var(--text);font-size:13px}
+  input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:8px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text-2)}
+  .btn.mini{padding:5px 9px;font-size:11.5px}
+  .btn:hover{filter:brightness(1.12)}
+  .abas{display:flex;gap:5px;flex-wrap:wrap}
+  .aba{font-size:11px;padding:4px 11px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none}
+  .aba.on{color:var(--text);border-color:var(--accent);background:rgba(255,92,53,.12)}
+  .platsel{display:flex;gap:4px}
+  .platsel span{padding:4px 11px;border:1px solid var(--line);border-radius:99px;font-size:11px;cursor:pointer;color:var(--text-3);user-select:none}
+  .platsel span.on{color:#fff;border-color:var(--accent);background:rgba(255,92,53,.25)}
+  .prod{padding:8px 2px;border-bottom:1px solid var(--line)}
+  .prod:last-child{border-bottom:none}
+  .prod .l1{display:flex;align-items:center;gap:8px}
+  .prod .nome{flex:1;min-width:0}
+  .prod .nome b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prod .nome span{font-size:11px;color:var(--text-3)}
+  .prod .nome span s{margin-right:5px}
+  .x{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:14px;padding:2px 5px}
+  .x:hover{color:#f87171}
+  .edit{margin-top:8px;background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:8px}
+  #atual{border-color:rgba(255,92,53,.55)}
+  #atual .tempo{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--warn)}
+  .chk{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--text-2)}
+  .chk label{display:flex;align-items:center;gap:5px;margin:0;font-size:11.5px;color:var(--text-2);cursor:pointer}
+  .chk input{width:auto}
+  .note{font-size:10.5px;color:var(--text-3);line-height:1.45;margin-top:10px}
+  .vazio{font-size:11.5px;color:var(--text-3);padding:6px 2px;line-height:1.6}
+</style>
+</head>
+<body>
+  <h1>🛍️ Ofertas da live</h1>
+
+  <div class="card" id="atual" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10.5px;color:var(--warn);font-weight:700">⚡ OFERTA NO AR</div>
+        <b id="atualNome" style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></b>
+        <span id="atualPreco" style="font-size:11.5px;color:var(--text-2)"></span>
+      </div>
+      <div style="text-align:right">
+        <div class="tempo" id="atualTempo">--:--</div>
+        <button class="btn ghost mini" id="btnEncerrar">Encerrar</button>
+      </div>
+    </div>
+    <div class="chk">
+      <span style="color:var(--text-3)">desconto real ativado:</span>
+      <label><input type="checkbox" id="chkShopee"> <span>Shopee</span></label>
+      <label><input type="checkbox" id="chkTiktok"> <span>TikTok</span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <b style="font-size:12.5px">Cadastrar produto</b>
+      <div class="platsel" id="cadPlat"><span data-p="shopee" class="on">🧡 Shopee</span><span data-p="tiktok">🎵 TikTok</span></div>
+    </div>
+    <label>Nome do produto</label>
+    <input id="pNome" placeholder="ex.: Tapete sala 2x1,5m">
+    <div class="row">
+      <div><label>De (R$)</label><input id="pDe" placeholder="129,90" inputmode="decimal"></div>
+      <div><label>Por (R$)</label><input id="pPor" placeholder="89,90" inputmode="decimal"></div>
+    </div>
+    <div style="margin-top:10px">
+      <button class="btn mini" id="btnAdd">+ Adicionar</button>
+      <button class="btn ghost mini" id="btnArq">📦 Importar arquivo da loja</button>
+      <button class="btn ghost mini" id="btnImpTgl">📋 Colar lista</button>
+      <input type="file" id="arqLoja" accept=".xlsx,.xls,.csv" style="display:none">
+    </div>
+    <div id="impBox" style="display:none;margin-top:10px">
+      <label>Cole um produto por linha — <b>Nome | de | por</b> (aceita também ; ou Tab)</label>
+      <textarea id="impTxt" rows="5" placeholder="Tapete Sala 2x1,5m | 129,90 | 89,90&#10;Kit 3 Capas de Almofada | 59,90 | 39,90" style="resize:vertical;font-size:12px"></textarea>
+      <div style="margin-top:6px"><button class="btn mini" id="btnImp">Importar</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+      <div class="abas" id="abas">
+        <span class="aba on" data-a="shopee">🧡 Shopee</span>
+        <span class="aba" data-a="tiktok">🎵 TikTok</span>
+        <span class="aba" data-a="anterior">🕘 Live anterior</span>
+      </div>
+      <span style="font-size:10.5px;color:var(--text-3)">duração: <input id="pMin" value="10" inputmode="numeric" style="width:36px;display:inline-block;padding:3px 6px;text-align:center"> min</span>
+    </div>
+    <div id="lista"></div>
+  </div>
+
+<script src="lib/xlsx.min.js"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var K_PROD='ld-saco-produtos', K_OFERTA='ld-saco-oferta', K_HIST='ld-saco-hist';
+  var bc=null; try{ bc=new BroadcastChannel('ld-sacolinha'); }catch(e){}
+  var editando=-1, aba='shopee', platCad='shopee';
+
+  // endereco do conector (mesmo do painel): PC ou Render
+  function apiBase(){ try{ var q=new URLSearchParams(location.search).get('api'); return (q||localStorage.getItem('ld-api')||'http://127.0.0.1:9797').replace(/\/+$/,''); }catch(e){ return 'http://127.0.0.1:9797'; } }
+  function ler(k,d){ try{ return JSON.parse(localStorage.getItem(k))||d; }catch(e){ return d; } }
+  function gravar(k,v){
+    try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} if(bc) try{ bc.postMessage({k:k,v:v}); }catch(e){}
+    // a oferta relampago tambem vai para o conector: fica AO VIVO em todos os aparelhos
+    if(k==='ld-saco-oferta'){ try{ fetch(apiBase()+'/oferta',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(v||{})}).catch(function(){}); }catch(e){} }
+  }
+  function precoTxt(p){ p=(p||'').replace(/^R\$\s*/i,'').trim(); return p?('R$ '+p):''; }
+  function desc(p){
+    var de=parseFloat(String(p.de).replace(/\./g,'').replace(',','.'));
+    var por=parseFloat(String(p.por).replace(/\./g,'').replace(',','.'));
+    if(de>0&&por>0&&por<de) return '−'+Math.round(100*(1-por/de))+'%';
+    return '';
+  }
+  function emoji(pl){ return pl==='tiktok'?'🎵':'🧡'; }
+
+  var produtos=ler(K_PROD,[]);
+  produtos.forEach(function(p){ if(!p.plat) p.plat='shopee'; });
+
+  // histórico de ofertas: "atual" vira "anterior" quando passa mais de 12h sem lançar nada
+  var hist=ler(K_HIST,{anterior:[],atual:[]});
+  (function(){
+    var ult=0; (hist.atual||[]).forEach(function(h){ if(h.ts>ult) ult=h.ts; });
+    if(hist.atual&&hist.atual.length&&(new Date().getTime()-ult)>12*3600000){
+      hist.anterior=hist.atual; hist.atual=[]; gravar(K_HIST,hist);
+    }
+  })();
+
+  // ---- abas e seletor de plataforma do cadastro ----
+  document.querySelectorAll('#abas .aba').forEach(function(a){
+    a.onclick=function(){
+      aba=a.dataset.a; editando=-1;
+      document.querySelectorAll('#abas .aba').forEach(function(x){ x.classList.toggle('on',x===a); });
+      renderLista();
+    };
+  });
+  document.querySelectorAll('#cadPlat span').forEach(function(s){
+    s.onclick=function(){
+      platCad=s.dataset.p;
+      document.querySelectorAll('#cadPlat span').forEach(function(x){ x.classList.toggle('on',x===s); });
+    };
+  });
+
+  function renderLista(){
+    var el=$('lista');
+    el.innerHTML='';
+    if(aba==='anterior'){
+      var ants=hist.anterior||[];
+      if(!ants.length){ el.innerHTML='<div class="vazio">🕘 As ofertas que você lançar hoje aparecem aqui na próxima live — aí é só tocar em ⚡ para repetir cada uma.</div>'; return; }
+      ants.forEach(function(h,i){
+        var d=document.createElement('div'); d.className='prod';
+        var precos=(h.de?'<s>'+precoTxt(h.de)+'</s>':'')+(h.por?'<b style="color:var(--ok)">'+precoTxt(h.por)+'</b>':'')
+          +(desc(h)?' <span style="color:var(--warn)">'+desc(h)+'</span>':'');
+        d.innerHTML='<div class="l1"><div class="nome"><b></b><span>'+precos+'</span></div>'
+          +'<button class="btn mini" data-h="'+i+'">⚡ Lançar de novo</button></div>';
+        d.querySelector('.nome b').textContent=emoji(h.plat)+' '+h.nome;
+        el.appendChild(d);
+      });
+      el.querySelectorAll('[data-h]').forEach(function(b){ b.onclick=function(){ lancar(hist.anterior[+b.dataset.h]); }; });
+      return;
+    }
+    var alguns=false;
+    produtos.forEach(function(p,i){
+      if(p.plat!==aba) return;
+      alguns=true;
+      var d=document.createElement('div'); d.className='prod';
+      if(i===editando){
+        d.innerHTML='<div class="edit">'
+          +'<label>Nome</label><input class="eNome">'
+          +'<div class="row"><div><label>De (R$)</label><input class="eDe" inputmode="decimal"></div>'
+          +'<div><label>Por (R$)</label><input class="ePor" inputmode="decimal"></div></div>'
+          +'<div style="margin-top:8px"><button class="btn mini eSalvar">Salvar</button> '
+          +'<button class="btn ghost mini eCanc">Cancelar</button></div></div>';
+        d.querySelector('.eNome').value=p.nome; d.querySelector('.eDe').value=p.de||''; d.querySelector('.ePor').value=p.por||'';
+        d.querySelector('.eSalvar').onclick=function(){
+          produtos[i]={nome:d.querySelector('.eNome').value.trim()||p.nome,
+                       de:d.querySelector('.eDe').value.trim(), por:d.querySelector('.ePor').value.trim(), plat:p.plat};
+          editando=-1; gravar(K_PROD,produtos); renderLista();
+        };
+        d.querySelector('.eCanc').onclick=function(){ editando=-1; renderLista(); };
+        el.appendChild(d);
+        return;
+      }
+      var pct=desc(p);
+      var precos=(p.de?'<s>'+precoTxt(p.de)+'</s>':'')+(p.por?'<b style="color:var(--ok)">'+precoTxt(p.por)+'</b>':'')
+        +(pct?' <span style="color:var(--warn)">'+pct+'</span>':'');
+      d.innerHTML='<div class="l1"><div class="nome"><b></b><span>'+precos+'</span></div>'
+        +'<button class="btn mini" data-i="'+i+'">⚡ Lançar</button>'
+        +'<button class="x" data-e="'+i+'" title="Editar valores/desconto">✏️</button>'
+        +'<button class="x" data-x="'+i+'" title="Remover">✕</button></div>';
+      d.querySelector('.nome b').textContent=p.nome;
+      el.appendChild(d);
+    });
+    if(!alguns) el.innerHTML='<div class="vazio">Nenhum produto na aba '+emoji(aba)+' ainda — cadastre acima (escolhendo a plataforma) ou use 📦 Importar arquivo da loja.</div>';
+    el.querySelectorAll('[data-i]').forEach(function(b){ b.onclick=function(){ lancar(produtos[+b.dataset.i]); }; });
+    el.querySelectorAll('[data-e]').forEach(function(b){ b.onclick=function(){ editando=+b.dataset.e; renderLista(); }; });
+    el.querySelectorAll('[data-x]').forEach(function(b){ b.onclick=function(){ produtos.splice(+b.dataset.x,1); editando=-1; gravar(K_PROD,produtos); renderLista(); }; });
+  }
+
+  $('btnAdd').onclick=function(){
+    var nome=$('pNome').value.trim();
+    if(!nome) return;
+    produtos.push({nome:nome, de:$('pDe').value.trim(), por:$('pPor').value.trim(), plat:platCad});
+    gravar(K_PROD,produtos);
+    aba=platCad;
+    document.querySelectorAll('#abas .aba').forEach(function(x){ x.classList.toggle('on',x.dataset.a===aba); });
+    renderLista();
+    $('pNome').value=''; $('pDe').value=''; $('pPor').value=''; $('pNome').focus();
+  };
+  $('pNome').addEventListener('keydown',function(e){ if(e.key==='Enter') $('btnAdd').click(); });
+
+  $('btnImpTgl').onclick=function(){
+    var b=$('impBox'); b.style.display=(b.style.display==='none')?'':'none';
+  };
+  function importaNovos(novos){
+    if(!novos.length) return;
+    var subst=false;
+    var jaTem=produtos.some(function(p){return p.plat===platCad;});
+    if(jaTem) subst=confirm(novos.length+' produto(s) para a aba '+emoji(platCad)+'!\n\nOK = SUBSTITUIR a lista dessa aba\nCancelar = ADICIONAR no final');
+    if(subst) produtos=produtos.filter(function(p){return p.plat!==platCad;});
+    produtos=produtos.concat(novos);
+    editando=-1; gravar(K_PROD,produtos);
+    aba=platCad;
+    document.querySelectorAll('#abas .aba').forEach(function(x){ x.classList.toggle('on',x.dataset.a===aba); });
+    renderLista();
+  }
+  $('btnImp').onclick=function(){
+    var linhas=$('impTxt').value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    var novos=[];
+    linhas.forEach(function(l){
+      var partes=l.split(/\s*[|;\t]\s*/);
+      var nome=(partes[0]||'').trim();
+      if(!nome) return;
+      novos.push({nome:nome, de:(partes[1]||'').trim(), por:(partes[2]||'').trim(), plat:platCad});
+    });
+    importaNovos(novos);
+    $('impTxt').value=''; $('impBox').style.display='none';
+  };
+
+  // ---- importar o arquivo de produtos exportado da loja (Shopee/TikTok) ----
+  $('btnArq').onclick=function(){ $('arqLoja').click(); };
+  function numBR(v){
+    if(v==null||v==='') return '';
+    if(typeof v==='number') return v.toFixed(2).replace('.',',');
+    var s=String(v).replace(/[^\d.,]/g,'');
+    if(!s) return '';
+    if(s.indexOf(',')>=0 && s.indexOf('.')>=0) s=s.replace(/\./g,'');
+    var n=parseFloat(s.replace(',','.'));
+    return isNaN(n)?'':n.toFixed(2).replace('.',',');
+  }
+  $('arqLoja').addEventListener('change', function(){
+    var f=this.files&&this.files[0]; this.value='';
+    if(!f) return;
+    f.arrayBuffer().then(function(buf){
+      var wb=XLSX.read(buf);
+      var linhas=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:''});
+      var eNome=/nome|name|produto|product|t[ií]tulo|title/i, ePreco=/pre[çc]o|price|valor/i;
+      var eDe=/original|antes|sem desconto|riscado/i, ePor=/atual|venda|desconto|promo|retail/i;
+      var eRuim=/\bid\b|c[óo]digo|sku|url|link|imagem|foto|categoria|estoque/i; // colunas que não são o nome
+      var cab=-1, cNome=-1, cDe=-1, cPor=-1;
+      for(var i=0;i<Math.min(linhas.length,12);i++){
+        var ln=(linhas[i]||[]).map(String);
+        var iN=ln.findIndex(function(c){return eNome.test(c)&&!eRuim.test(c);});
+        if(iN<0) iN=ln.findIndex(function(c){return eNome.test(c);});
+        var precos=[]; ln.forEach(function(c,j){ if(ePreco.test(c)) precos.push(j); });
+        if(iN>=0 && precos.length){
+          cab=i; cNome=iN;
+          cPor=precos.find(function(j){return ePor.test(ln[j]);});
+          cDe=precos.find(function(j){return eDe.test(ln[j]);});
+          if(cPor==null) cPor=precos[precos.length-1];
+          if(cDe==null) cDe=(precos.length>1 && precos[0]!==cPor)?precos[0]:-1;
+          break;
+        }
+      }
+      var novos=[];
+      if(cab>=0){
+        for(var r=cab+1;r<linhas.length && novos.length<200;r++){
+          var l=linhas[r]||[];
+          var nome=String(l[cNome]||'').trim();
+          if(!nome||nome.length<2) continue;
+          novos.push({nome:nome, de:(cDe>=0?numBR(l[cDe]):''), por:numBR(l[cPor]), plat:platCad});
+        }
+      } else {
+        // sem cabeçalho conhecido: pega texto como nome e primeiro número como preço
+        linhas.forEach(function(l){
+          if(novos.length>=200||!l) return;
+          var nome='', por='';
+          l.forEach(function(c){
+            if(!nome && typeof c==='string' && /[a-zA-Zà-ú]{3,}/.test(c)) nome=c.trim();
+            else if(!por && numBR(c)) por=numBR(c);
+          });
+          if(nome) novos.push({nome:nome, de:'', por:por, plat:platCad});
+        });
+      }
+      if(!novos.length){ alert('Não achei produtos nesse arquivo. Tente o arquivo exportado do Seller Centre, ou use o 📋 Colar lista.'); return; }
+      importaNovos(novos);
+    }).catch(function(){ alert('Não consegui ler esse arquivo. Ele precisa ser .xlsx, .xls ou .csv.'); });
+  });
+
+  // ---- lançar oferta (e guardar no histórico da live) ----
+  function lancar(p){
+    var min=parseInt($('pMin').value,10); if(!(min>0)) min=10;
+    gravar(K_OFERTA,{ id:String(new Date().getTime()), nome:p.nome, de:p.de, por:p.por, plat:p.plat||'shopee',
+      fim:new Date().getTime()+min*60000, plataformas:{shopee:false,tiktok:false} });
+    var h={nome:p.nome, de:p.de, por:p.por, plat:p.plat||'shopee', ts:new Date().getTime()};
+    hist.atual=[h].concat((hist.atual||[]).filter(function(x){
+      return !(x.nome===h.nome&&x.por===h.por&&x.plat===h.plat);
+    })).slice(0,50);
+    gravar(K_HIST,hist);
+    renderAtual();
+  }
+  $('btnEncerrar').onclick=function(){ gravar(K_OFERTA,null); renderAtual(); };
+
+  function marcar(qual){
+    var o=ler(K_OFERTA,null); if(!o) return;
+    o.plataformas=o.plataformas||{};
+    o.plataformas[qual]=$(qual==='shopee'?'chkShopee':'chkTiktok').checked;
+    gravar(K_OFERTA,o);
+  }
+  $('chkShopee').onchange=function(){ marcar('shopee'); };
+  $('chkTiktok').onchange=function(){ marcar('tiktok'); };
+
+  function renderAtual(){
+    var o=ler(K_OFERTA,null), box=$('atual');
+    var agora=new Date().getTime();
+    if(!o||!o.fim||o.fim<=agora){ box.style.display='none'; return; }
+    box.style.display='';
+    $('atualNome').textContent=emoji(o.plat)+' '+o.nome;
+    var pct=desc(o);
+    $('atualPreco').innerHTML=(o.de?'<s>'+precoTxt(o.de)+'</s> ':'')+(o.por?'<b style="color:var(--ok)">'+precoTxt(o.por)+'</b>':'')
+      +(pct?' <span style="color:var(--warn)">'+pct+'</span>':'');
+    var s=Math.max(0,Math.round((o.fim-agora)/1000));
+    $('atualTempo').textContent=Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);
+    var pl=o.plataformas||{};
+    if(document.activeElement!==$('chkShopee')) $('chkShopee').checked=!!pl.shopee;
+    if(document.activeElement!==$('chkTiktok')) $('chkTiktok').checked=!!pl.tiktok;
+  }
+
+  renderLista(); renderAtual();
+  setInterval(renderAtual,500);
+})();
+</script>
+</body>
+</html>
