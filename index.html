@@ -134,14 +134,16 @@
   function lojasExtra(){ try{ return JSON.parse(localStorage.getItem('ld-lojas-extra'))||[]; }catch(e){ return []; } }
 
   function postConta(tt){
-    try{ fetch(URL_MC+'/conta',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tiktok:tt||''})}).catch(function(){}); }catch(e){}
+    // manda o @ (chat) e a loja (numeros do console) juntos
+    try{ fetch(URL_MC+'/conta',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tiktok:tt||'',loja:(typeof lojaSel!=='undefined'?lojaSel:'')})}).catch(function(){}); }catch(e){}
   }
   function fechaMenu(){ document.getElementById('menuLojas').classList.remove('aberto'); }
-  function selecionar(loja){
+  function selecionar(loja, automatico){
     lojaSel=loja;
+    if(!automatico) escolhaManual=true; // voce escolheu na mao -> paro de trocar sozinho
     try{ localStorage.setItem('ld-loja-sel', loja); }catch(e){}
     var tt=mapaTT()[loja]||'';
-    if(!tt){
+    if(!tt && !automatico){
       tt=(prompt('Qual é o @ do TikTok da loja "'+loja+'"? (a conta que faz a live)','')||'').trim().replace(/^@/,'');
       if(tt) setTT(loja,tt);
     }
@@ -160,7 +162,8 @@
     var menu=document.getElementById('menuLojas'); menu.innerHTML='';
     lojas.forEach(function(loja){
       var d=document.createElement('div'); d.className='item'+(loja===lojaSel?' on':'');
-      d.innerHTML='<span class="nome"></span>'+(m[loja]?'<span class="tt">@'+m[loja]+'</span>':'<span class="tt">sem @</span>')+'<span class="ed" title="Editar @ do TikTok">✎</span>';
+      var vivo=(typeof lojasLive!=='undefined' && lojasLive.indexOf(loja)>=0);
+      d.innerHTML=(vivo?'<span title="ao vivo" style="color:#f43f5e">●</span> ':'')+'<span class="nome"></span>'+(m[loja]?'<span class="tt">@'+m[loja]+'</span>':'<span class="tt">sem @</span>')+'<span class="ed" title="Editar @ do TikTok">✎</span>';
       d.querySelector('.nome').textContent=loja;
       d.onclick=function(ev){
         if(ev.target.classList.contains('ed')){
@@ -198,11 +201,29 @@
         lojas=nomes.sort();
         var salva=''; try{ salva=localStorage.getItem('ld-loja-sel')||''; }catch(e){}
         renderLojas();
-        if(salva && lojas.indexOf(salva)>=0) selecionar(salva);
+        if(salva && lojas.indexOf(salva)>=0) selecionar(salva, true); // restaura sem travar o auto-foco
       })
       .catch(function(){ lojas=lojasExtra().sort(); renderLojas(); });
   }
   carregarLojas();
+
+  // ===== detecta sozinho qual loja esta em live e foca nela =====
+  var lojasLive=[];        // nomes das lojas ao vivo (do robo do console)
+  var escolhaManual=false; // se voce escolheu na mao, nao troco sozinho
+  function pegaLojasLive(){
+    fetch(URL_MC+'/lojas-live',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
+      if(!Array.isArray(v)) return;
+      lojasLive=v.filter(function(x){return x.live;}).map(function(x){return x.loja;});
+      renderLojas(); // atualiza os pontinhos 🔴 no menu
+      // foca sozinho na loja em live (se voce nao escolheu na mao e ela tem @ cadastrado)
+      if(!escolhaManual && lojasLive.length){
+        var alvo=lojasLive[0];
+        if(alvo!==lojaSel && (mapaTT()[alvo])){ selecionar(alvo, true); }
+      }
+    }).catch(function(){});
+  }
+  pegaLojasLive();
+  setInterval(pegaLojasLive, 15000);
 
   // barrinha do meio: arrasta para aumentar/diminuir o Multichat (e fica salvo)
   var divisor=document.getElementById('divisor');
