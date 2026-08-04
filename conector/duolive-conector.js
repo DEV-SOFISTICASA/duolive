@@ -32,8 +32,9 @@ const vendasAutoIds = new Set(); // evita contar o mesmo pedido duas vezes
 
 // estado AO VIVO da conta ativa (vem da conexao do chat do TikTok)
 let liveEstado = { espectadores: 0, likes: 0, inicio: 0 };
-// numeros oficiais do console de lives (Compass), lidos por cookies como no LiveDash
-let compassTT = { gmv: 0, orders: 0, views: 0, ts: 0 };
+// numeros oficiais do console de lives (Compass) por loja, lidos por cookies como no LiveDash
+const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
+let lojaAtual = '';        // qual loja o painel esta mostrando
 // oferta relampago atual (transmitida ao vivo para todos os aparelhos)
 let ofertaAtual = null;
 
@@ -120,7 +121,7 @@ const server = http.createServer((req, res) => {
       let corpo = '';
       req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
       req.on('end', () => {
-        try { const b = JSON.parse(corpo); ligarConta(b.tiktok || b.conta || ''); } catch (e) {}
+        try { const b = JSON.parse(corpo); if (b.loja != null) lojaAtual = String(b.loja); ligarConta(b.tiktok || b.conta || ''); } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
       });
       return;
@@ -137,10 +138,24 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const b = JSON.parse(corpo);
-        compassTT = { gmv: +b.gmv || 0, orders: +b.orders || 0, views: +b.views || 0, ts: Date.now() };
+        const loja = String(b.loja || lojaAtual || '?');
+        compassPorLoja[loja] = { gmv: +b.gmv || 0, orders: +b.orders || 0, views: +b.views || 0, live: !!b.live, ts: Date.now() };
       } catch (e) {}
       res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
     });
+    return;
+  }
+
+  // quais lojas estao em live agora (o robo do console marca) — o painel usa para focar sozinho
+  if (req.url.startsWith('/lojas-live')) {
+    const agora = Date.now();
+    const lista = Object.keys(compassPorLoja).map((loja) => {
+      const c = compassPorLoja[loja];
+      const fresco = c.ts && (agora - c.ts < 15 * 60000);
+      return { loja: loja, live: !!(fresco && c.live), gmv: c.gmv, orders: c.orders, views: c.views };
+    });
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(lista));
     return;
   }
 
@@ -150,12 +165,13 @@ const server = http.createServer((req, res) => {
     const desde = liveEstado.inicio || 0;
     const daLive = todas.filter((v) => !desde || (v.ts || 0) >= desde);
     let totalAnotado = 0; daLive.forEach((v) => { totalAnotado += v.valor || 0; });
-    // se o console (Compass) trouxe numeros recentes, eles mandam (oficial); senao, o anotado/robo
-    const compassFresco = compassTT.ts && (Date.now() - compassTT.ts < 10 * 60000);
-    const pedidos = compassFresco ? compassTT.orders : daLive.length;
-    const total = compassFresco ? compassTT.gmv : totalAnotado;
+    // numeros do console (Compass) da loja atual, se recentes (<15min)
+    const c = compassPorLoja[lojaAtual] || null;
+    const compassFresco = c && c.ts && (Date.now() - c.ts < 15 * 60000);
+    const pedidos = compassFresco ? c.orders : daLive.length;
+    const total = compassFresco ? c.gmv : totalAnotado;
     // espectadores: o do chat; se 0 e o Compass tem views, mostra as views do console
-    const espectadores = liveEstado.espectadores || (compassFresco ? compassTT.views : 0);
+    const espectadores = liveEstado.espectadores || (compassFresco ? c.views : 0);
     res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify({
       usuario: usuario, aoVivo: aoVivo,
