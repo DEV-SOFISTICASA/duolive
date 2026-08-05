@@ -19,7 +19,10 @@ Painel único (página inicial): **Analytics** + **Ofertas** + **Multichat**.
 2. Vendas na hora (TikTok + Shopee): `npm run login-tiktok` e `npm run login-shopee` (1ª vez) e depois `npm run robo-vendas` durante a live — cada venda aparece no Multichat em segundos, com o logo da loja e o valor.
    - Conector na nuvem? Cole a URL do Render (ex.: `https://duolive-conector.onrender.com`) num arquivo `conector/conector.txt` — o robô passa a mandar as vendas para lá sozinho.
 3. Produtos das lojas: `npm run produtos` — lê o catálogo do TikTok e da Shopee (só leitura) e o painel de Ofertas passa a listar os produtos reais, **cada loja com o seu próprio preço**.
-4. Oferta relâmpago de verdade: `npm run robo-oferta` (modo ensaio, não salva nada) para conferir; depois `set DUOLIVE_OFERTA_REAL=1` + `npm run robo-oferta` para trocar o preço na loja e devolvê-lo no fim. Dá para deixar **várias ofertas no ar ao mesmo tempo**. Emergência: `npm run robo-oferta -- --restaurar-tudo`.
+4. Oferta relâmpago de verdade:
+   - **TikTok:** `npm run login-console` (1ª vez) — é o login do *Console de LIVE* (`shop.tiktok.com/streamer`), onde fica a ⚡ Oferta Relâmpago. É **outro login**, separado do `login-tiktok` do Seller Center.
+   - Depois `npm run robo-oferta` (modo ensaio, não salva nada) para conferir; então `set DUOLIVE_OFERTA_REAL=1` + `npm run robo-oferta` para valer.
+   - Dá para deixar **várias ofertas no ar ao mesmo tempo**. Emergência: `npm run robo-oferta -- --restaurar-tudo`.
 5. Abrir a página inicial do site — o Multichat acende sozinho.
 6. Chat da Shopee: Tampermonkey + `shopee-chat.user.js`, com a página da live aberta.
 7. Transmissão: OBS → Shopee (RTMP) e TikTok via Live Studio + Câmera Virtual (ou Aitum Multistream se as duas contas tiverem chave RTMP).

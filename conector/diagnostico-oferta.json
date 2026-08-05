@@ -1,0 +1,104 @@
+[
+ {
+  "quando": "2026-08-05T23:43:50.306Z",
+  "plataforma": "tiktok",
+  "produto": "Capa Almofada Renda Cru",
+  "url": "https://seller-br.tiktok.com/product/manage/edit?product_id=1736053680445491193&shop_region=BR",
+  "quadros": [
+   {
+    "url": "https://seller-br.tiktok.com/product/manage/edit?product_id=1736053680445491193&shop_region=BR",
+    "dados": {
+     "inputs": [
+      {
+       "valor": "",
+       "nome": "",
+       "ph": "",
+       "perto": "Pesquisar: \"GMV Max\" Ctrl+K"
+      }
+     ],
+     "temPreco": false,
+     "texto": "Central do vendedor Pesquisar: \"GMV Max\" Ctrl+K Mensagens do cliente Tok Decor Atualizações sobre configurações e ajuda Gerencie as configurações da sua conta, encontre recursos de ajuda e envie tickets, tudo em um só lugar. Entendi Página inicial Acesso rápido Pedidos Produtos Gerenciar produtos Avaliações de produtos Oportunidades de produtos Logística Marketing Afiliados LIVE e vídeo Cresciment"
+    }
+   },
+   {
+    "url": "https://www.tiktok.com/ucenter_web/zti_web",
+    "dados": {
+     "inputs": [],
+     "temPreco": false,
+     "texto": ""
+    }
+   },
+   {
+    "url": "about:blank",
+    "dados": {
+     "inputs": [],
+     "temPreco": false,
+     "texto": ""
+    }
+   },
+   {
+    "url": "chrome-error://chromewebdata/",
+    "dados": {
+     "inputs": [],
+     "temPreco": false,
+     "texto": " www.tiktok.com está bloqueado www.tiktok.com se recusou a se conectar. ERR_BLOCKED_BY_RESPONSE Microsoft Edge www.tiktok.com se recusou a se conectar. var loadTimeDataRaw = {\"details\":\"Detalhes\",\"errorCode\":\"ERR_BLOCKED_BY_RESPONSE\",\"fontfamily\":\"system-ui, sans-serif\",\"fontfamilyMd\":\"system-ui, sans-serif\",\"fontsize\":\"75%\",\"footer\":{\"msg\":\"Microsoft Edge\"},\"heading\":{\"msg\":\"\\u003Cspan>www.tiktok"
+    }
+   }
+  ]
+ },
+ {
+  "quando": "2026-08-05T23:44:20.501Z",
+  "plataforma": "tiktok",
+  "produto": "Capa Almofada Renda Cru",
+  "url": "https://seller-br.tiktok.com/product/edit?product_id=1736053680445491193&shop_region=BR",
+  "quadros": [
+   {
+    "url": "https://seller-br.tiktok.com/product/edit?product_id=1736053680445491193&shop_region=BR",
+    "dados": {
+     "inputs": [
+      {
+       "valor": "",
+       "nome": "",
+       "ph": "",
+       "perto": "Pesquisar: \"GMV Max\" Ctrl+K"
+      }
+     ],
+     "temPreco": false,
+     "texto": "Página inicial Acesso rápido Pedidos Produtos Logística Marketing Afiliados LIVE e vídeo Crescimento Aplicativos e parceiros Análise Integridade da conta Finanças Central do vendedor Pesquisar: \"GMV Max\" Ctrl+K Tok Decor Houve algum problema Error Code: yOAzKAi29xSQSMGYYoxxl Nosso novo Assistente do vendedor com IA está pronto para ajudar você. Experimente!"
+    }
+   },
+   {
+    "url": "https://www.tiktok.com/ucenter_web/zti_web",
+    "dados": {
+     "inputs": [],
+     "temPreco": false,
+     "texto": ""
+    }
+   }
+  ]
+ },
+ {
+  "quando": "2026-08-05T23:50:00.056Z",
+  "plataforma": "shopee",
+  "produto": "Capa Almofada Macrame Preta",
+  "url": "https://seller.shopee.com.br/404",
+  "quadros": [
+   {
+    "url": "https://seller.shopee.com.br/404",
+    "dados": {
+     "inputs": [],
+     "temPreco": false,
+     "texto": "Home tokdecor24 Esta não é a página pela qual você está procurando. 99+ 1"
+    }
+   },
+   {
+    "url": "about:blank",
+    "dados": {
+     "inputs": [],
+     "temPreco": false,
+     "texto": ""
+    }
+   }
+  ]
+ }
+]

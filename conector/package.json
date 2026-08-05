@@ -9,6 +9,7 @@
     "robo-shopee": "node robo-shopee.js",
     "ensaio-oferta": "node oferta-shopee-ensaio.js",
     "login-tiktok": "node tiktok-login.js",
+    "login-console": "node console-login.js",
     "ensaio-oferta-tiktok": "node oferta-tiktok-ensaio.js",
     "robo-vendas": "node robo-vendas.js",
     "robo-tiktok": "node robo-vendas.js",

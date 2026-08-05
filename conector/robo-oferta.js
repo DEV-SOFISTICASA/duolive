@@ -40,19 +40,27 @@ const ARQ_ORIGINAIS = path.join(__dirname, 'precos-originais.json');
 const ARQ_ENSAIO = path.join(__dirname, 'ensaio-oferta-relatorio.json');
 const RITMO = 4000;
 
+// O Console de LIVE do TikTok (shop.tiktok.com/streamer) tem sessão PRÓPRIA,
+// separada do Seller Center. É nele que fica a ⚡ Oferta Relâmpago da live.
 const SESSOES = {
-  tiktok: path.join(__dirname, 'sessao-tiktok.json'),
+  tiktok: fs.existsSync(path.join(__dirname, 'sessao-console.json'))
+    ? path.join(__dirname, 'sessao-console.json')
+    : path.join(__dirname, 'sessao-tiktok.json'),
   shopee: path.join(__dirname, 'sessao-shopee.json'),
 };
+const TEM_CONSOLE = fs.existsSync(path.join(__dirname, 'sessao-console.json'));
 
 // onde fica o campo de preço de cada loja (tentamos os endereços em ordem).
 // Nas duas lojas a tela de edição vem dentro de um iframe — por isso procuramos
 // o campo em todos os quadros da página.
 const EDICAO = {
-  tiktok: (p) => [
+  // TikTok: a ⚡ Oferta Relâmpago vive no Console de LIVE (é ela que muda o
+  // preço que o cliente vê AO VIVO). A edição do produto é o plano B.
+  tiktok: (p) => (TEM_CONSOLE ? [
+    'https://shop.tiktok.com/streamer/live/product/dashboard',
+  ] : [
     'https://seller-br.tiktok.com/product/manage/edit?product_id=' + encodeURIComponent(p.prodId),
-    'https://seller-br.tiktok.com/product/edit?product_id=' + encodeURIComponent(p.prodId),
-  ],
+  ]),
   shopee: (p) => [
     'https://seller.shopee.com.br/portal/product/' + encodeURIComponent(p.prodId),
     'https://seller.shopee.com.br/portal/product/' + encodeURIComponent(p.prodId) + '/edit',
@@ -73,6 +81,7 @@ const brl = (n) => (n || 0).toFixed(2).replace('.', ',');
 // ---------- memória dos preços originais (sobrevive a reinício) ----------
 let originais = {};
 try { originais = JSON.parse(fs.readFileSync(ARQ_ORIGINAIS, 'utf8')) || {}; } catch (e) {}
+// valor é uma LISTA [{indice, preco}] — um preço por variação do produto
 function guardaOriginal(chave, valor) {
   if (originais[chave] != null) return;      // já guardado: não sobrescreve
   originais[chave] = valor;
@@ -118,20 +127,31 @@ function procurarNoQuadro(quadro) {
       const r = el.getBoundingClientRect();
       return r.width > 30 && r.height > 10;
     }
+    // um preço é vazio ou algo como "49,99" / "1.299,90" — nunca "28.061.00"
+    function pareceDinheiro(v) {
+      const s = String(v || '').trim();
+      if (!s) return true; // campo vazio (ex.: "aplicar a todos") também serve
+      return /^\d{1,3}(\.\d{3})*(,\d{1,2})?$/.test(s) || /^\d+([.,]\d{1,2})?$/.test(s);
+    }
     const campos = Array.from(document.querySelectorAll('input')).filter(visivel);
     const achados = [];
     campos.forEach((el, i) => {
       const volta = el.closest('div,section,tr,td,label');
       const perto = (volta ? volta.innerText : '').replace(/\s+/g, ' ').slice(0, 120);
       const attr = [el.name, el.id, el.placeholder, el.getAttribute('aria-label'), el.className].join(' ');
-      const ehPreco = /pre[çc]o|price|valor|R\$/i.test(perto + ' ' + attr);
-      const ehRuido = /estoque|stock|quantidade|quantity|peso|weight|sku|c[óo]digo|dimens|frete|busca|search|pesquis/i.test(perto + ' ' + attr);
-      if (ehPreco && !ehRuido) {
-        el.setAttribute('data-duolive-preco', String(i));
-        achados.push({ indice: i, valor: el.value, contexto: perto.slice(0, 80) });
-      }
+      const tudo = perto + ' ' + attr;
+      const ehPreco = /pre[çc]o|price|valor|R\$/i.test(tudo);
+      const ehRuido = /estoque|stock|quantidade|quantity|peso|weight|sku|gtin|ean|c[óo]digo|dimens|frete|busca|search|pesquis|desconto de|comiss/i.test(tudo);
+      if (!ehPreco || ehRuido || !pareceDinheiro(el.value)) return;
+      el.setAttribute('data-duolive-preco', String(i));
+      // o campo "aplicar a todos" (placeholder Preço, vazio) é o melhor alvo:
+      // muda todas as variações de uma vez, que é o que a oferta relâmpago quer
+      const mestre = /^pre[çc]o$/i.test(String(el.placeholder || '').trim()) && !String(el.value || '').trim();
+      achados.push({ indice: i, valor: el.value, mestre: mestre, contexto: perto.slice(0, 80) });
     });
-    return achados.slice(0, 8);
+    // mestre primeiro; depois os que já têm preço preenchido
+    achados.sort((a, b) => (b.mestre ? 1 : 0) - (a.mestre ? 1 : 0));
+    return achados.slice(0, 10);
   }).catch(() => []);
 }
 
@@ -183,9 +203,11 @@ async function mexerNoPreco(browser, oferta, novoPreco, ehRestauro) {
   if (!oferta.prodId) throw new Error('produto sem id da loja — use o botão "Buscar produtos da loja"');
 
   const ctx = await browser.newContext({ storageState: SESSOES[plat], locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
+  // NÃO bloqueamos imagens aqui: sem elas a tela de edição não monta direito.
+  // Só cortamos vídeo e fontes, que não afetam o formulário.
   await ctx.route('**/*', (r) => {
     const t = r.request().resourceType();
-    if (t === 'image' || t === 'media' || t === 'font') return r.abort();
+    if (t === 'media' || t === 'font') return r.abort();
     return r.continue();
   });
   const page = await ctx.newPage();
@@ -200,18 +222,39 @@ async function mexerNoPreco(browser, oferta, novoPreco, ehRestauro) {
       }
       if (!abriu) continue;
       if (/login|passport|signin/i.test(page.url())) throw new Error('sessao da ' + plat + ' expirou — rode npm run login-' + plat);
-      await page.waitForTimeout(7000); // a página de edição demora a montar
+      await page.waitForTimeout(9000); // a página de edição demora a montar (e o iframe entra depois)
       const r = await acharCampoPreco(page);
       if (r.campos.length) { quadro = r.quadro; campos = r.campos; break; }
       await diagnostico(page, plat, oferta); // guarda o que apareceu na tela
     }
     if (!campos.length) {
+      if (plat === 'tiktok' && !TEM_CONSOLE) {
+        throw new Error('falta o login do Console de LIVE (onde fica a Oferta Relampago). '
+          + 'Rode:  npm run login-console');
+      }
+      if (plat === 'tiktok') {
+        throw new Error('nao achei a Oferta Relampago no Console de LIVE — veja diagnostico-oferta.json '
+          + '(a sessao do console pode ter expirado: npm run login-console)');
+      }
       throw new Error('nao achei o campo de preco — veja diagnostico-oferta.json e a foto ao lado');
     }
 
-    // guarda o preço original ANTES de mexer (só na aplicação, não no restauro)
+    // Guarda os preços originais ANTES de mexer. ATENÇÃO: cada variação (cor,
+    // tamanho...) pode ter um preço diferente — guardamos TODOS, um por campo,
+    // senão o restauro nivelaria tudo num preço só e estragaria a sua loja.
     const chave = plat + ':' + oferta.prodId;
-    if (!ehRestauro) guardaOriginal(chave, num(campos[0].valor) || oferta.de);
+    const variacoes = campos.filter((c) => !c.mestre && num(c.valor));
+    if (!ehRestauro) {
+      if (!variacoes.length && !num(oferta.de)) throw new Error('nao consegui ler o preco original — nao vou mexer');
+      guardaOriginal(chave, variacoes.length
+        ? variacoes.map((c) => ({ indice: c.indice, preco: num(c.valor) }))
+        : [{ indice: campos[0].indice, preco: num(oferta.de) }]);
+      const distintos = Array.from(new Set(variacoes.map((c) => num(c.valor))));
+      if (distintos.length > 1) {
+        console.log('     (esse produto tem ' + distintos.length + ' precos diferentes nas variacoes — '
+          + 'guardei cada um e devolvo um por um no fim)');
+      }
+    }
 
     if (!REAL) {
       console.log('  🧪 ENSAIO ' + plat + ' · ' + oferta.nome.slice(0, 40));
@@ -227,11 +270,35 @@ async function mexerNoPreco(browser, oferta, novoPreco, ehRestauro) {
       return { ensaio: true, campos: campos.length };
     }
 
-    // ---- MODO REAL: escreve o novo preço e salva (dentro do quadro certo) ----
-    const campo = quadro.locator('input[data-duolive-preco="' + campos[0].indice + '"]').first();
-    await campo.click({ timeout: 15000 });
-    await campo.fill('');
-    await campo.type(brl(novoPreco), { delay: 60 });
+    // ---- MODO REAL: escreve o(s) preço(s) e salva (dentro do quadro certo) ----
+    async function escrever(indice, valor) {
+      const campo = quadro.locator('input[data-duolive-preco="' + indice + '"]').first();
+      await campo.click({ timeout: 15000 });
+      await campo.fill('');
+      await campo.type(brl(valor), { delay: 55 });
+      await page.waitForTimeout(500);
+    }
+
+    if (ehRestauro) {
+      // devolve CADA variação ao seu próprio preço (nunca nivela tudo)
+      const guardados = originais[chave];
+      const lista = Array.isArray(guardados) && guardados.length
+        ? guardados
+        : [{ indice: campos[0].indice, preco: novoPreco }];
+      for (const g of lista) await escrever(g.indice, g.preco);
+    } else if (variacoes.length) {
+      // oferta: todas as variações vão para o preço promocional
+      for (const v of variacoes) await escrever(v.indice, novoPreco);
+    } else {
+      await escrever(campos[0].indice, novoPreco);
+      if (campos[0].mestre) { // "aplicar a todos" só vale depois de clicar em Aplicar
+        try {
+          const aplicar = quadro.getByRole('button', { name: /^aplicar(\s+a\s+todos)?$/i }).first();
+          await aplicar.click({ timeout: 6000 });
+          await page.waitForTimeout(2500);
+        } catch (e) { /* algumas telas aplicam sozinhas */ }
+      }
+    }
     await page.waitForTimeout(1200);
 
     const salvar = quadro.getByRole('button', { name: /salvar|save|publicar|confirmar|atualizar/i }).first();
@@ -285,7 +352,9 @@ async function ciclo(browser) {
     aplicadas.delete(id);
     if (!o.real) continue;
     const chave = (o.plat === 'tiktok' ? 'tiktok' : 'shopee') + ':' + o.prodId;
-    const original = originais[chave] != null ? originais[chave] : num(o.de);
+    const guardados = originais[chave];
+    const temGuardado = Array.isArray(guardados) && guardados.length;
+    const original = temGuardado ? guardados[0].preco : num(o.de);
     if (!original) { console.log('  (nao sei o preco original de ' + o.nome.slice(0, 30) + ' — deixei como esta)'); continue; }
     try {
       await mexerNoPreco(browser, o, original, true);
@@ -306,9 +375,12 @@ async function restaurarTudo(browser) {
   console.log('  Devolvendo ' + chaves.length + ' preco(s) original(is)...');
   for (const chave of chaves) {
     const [plat, prodId] = chave.split(':');
+    const g = originais[chave];
+    const primeiro = Array.isArray(g) && g.length ? g[0].preco : num(g);
     try {
-      await mexerNoPreco(browser, { plat: plat, prodId: prodId, nome: chave, de: originais[chave] }, originais[chave], true);
+      await mexerNoPreco(browser, { plat: plat, prodId: prodId, nome: chave, de: primeiro }, primeiro, true);
       esqueceOriginal(chave);
+      console.log('  ✅ ' + chave + ' devolvido.');
     } catch (e) { console.log('  ⚠️  ' + chave + ': ' + String(e.message || e).slice(0, 70)); }
   }
 }
@@ -326,9 +398,14 @@ async function principal() {
   }
   console.log('  Conector: ' + CONECTOR + '\n');
 
+  // O TikTok recusa carregar o editor num navegador invisível (ERR_BLOCKED_BY_RESPONSE).
+  // Por isso abrimos uma janela de verdade — ela pode ficar minimizada num canto.
+  // Para forçar o modo invisível (só Shopee):  set DUOLIVE_OFERTA_INVISIVEL=1
+  const INVISIVEL = process.env.DUOLIVE_OFERTA_INVISIVEL === '1';
+  if (!INVISIVEL) console.log('  (vai abrir uma janela do Chrome — pode minimizar, mas nao feche)\n');
   let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (e) { try { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
+  try { browser = await chromium.launch({ headless: INVISIVEL, channel: 'chrome' }); }
+  catch (e) { try { browser = await chromium.launch({ headless: INVISIVEL, channel: 'msedge' }); }
     catch (e2) { console.log('  Instale o Google Chrome e tente de novo.'); process.exit(1); } }
 
   if (RESTAURAR_TUDO) { await restaurarTudo(browser); await browser.close(); process.exit(0); }
