@@ -11,6 +11,7 @@
     "login-tiktok": "node tiktok-login.js",
     "ensaio-oferta-tiktok": "node oferta-tiktok-ensaio.js",
     "robo-vendas": "node robo-vendas.js",
+    "robo-tiktok": "node robo-vendas.js",
     "robo-console": "node robo-console.js"
   },
   "engines": { "node": ">=18" },

@@ -1,6 +1,6 @@
 # DuoLive · Deploy do conector do chat no Render (always-on, 24h)
 # Como usar:
-#  1. No Render: New +  ->  Blueprint  ->  conecte o repositorio gbdev-bjj/duolive
+#  1. No Render: New +  ->  Blueprint  ->  conecte o repositorio DEV-SOFISTICASA/duolive
 #  2. Ele le este arquivo e cria o servico. Preencha as duas variaveis:
 #       DUOLIVE_SIGN_KEY   = sua chave do eulerstream.com
 #       DUOLIVE_TIKTOK_USER= o @ da conta do TikTok (sem @)

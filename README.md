@@ -14,6 +14,8 @@ Painel único (página inicial): **Analytics** + **Ofertas** + **Multichat**.
 ## Uso
 
 1. `conector/`: `npm install` (1ª vez) e `npm start -- @seuusuario`.
-2. Abrir a página inicial do site — o Multichat acende sozinho.
-3. Chat da Shopee: Tampermonkey + `shopee-chat.user.js`, com a página da live aberta.
-4. Transmissão: OBS → Shopee (RTMP) e TikTok via Live Studio + Câmera Virtual (ou Aitum Multistream se as duas contas tiverem chave RTMP).
+2. Vendas na hora (TikTok + Shopee): `npm run login-tiktok` e `npm run login-shopee` (1ª vez) e depois `npm run robo-vendas` durante a live — cada venda aparece no Multichat em segundos, com o logo da loja e o valor.
+   - Conector na nuvem? Cole a URL do Render (ex.: `https://duolive-conector.onrender.com`) num arquivo `conector/conector.txt` — o robô passa a mandar as vendas para lá sozinho.
+3. Abrir a página inicial do site — o Multichat acende sozinho.
+4. Chat da Shopee: Tampermonkey + `shopee-chat.user.js`, com a página da live aberta.
+5. Transmissão: OBS → Shopee (RTMP) e TikTok via Live Studio + Câmera Virtual (ou Aitum Multistream se as duas contas tiverem chave RTMP).
