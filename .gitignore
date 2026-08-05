@@ -11,6 +11,9 @@ conector/produtos-cache.json
 conector/precos-originais.json
 conector/ensaio-*.json
 conector/ensaio-*.png
+conector/diagnostico-*.json
+conector/diagnostico-*.png
+conector/*.png
 
 # Configuracao pessoal (URL do seu conector no Render)
 conector/conector.txt
