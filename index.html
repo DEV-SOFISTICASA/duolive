@@ -30,10 +30,11 @@
   /* o template do desenho: esquerda = Analytics em cima + Ofertas embaixo; direita = Multichat inteiro */
   .grade{display:grid;flex:1;min-height:0;gap:0;padding:6px;grid-template-columns:minmax(300px,var(--esq,46%)) 10px 1fr}
   .esq{display:grid;gap:6px;grid-template-rows:46% 1fr;min-width:0}
-  /* a barrinha do meio: segure e arraste para mudar o tamanho do Multichat */
-  #divisor{cursor:col-resize;display:flex;align-items:center;justify-content:center;border-radius:6px}
-  #divisor::before{content:'';width:4px;height:46px;border-radius:99px;background:var(--line)}
-  #divisor:hover::before,body.arrastando #divisor::before{background:var(--accent)}
+  /* a barrinha do meio: segure e arraste para aumentar/diminuir o Multichat
+     (2 cliques rápidos voltam ao tamanho padrão) */
+  #divisor{cursor:col-resize;display:flex;align-items:center;justify-content:center;border-radius:6px;touch-action:none}
+  #divisor::before{content:'';width:5px;height:72px;border-radius:99px;background:var(--line);transition:background .15s,height .15s}
+  #divisor:hover::before,body.arrastando #divisor::before{background:var(--accent);height:110px}
   body.arrastando{cursor:col-resize;user-select:none}
   body.arrastando iframe{pointer-events:none}
   .caixa{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card);min-height:0}
@@ -61,7 +62,7 @@
       <div class="caixa"><span class="rotulo">Analytics</span><iframe src="analytics.html" title="Analytics"></iframe></div>
       <div class="caixa"><span class="rotulo">Ofertas</span><iframe src="sacolinha-controle.html" title="Ofertas"></iframe></div>
     </div>
-    <div id="divisor" title="Arraste para mudar o tamanho"></div>
+    <div id="divisor" title="Arraste para aumentar/diminuir o Multichat · 2 cliques: tamanho padrão"></div>
     <div class="caixa">
       <span class="rotulo">Multichat</span>
       <button id="btnCfg" title="Endereço do conector">⚙</button>
@@ -77,13 +78,15 @@
   </div>
 <script>
 (function(){
-  // Endereco do conector: no PC e' 127.0.0.1:9797; na nuvem e' a URL do Render.
-  // Fica salvo no navegador. Da' para trocar pelo botao engrenagem, ou pela URL: ?api=...
+  // Endereco do conector: se o painel foi aberto PELO conector (PC ou Render),
+  // usa o proprio endereco da pagina — tudo junto numa URL so'. Abriu como
+  // arquivo? Usa o PC (127.0.0.1). Da' para trocar pelo ⚙ ou pela URL: ?api=...
   function apiBase(){
     try{
       var q=new URLSearchParams(location.search).get('api');
       if(q){ localStorage.setItem('ld-api', q); }
-      return localStorage.getItem('ld-api') || 'http://127.0.0.1:9797';
+      var padrao=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:9797';
+      return localStorage.getItem('ld-api') || padrao;
     }catch(e){ return 'http://127.0.0.1:9797'; }
   }
   var URL_MC=apiBase().replace(/\/+$/,'');
@@ -247,6 +250,11 @@
     }
     divisor.addEventListener('pointermove', move);
     divisor.addEventListener('pointerup', solta);
+  });
+  // 2 cliques na barrinha: volta ao tamanho padrão
+  divisor.addEventListener('dblclick', function(){
+    document.documentElement.style.removeProperty('--esq');
+    try{ localStorage.removeItem('ld-painel-esq'); }catch(e){}
   });
 })();
 </script>

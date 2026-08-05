@@ -246,6 +246,25 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // painel completo em UMA URL: /painel mostra Analytics + Ofertas + Multichat juntos
+  // (as outras entradas servem os pedacos que o painel usa, tudo do mesmo endereco)
+  const ESTATICOS = {
+    '/painel': 'index.html',
+    '/index.html': 'index.html',
+    '/analytics.html': 'analytics.html',
+    '/sacolinha-controle.html': 'sacolinha-controle.html',
+    '/lib/xlsx.min.js': 'lib/xlsx.min.js',
+  };
+  const caminho = req.url.split('?')[0];
+  if (ESTATICOS[caminho]) {
+    fs.readFile(path.join(__dirname, '..', ESTATICOS[caminho]), (err, corpo) => {
+      if (err) { res.statusCode = 404; res.end('arquivo nao encontrado'); return; }
+      res.setHeader('content-type', caminho.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8');
+      res.end(corpo);
+    });
+    return;
+  }
+
   const arq = path.join(__dirname, '..', 'multichat.html');
   fs.readFile(arq, (err, html) => {
     if (err) { res.statusCode = 500; res.end('multichat.html nao encontrado ao lado da pasta conector/'); return; }

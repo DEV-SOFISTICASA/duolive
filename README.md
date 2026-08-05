@@ -13,6 +13,8 @@ Painel único (página inicial): **Analytics** + **Ofertas** + **Multichat**.
 
 ## Uso
 
+**Painel completo em uma URL só:** com o conector ligado, abra `http://127.0.0.1:9797/painel` (ou `https://SUA-URL.onrender.com/painel` na nuvem) — Analytics, Ofertas e Multichat juntos, já conectados. A raiz (`/`) continua sendo só o Multichat, ideal para dock do OBS.
+
 1. `conector/`: `npm install` (1ª vez) e `npm start -- @seuusuario`.
 2. Vendas na hora (TikTok + Shopee): `npm run login-tiktok` e `npm run login-shopee` (1ª vez) e depois `npm run robo-vendas` durante a live — cada venda aparece no Multichat em segundos, com o logo da loja e o valor.
    - Conector na nuvem? Cole a URL do Render (ex.: `https://duolive-conector.onrender.com`) num arquivo `conector/conector.txt` — o robô passa a mandar as vendas para lá sozinho.

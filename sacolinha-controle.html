@@ -112,7 +112,7 @@
   var editando=-1, aba='shopee', platCad='shopee';
 
   // endereco do conector (mesmo do painel): PC ou Render
-  function apiBase(){ try{ var q=new URLSearchParams(location.search).get('api'); return (q||localStorage.getItem('ld-api')||'http://127.0.0.1:9797').replace(/\/+$/,''); }catch(e){ return 'http://127.0.0.1:9797'; } }
+  function apiBase(){ try{ var q=new URLSearchParams(location.search).get('api'); var padrao=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:9797'; return (q||localStorage.getItem('ld-api')||padrao).replace(/\/+$/,''); }catch(e){ return 'http://127.0.0.1:9797'; } }
   function ler(k,d){ try{ return JSON.parse(localStorage.getItem(k))||d; }catch(e){ return d; } }
   function gravar(k,v){
     try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} if(bc) try{ bc.postMessage({k:k,v:v}); }catch(e){}

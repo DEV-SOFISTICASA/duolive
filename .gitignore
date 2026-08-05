@@ -10,3 +10,6 @@ conector/historico-*.json
 
 # Configuracao pessoal (URL do seu conector no Render)
 conector/conector.txt
+
+# Configuracao local do Claude Code
+.claude/

@@ -121,7 +121,7 @@
 <script>
 (function(){
   var SB='https://nqgfxpbzybobzsrevvom.supabase.co';
-  function apiBase(){ try{ var q=new URLSearchParams(location.search).get('api'); return (q||localStorage.getItem('ld-api')||'http://127.0.0.1:9797').replace(/\/+$/,''); }catch(e){ return 'http://127.0.0.1:9797'; } }
+  function apiBase(){ try{ var q=new URLSearchParams(location.search).get('api'); var padrao=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:9797'; return (q||localStorage.getItem('ld-api')||padrao).replace(/\/+$/,''); }catch(e){ return 'http://127.0.0.1:9797'; } }
   var ANON='sb_publishable_9XkQ6Q8IDUF30qXXKmbp1w_xE2wMC02';
   var $=function(id){return document.getElementById(id)};
   // loja escolhida no seletor do painel chega por ?loja=
