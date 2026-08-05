@@ -1,0 +1,5 @@
+# Dependencias
+node_modules/
+
+# Sessoes salvas (contem cookies/logins - NUNCA enviar ao GitHub)
+conector/sessao-*.json
