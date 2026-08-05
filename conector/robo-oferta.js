@@ -54,8 +54,8 @@ const EDICAO = {
     'https://seller-br.tiktok.com/product/edit?product_id=' + encodeURIComponent(p.prodId),
   ],
   shopee: (p) => [
+    'https://seller.shopee.com.br/portal/product/' + encodeURIComponent(p.prodId),
     'https://seller.shopee.com.br/portal/product/' + encodeURIComponent(p.prodId) + '/edit',
-    'https://seller.shopee.com.br/portal/product/list/all',
   ],
 };
 

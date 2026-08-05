@@ -33,20 +33,59 @@ const UMA_VEZ = process.env.DUOLIVE_UMA_VEZ === '1';
 const INTERVALO = Math.max(2, +(process.env.DUOLIVE_PRODUTOS_MIN || 10)) * 60000;
 const ARQ_CACHE = path.join(__dirname, 'produtos-cache.json');
 
+// nome da loja (junta as duas contas numa só): DUOLIVE_LOJA ou o arquivo loja.txt
+function nomeDaLoja() {
+  if (process.env.DUOLIVE_LOJA) return process.env.DUOLIVE_LOJA.trim();
+  try {
+    const t = fs.readFileSync(path.join(__dirname, 'loja.txt'), 'utf8').trim();
+    if (t) return t.split('\n')[0].trim();
+  } catch (e) {}
+  return '';
+}
+const LOJA = nomeDaLoja();
+
 const CONTAS = [
   {
     plataforma: 'tiktok',
     sessao: path.join(__dirname, 'sessao-tiktok.json'),
     pagina: 'https://seller-br.tiktok.com/product',
     reUrl: /product\/local\/products\/list/i,
+    reConta: /seller\/shop\/get|shop_info|seller\/info|account\/info/i,
   },
   {
     plataforma: 'shopee',
     sessao: path.join(__dirname, 'sessao-shopee.json'),
     pagina: 'https://seller.shopee.com.br/portal/product/list/all',
     reUrl: /search_product_list/i,
+    reConta: /selleraccount\/shop_info|selleraccount\/user_info/i,
   },
 ];
+
+// procura o NOME da loja dentro de uma resposta do painel (ex.: "Tokdecor12").
+// Preferimos shop_name/seller_name; "username" e afins só se não houver nada melhor.
+// Descartamos códigos internos como "user5951113507785" ou só números.
+const NOME_BOM = /^(shop_?name|seller_?name|store_?name|shopname)$/i;
+const NOME_TALVEZ = /^(nickname|display_?name|username|user_?name|name)$/i;
+function pareceCodigo(s) {
+  return /^user\d{6,}$/i.test(s) || /^\d{5,}$/.test(s) || /^[0-9a-f]{16,}$/i.test(s);
+}
+function achaNomeConta(json) {
+  let bom = '', talvez = '';
+  (function anda(o, prof) {
+    if (bom || !o || typeof o !== 'object' || prof > 5) return;
+    for (const [k, v] of Object.entries(o)) {
+      if (bom) return;
+      if (typeof v === 'string') {
+        const s = v.trim();
+        if (s && s.length < 60 && !pareceCodigo(s)) {
+          if (NOME_BOM.test(k)) { bom = s; return; }
+          if (!talvez && NOME_TALVEZ.test(k)) talvez = s;
+        }
+      } else if (v && typeof v === 'object') anda(v, prof + 1);
+    }
+  })(json, 0);
+  return bom || talvez;
+}
 
 const num = (v) => {
   if (v == null) return 0;
@@ -116,8 +155,8 @@ function leShopee(json) {
 }
 
 // ---------- envio para o conector ----------
-function manda(plataforma, produtos) {
-  const dados = JSON.stringify({ plataforma: plataforma, produtos: produtos });
+function manda(plataforma, produtos, conta) {
+  const dados = JSON.stringify({ plataforma: plataforma, produtos: produtos, loja: LOJA, conta: conta || '' });
   const u = new URL(CONECTOR + '/produtos');
   const lib = u.protocol === 'https:' ? https : http;
   const req = lib.request({
@@ -141,11 +180,18 @@ async function lerLoja(browser, conta) {
   });
   const page = await ctx.newPage();
   const porId = new Map();
-  let chamada = null; // a chamada da lista, para pedirmos as próximas páginas
+  let chamada = null;   // a chamada da lista, para pedirmos as próximas páginas
+  let nomeConta = '';   // o nome da conta nessa plataforma (ex.: Tokdecor12)
   page.on('response', async (resp) => {
     try {
+      const ct = String(resp.headers()['content-type'] || '');
+      if (!ct.includes('json')) return;
+      if (!nomeConta && conta.reConta && conta.reConta.test(resp.url())) {
+        const j = await resp.json();
+        nomeConta = achaNomeConta(j) || '';
+        return;
+      }
       if (!conta.reUrl.test(resp.url())) return;
-      if (!String(resp.headers()['content-type'] || '').includes('json')) return;
       const json = await resp.json();
       const lidos = conta.plataforma === 'tiktok' ? leTikTok(json) : leShopee(json);
       if (lidos.length && !chamada) chamada = resp.url();
@@ -198,19 +244,21 @@ async function lerLoja(browser, conta) {
 
   const produtos = Array.from(porId.values()).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   await ctx.close();
-  return produtos;
+  return { produtos: produtos, conta: nomeConta };
 }
 
 async function volta(browser) {
   const cache = {};
   for (const conta of CONTAS) {
-    const produtos = await lerLoja(browser, conta);
-    if (!produtos) continue;
+    const r = await lerLoja(browser, conta);
+    if (!r) continue;
+    const { produtos, conta: nomeConta } = r;
     if (!produtos.length) { console.log('  ' + conta.plataforma + ': nenhum produto lido (a pagina pode ter mudado).'); continue; }
-    manda(conta.plataforma, produtos);
+    manda(conta.plataforma, produtos, nomeConta);
     cache[conta.plataforma] = produtos;
     const ex = produtos[0];
-    console.log('  ✅ ' + conta.plataforma + ': ' + produtos.length + ' produto(s). Ex.: ' + ex.nome.slice(0, 40)
+    console.log('  ✅ ' + conta.plataforma + (nomeConta ? ' (' + nomeConta + ')' : '') + ': ' + produtos.length
+      + ' produto(s). Ex.: ' + ex.nome.slice(0, 40)
       + ' — R$ ' + brl(ex.preco) + (ex.promo ? (' (hoje por R$ ' + brl(ex.promo) + ')') : ''));
   }
   try { fs.writeFileSync(ARQ_CACHE, JSON.stringify(cache, null, 1)); } catch (e) {}

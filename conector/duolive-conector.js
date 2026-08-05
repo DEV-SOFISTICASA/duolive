@@ -40,6 +40,8 @@ let ofertas = [];
 // produtos lidos das lojas pelo robo de produtos (cookies): { tiktok: [...], shopee: [...] }
 const produtosPorPlat = { tiktok: [], shopee: [] };
 const produtosTs = { tiktok: 0, shopee: 0 };
+// UMA loja com as DUAS contas juntas: { nome, contas:{tiktok, shopee} }
+const minhaLoja = { nome: '', contas: { tiktok: '', shopee: '' } };
 
 function limpaOfertas() { // tira do ar as que ja venceram
   const agora = Date.now();
@@ -212,10 +214,15 @@ const server = http.createServer((req, res) => {
         try {
           const b = JSON.parse(corpo);
           const plat = b.plataforma === 'tiktok' ? 'tiktok' : 'shopee';
+          // as duas contas pertencem a UMA loja so' (ex.: Tokdecor12 no TikTok e na Shopee)
+          if (b.conta) minhaLoja.contas[plat] = String(b.conta).slice(0, 60);
+          if (b.loja) minhaLoja.nome = String(b.loja).slice(0, 60);
+          if (!minhaLoja.nome) minhaLoja.nome = minhaLoja.contas.tiktok || minhaLoja.contas.shopee || '';
           if (Array.isArray(b.produtos)) {
             produtosPorPlat[plat] = b.produtos.slice(0, 3000);
             produtosTs[plat] = Date.now();
-            console.log('  📦 ' + plat + ': ' + produtosPorPlat[plat].length + ' produto(s) da loja recebidos.');
+            console.log('  📦 ' + (minhaLoja.nome ? minhaLoja.nome + ' · ' : '') + plat
+              + (b.conta ? ' (' + b.conta + ')' : '') + ': ' + produtosPorPlat[plat].length + ' produto(s).');
           }
         } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
@@ -223,7 +230,31 @@ const server = http.createServer((req, res) => {
       return;
     }
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ tiktok: produtosPorPlat.tiktok, shopee: produtosPorPlat.shopee, ts: produtosTs }));
+    res.end(JSON.stringify({ tiktok: produtosPorPlat.tiktok, shopee: produtosPorPlat.shopee, ts: produtosTs, loja: minhaLoja }));
+    return;
+  }
+
+  // a MINHA loja: as duas contas (TikTok e Shopee) vistas como uma coisa so'
+  if (req.url.startsWith('/minha-loja')) {
+    if (req.method === 'POST') {
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const b = JSON.parse(corpo);
+          if (b.nome != null) minhaLoja.nome = String(b.nome).slice(0, 60);
+          if (b.tiktok != null) minhaLoja.contas.tiktok = String(b.tiktok).slice(0, 60);
+          if (b.shopee != null) minhaLoja.contas.shopee = String(b.shopee).slice(0, 60);
+        } catch (e) {}
+        res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
+      });
+      return;
+    }
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({
+      nome: minhaLoja.nome, contas: minhaLoja.contas,
+      produtos: { tiktok: produtosPorPlat.tiktok.length, shopee: produtosPorPlat.shopee.length },
+    }));
     return;
   }
 

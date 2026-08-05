@@ -47,6 +47,7 @@
 </head>
 <body>
   <h1>🛍️ Ofertas da live</h1>
+  <div class="sub" id="minhaLoja" style="display:none"></div>
 
   <div class="card" id="atual" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -260,6 +261,32 @@
 
   // aviso do desconto real
   $('chkReal').onchange=function(){ $('notaReal').style.display=this.checked?'':'none'; };
+
+  // ---- a MINHA loja: as duas contas (TikTok + Shopee) vistas como uma só ----
+  function mostraLoja(){
+    fetch(apiBase()+'/minha-loja',{cache:'no-store'}).then(function(r){return r.json();}).then(function(l){
+      if(!l) return;
+      var c=l.contas||{};
+      var p=(l.produtos)||{};
+      var partes=[];
+      if(p.tiktok) partes.push('🎵 TikTok'+(c.tiktok?(' ('+c.tiktok+')'):'')+' · '+p.tiktok+' prod.');
+      if(p.shopee) partes.push('🧡 Shopee'+(c.shopee?(' ('+c.shopee+')'):'')+' · '+p.shopee+' prod.');
+      if(!partes.length && !l.nome) return;
+      $('minhaLoja').innerHTML='🏪 <b style="color:var(--text);cursor:pointer" id="lojaNomeEd" title="Clique para trocar o nome">'
+        +(l.nome||'dar nome à loja')+' ✎</b>'
+        +(partes.length?('<br><span style="color:var(--text-3)">uma loja só: '+partes.join(' &nbsp;+&nbsp; ')+'</span>'):'');
+      $('minhaLoja').style.display='';
+      var ed=$('lojaNomeEd');
+      if(ed) ed.onclick=function(){
+        var novo=(prompt('Nome da sua loja (vale para o TikTok e a Shopee juntos):', l.nome||'')||'').trim();
+        if(!novo) return;
+        fetch(apiBase()+'/minha-loja',{method:'POST',headers:{'content-type':'application/json'},
+          body:JSON.stringify({nome:novo})}).then(mostraLoja).catch(function(){});
+      };
+    }).catch(function(){});
+  }
+  mostraLoja();
+  setInterval(mostraLoja, 20000);
   function importaNovos(novos){
     if(!novos.length) return;
     var subst=false;
@@ -418,19 +445,22 @@
     });
   }
 
-  // o robô conta como foi cada oferta (aplicando / trocada / erro) — buscamos de volta
+  // O CONECTOR é o dono das ofertas: assim o mesmo painel aberto no celular, no
+  // PC ou no Render mostra as MESMAS ofertas no ar (um web service só).
+  // Aqui trazemos de lá o que está no ar + como o robô se saiu com cada uma.
   function sincronizaEstados(){
-    var l=ofertasNoAr(); if(!l.length) return;
     fetch(apiBase()+'/ofertas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(remota){
       if(!Array.isArray(remota)) return;
-      var mudou=false;
-      l.forEach(function(o){
-        var r=remota.find(function(x){ return x.id===o.id; });
-        if(r && (r.estado!==o.estado || (r.erro||'')!==(o.erro||''))){
-          o.estado=r.estado; o.erro=r.erro; mudou=true;
-        }
+      var local=ofertasNoAr();
+      var mudou = remota.length!==local.length;
+      // o que existe lá e não aqui (lançado por outro aparelho) entra; estados chegam junto
+      var juntas=remota.map(function(r){
+        var l=local.find(function(x){ return x.id===r.id; });
+        if(!l) { mudou=true; return r; }
+        if(r.estado!==l.estado || (r.erro||'')!==(l.erro||'')){ l.estado=r.estado; l.erro=r.erro; mudou=true; }
+        return l;
       });
-      if(mudou){ try{ localStorage.setItem(K_OFERTA,JSON.stringify(l)); }catch(e){} renderAtual(); }
+      if(mudou){ try{ localStorage.setItem(K_OFERTA,JSON.stringify(juntas)); }catch(e){} renderAtual(); }
     }).catch(function(){});
   }
 
