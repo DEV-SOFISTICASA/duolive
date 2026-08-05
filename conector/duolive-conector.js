@@ -35,8 +35,18 @@ let liveEstado = { espectadores: 0, likes: 0, inicio: 0 };
 // numeros oficiais do console de lives (Compass) por loja, lidos por cookies como no LiveDash
 const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
 let lojaAtual = '';        // qual loja o painel esta mostrando
-// oferta relampago atual (transmitida ao vivo para todos os aparelhos)
-let ofertaAtual = null;
+// ofertas relampago NO AR (varias ao mesmo tempo), transmitidas para todos os aparelhos
+let ofertas = [];
+// produtos lidos das lojas pelo robo de produtos (cookies): { tiktok: [...], shopee: [...] }
+const produtosPorPlat = { tiktok: [], shopee: [] };
+const produtosTs = { tiktok: 0, shopee: 0 };
+
+function limpaOfertas() { // tira do ar as que ja venceram
+  const agora = Date.now();
+  const antes = ofertas.length;
+  ofertas = ofertas.filter((o) => o && o.fim > agora);
+  return antes !== ofertas.length;
+}
 
 // ---------- registro das lives da Shopee (fica salvo no seu PC) ----------
 const ARQ_SHOPEE = path.join(__dirname, 'historico-shopee.json');
@@ -160,16 +170,21 @@ const server = http.createServer((req, res) => {
   }
 
   // painel AO VIVO: numeros em tempo real da conta ativa
+  // (vendas separadas por app; pedidos e curtidas somados)
   if (req.url.startsWith('/ao-vivo')) {
     const todas = vendasAnotadas.concat(vendasAuto);
     const desde = liveEstado.inicio || 0;
     const daLive = todas.filter((v) => !desde || (v.ts || 0) >= desde);
-    let totalAnotado = 0; daLive.forEach((v) => { totalAnotado += v.valor || 0; });
-    // numeros do console (Compass) da loja atual, se recentes (<15min)
+    const tik = { n: 0, t: 0 }, sho = { n: 0, t: 0 };
+    daLive.forEach((v) => {
+      const d = v.plataforma === 'tiktok' ? tik : sho;
+      d.n++; d.t += v.valor || 0;
+    });
+    // numeros do console (Compass) da loja atual, se recentes (<15min): sao os oficiais do TikTok
     const c = compassPorLoja[lojaAtual] || null;
-    const compassFresco = c && c.ts && (Date.now() - c.ts < 15 * 60000);
-    const pedidos = compassFresco ? c.orders : daLive.length;
-    const total = compassFresco ? c.gmv : totalAnotado;
+    const compassFresco = !!(c && c.ts && (Date.now() - c.ts < 15 * 60000));
+    const totalTiktok = compassFresco ? c.gmv : tik.t;
+    const pedidosTiktok = compassFresco ? c.orders : tik.n;
     // espectadores: o do chat; se 0 e o Compass tem views, mostra as views do console
     const espectadores = liveEstado.espectadores || (compassFresco ? c.views : 0);
     res.setHeader('content-type', 'application/json');
@@ -177,25 +192,83 @@ const server = http.createServer((req, res) => {
       usuario: usuario, aoVivo: aoVivo,
       espectadores: espectadores, likes: liveEstado.likes,
       inicio: liveEstado.inicio,
-      pedidos: pedidos, vendas: pedidos, total: total,
+      totalTiktok: totalTiktok, totalShopee: sho.t,
+      pedidosTiktok: pedidosTiktok, pedidosShopee: sho.n,
+      pedidos: pedidosTiktok + sho.n,
+      total: totalTiktok + sho.t,
+      vendas: pedidosTiktok + sho.n, // compatibilidade com versoes antigas do painel
       fonte: compassFresco ? 'console' : 'chat',
     }));
     return;
   }
 
-  // oferta relampago ao vivo (compartilhada entre aparelhos)
-  if (req.url.startsWith('/oferta')) {
+  // produtos das lojas, lidos por cookies pelo robo de produtos
+  // POST { plataforma, produtos:[{id,nome,preco,sku,imagem}] }  ·  GET -> {tiktok:[],shopee:[],ts:{}}
+  if (req.url.startsWith('/produtos')) {
     if (req.method === 'POST') {
       let corpo = '';
-      req.on('data', (d) => { corpo += d; if (corpo.length > 8192) req.destroy(); });
+      req.on('data', (d) => { corpo += d; if (corpo.length > 4e6) req.destroy(); });
       req.on('end', () => {
-        try { const b = JSON.parse(corpo); ofertaAtual = (b && b.nome) ? b : null; emitir({ tipo: 'oferta', oferta: ofertaAtual }); } catch (e) {}
+        try {
+          const b = JSON.parse(corpo);
+          const plat = b.plataforma === 'tiktok' ? 'tiktok' : 'shopee';
+          if (Array.isArray(b.produtos)) {
+            produtosPorPlat[plat] = b.produtos.slice(0, 3000);
+            produtosTs[plat] = Date.now();
+            console.log('  📦 ' + plat + ': ' + produtosPorPlat[plat].length + ' produto(s) da loja recebidos.');
+          }
+        } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
       });
       return;
     }
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify(ofertaAtual));
+    res.end(JSON.stringify({ tiktok: produtosPorPlat.tiktok, shopee: produtosPorPlat.shopee, ts: produtosTs }));
+    return;
+  }
+
+  // o robo da oferta conta como foi (aplicada / ensaio / erro / restaurada)
+  if (req.url.startsWith('/oferta-estado') && req.method === 'POST') {
+    let corpo = '';
+    req.on('data', (d) => { corpo += d; if (corpo.length > 8192) req.destroy(); });
+    req.on('end', () => {
+      try {
+        const b = JSON.parse(corpo);
+        const o = ofertas.find((x) => x.id === b.id);
+        if (o) {
+          o.estado = String(b.estado || '').slice(0, 20);
+          o.erro = String(b.erro || '').slice(0, 120);
+          emitir({ tipo: 'oferta', ofertas: ofertas, oferta: ofertas[0] || null });
+        }
+      } catch (e) {}
+      res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
+    });
+    return;
+  }
+
+  // ofertas relampago ao vivo (VARIAS ao mesmo tempo), compartilhadas entre aparelhos.
+  // POST aceita uma lista (novo) ou uma oferta so' (painel antigo). GET devolve a lista.
+  if (req.url.startsWith('/oferta')) {
+    if (req.method === 'POST') {
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 65536) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const b = JSON.parse(corpo);
+          if (Array.isArray(b)) ofertas = b.filter((o) => o && o.nome && o.fim > Date.now());
+          else if (b && b.nome) ofertas = [b];
+          else ofertas = [];
+          emitir({ tipo: 'oferta', ofertas: ofertas, oferta: ofertas[0] || null });
+        } catch (e) {}
+        res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
+      });
+      return;
+    }
+    limpaOfertas();
+    res.setHeader('content-type', 'application/json');
+    // /ofertas -> lista (novo)   ·   /oferta -> a primeira (compatibilidade)
+    const querLista = req.url.split('?')[0] === '/ofertas';
+    res.end(JSON.stringify(querLista ? ofertas : (ofertas[0] || null)));
     return;
   }
 

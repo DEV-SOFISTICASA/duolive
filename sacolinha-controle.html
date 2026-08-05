@@ -49,22 +49,11 @@
   <h1>🛍️ Ofertas da live</h1>
 
   <div class="card" id="atual" style="display:none">
-    <div style="display:flex;align-items:center;gap:8px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:10.5px;color:var(--warn);font-weight:700">⚡ OFERTA NO AR</div>
-        <b id="atualNome" style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></b>
-        <span id="atualPreco" style="font-size:11.5px;color:var(--text-2)"></span>
-      </div>
-      <div style="text-align:right">
-        <div class="tempo" id="atualTempo">--:--</div>
-        <button class="btn ghost mini" id="btnEncerrar">Encerrar</button>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+      <div style="font-size:10.5px;color:var(--warn);font-weight:700">⚡ OFERTAS NO AR (<span id="atualQtd">0</span>)</div>
+      <button class="btn ghost mini" id="btnEncerrarTodas">Encerrar todas</button>
     </div>
-    <div class="chk">
-      <span style="color:var(--text-3)">desconto real ativado:</span>
-      <label><input type="checkbox" id="chkShopee"> <span>Shopee</span></label>
-      <label><input type="checkbox" id="chkTiktok"> <span>TikTok</span></label>
-    </div>
+    <div id="atualLista"></div>
   </div>
 
   <div class="card">
@@ -80,9 +69,21 @@
     </div>
     <div style="margin-top:10px">
       <button class="btn mini" id="btnAdd">+ Adicionar</button>
-      <button class="btn ghost mini" id="btnArq">📦 Importar arquivo da loja</button>
+      <button class="btn mini" id="btnLoja" style="background:var(--azul)">🔄 Buscar produtos da loja</button>
+      <button class="btn ghost mini" id="btnArq">📦 Importar arquivo</button>
       <button class="btn ghost mini" id="btnImpTgl">📋 Colar lista</button>
       <input type="file" id="arqLoja" accept=".xlsx,.xls,.csv" style="display:none">
+    </div>
+    <div id="lojaMsg" style="display:none;margin-top:8px;font-size:11px;color:var(--text-2);line-height:1.5"></div>
+    <div class="chk" style="margin-top:10px;border-top:1px solid var(--line);padding-top:9px">
+      <label title="Muda o preço de verdade na loja quando você lançar a oferta, e devolve o preço no fim">
+        <input type="checkbox" id="chkReal"> <span>⚡ <b>Desconto real</b> — trocar o preço na loja de verdade</span>
+      </label>
+    </div>
+    <div class="note" id="notaReal" style="display:none">
+      Com isso ligado, ao tocar em ⚡ Lançar o robô entra na sua loja e <b>troca o preço do produto</b>;
+      quando o tempo acabar (ou você encerrar), ele <b>devolve o preço original</b>.
+      Precisa do <code>npm run robo-oferta</code> rodando no PC.
     </div>
     <div id="impBox" style="display:none;margin-top:10px">
       <label>Cole um produto por linha — <b>Nome | de | por</b> (aceita também ; ou Tab)</label>
@@ -226,6 +227,39 @@
   $('btnImpTgl').onclick=function(){
     var b=$('impBox'); b.style.display=(b.style.display==='none')?'':'none';
   };
+
+  // ---- buscar os produtos direto das lojas (robô de produtos, por cookies) ----
+  function msgLoja(txt,cor){ var m=$('lojaMsg'); m.style.display=''; m.innerHTML=txt; m.style.color=cor||'var(--text-2)'; }
+  $('btnLoja').onclick=function(){
+    msgLoja('🔄 Buscando os produtos das suas lojas…');
+    fetch(apiBase()+'/produtos',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      var novos=[], resumo=[];
+      ['shopee','tiktok'].forEach(function(plat){
+        var lista=(d&&d[plat])||[];
+        if(!lista.length) return;
+        lista.forEach(function(p){
+          // "de" = preço normal da loja; "por" = o preço promocional que já existe lá (se houver)
+          novos.push({ nome:p.nome, de:brl(p.preco), por:p.promo?brl(p.promo):'', plat:plat,
+                       id:p.id, sku:p.sku||'', daLoja:true });
+        });
+        resumo.push(emoji(plat)+' '+lista.length);
+      });
+      if(!novos.length){
+        msgLoja('Não recebi produtos ainda. No PC, rode: <code>npm run produtos</code> (uma vez) e clique aqui de novo.','var(--warn)');
+        return;
+      }
+      // substitui os produtos que vieram da loja, mantendo os que você criou à mão
+      produtos=produtos.filter(function(p){ return !p.daLoja; }).concat(novos);
+      editando=-1; gravar(K_PROD,produtos); renderLista();
+      msgLoja('✅ '+resumo.join(' · ')+' produto(s) das lojas. Cada loja com o <b>seu próprio preço</b>.','var(--ok)');
+    }).catch(function(){
+      msgLoja('Não consegui falar com o conector. Ele precisa estar ligado (<code>npm start</code>).','var(--warn)');
+    });
+  };
+  function brl(n){ return (n||0).toFixed(2).replace('.',','); }
+
+  // aviso do desconto real
+  $('chkReal').onchange=function(){ $('notaReal').style.display=this.checked?'':'none'; };
   function importaNovos(novos){
     if(!novos.length) return;
     var subst=false;
@@ -311,47 +345,98 @@
     }).catch(function(){ alert('Não consegui ler esse arquivo. Ele precisa ser .xlsx, .xls ou .csv.'); });
   });
 
-  // ---- lançar oferta (e guardar no histórico da live) ----
+  // ---- lançar oferta: VÁRIAS podem ficar no ar ao mesmo tempo ----
+  function ofertasNoAr(){
+    var l=ler(K_OFERTA,[]);
+    if(!Array.isArray(l)) l=(l&&l.nome)?[l]:[];           // formato antigo (uma só)
+    var agora=new Date().getTime();
+    return l.filter(function(o){ return o&&o.fim>agora; });
+  }
   function lancar(p){
     var min=parseInt($('pMin').value,10); if(!(min>0)) min=10;
-    gravar(K_OFERTA,{ id:String(new Date().getTime()), nome:p.nome, de:p.de, por:p.por, plat:p.plat||'shopee',
-      fim:new Date().getTime()+min*60000, plataformas:{shopee:false,tiktok:false} });
-    var h={nome:p.nome, de:p.de, por:p.por, plat:p.plat||'shopee', ts:new Date().getTime()};
+    var l=ofertasNoAr();
+    // relançar o mesmo produto renova o tempo em vez de duplicar
+    l=l.filter(function(o){ return !(o.nome===p.nome && o.plat===(p.plat||'shopee')); });
+    l.push({ id:String(new Date().getTime())+'-'+Math.round(Math.random()*1e6),
+      nome:p.nome, de:p.de, por:p.por, plat:p.plat||'shopee',
+      prodId:p.id||'', sku:p.sku||'',
+      inicio:new Date().getTime(), fim:new Date().getTime()+min*60000,
+      real:!!$('chkReal').checked, estado:'pendente' });
+    gravar(K_OFERTA,l);
+    var h={nome:p.nome, de:p.de, por:p.por, plat:p.plat||'shopee', id:p.id||'', sku:p.sku||'', ts:new Date().getTime()};
     hist.atual=[h].concat((hist.atual||[]).filter(function(x){
       return !(x.nome===h.nome&&x.por===h.por&&x.plat===h.plat);
     })).slice(0,50);
     gravar(K_HIST,hist);
     renderAtual();
   }
-  $('btnEncerrar').onclick=function(){ gravar(K_OFERTA,null); renderAtual(); };
-
-  function marcar(qual){
-    var o=ler(K_OFERTA,null); if(!o) return;
-    o.plataformas=o.plataformas||{};
-    o.plataformas[qual]=$(qual==='shopee'?'chkShopee':'chkTiktok').checked;
-    gravar(K_OFERTA,o);
+  function encerrar(id){
+    gravar(K_OFERTA, ofertasNoAr().filter(function(o){ return o.id!==id; }));
+    renderAtual();
   }
-  $('chkShopee').onchange=function(){ marcar('shopee'); };
-  $('chkTiktok').onchange=function(){ marcar('tiktok'); };
+  $('btnEncerrarTodas').onclick=function(){
+    if(!confirm('Encerrar TODAS as ofertas no ar?')) return;
+    gravar(K_OFERTA,[]); renderAtual();
+  };
+
+  // como o robô mostra o andamento do desconto real
+  var ESTADOS={ pendente:['⏳','aplicando…','var(--warn)'], aplicada:['✅','preço trocado na loja','var(--ok)'],
+    ensaio:['🧪','ensaio — preço NÃO foi trocado','var(--azul)'],
+    erro:['⚠️','não consegui trocar','#f87171'], restaurada:['↩️','preço voltou ao normal','var(--text-3)'] };
 
   function renderAtual(){
-    var o=ler(K_OFERTA,null), box=$('atual');
-    var agora=new Date().getTime();
-    if(!o||!o.fim||o.fim<=agora){ box.style.display='none'; return; }
+    var l=ofertasNoAr(), box=$('atual'), agora=new Date().getTime();
+    if(!l.length){ box.style.display='none'; return; }
     box.style.display='';
-    $('atualNome').textContent=emoji(o.plat)+' '+o.nome;
-    var pct=desc(o);
-    $('atualPreco').innerHTML=(o.de?'<s>'+precoTxt(o.de)+'</s> ':'')+(o.por?'<b style="color:var(--ok)">'+precoTxt(o.por)+'</b>':'')
-      +(pct?' <span style="color:var(--warn)">'+pct+'</span>':'');
-    var s=Math.max(0,Math.round((o.fim-agora)/1000));
-    $('atualTempo').textContent=Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);
-    var pl=o.plataformas||{};
-    if(document.activeElement!==$('chkShopee')) $('chkShopee').checked=!!pl.shopee;
-    if(document.activeElement!==$('chkTiktok')) $('chkTiktok').checked=!!pl.tiktok;
+    $('atualQtd').textContent=l.length;
+    var el=$('atualLista');
+    // redesenha só se a lista mudou; senão apenas atualiza os relógios (não pisca)
+    var assinatura=l.map(function(o){ return o.id+':'+(o.estado||''); }).join('|');
+    if(el.dataset.sig!==assinatura){
+      el.dataset.sig=assinatura;
+      el.innerHTML='';
+      l.forEach(function(o){
+        var d=document.createElement('div'); d.className='prod';
+        var pct=desc(o);
+        var precos=(o.de?'<s>'+precoTxt(o.de)+'</s> ':'')+(o.por?'<b style="color:var(--ok)">'+precoTxt(o.por)+'</b>':'')
+          +(pct?' <span style="color:var(--warn)">'+pct+'</span>':'');
+        var est=o.real?(ESTADOS[o.estado||'pendente']||ESTADOS.pendente):null;
+        var selo=est?('<div style="font-size:10px;color:'+est[2]+';margin-top:2px">'+est[0]+' '+est[1]+(o.erro?(' — '+o.erro):'')+'</div>'):'';
+        d.innerHTML='<div class="l1"><div class="nome"><b></b><span>'+precos+'</span>'+selo+'</div>'
+          +'<div style="text-align:right"><div class="tempo" data-t="'+o.id+'" style="font-size:17px">--:--</div>'
+          +'<button class="btn ghost mini" data-f="'+o.id+'">Encerrar</button></div></div>';
+        d.querySelector('.nome b').textContent=emoji(o.plat)+' '+o.nome;
+        el.appendChild(d);
+      });
+      el.querySelectorAll('[data-f]').forEach(function(b){ b.onclick=function(){ encerrar(b.dataset.f); }; });
+    }
+    // relógios de cada oferta
+    l.forEach(function(o){
+      var t=el.querySelector('[data-t="'+o.id+'"]'); if(!t) return;
+      var s=Math.max(0,Math.round((o.fim-agora)/1000));
+      t.textContent=Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);
+    });
+  }
+
+  // o robô conta como foi cada oferta (aplicando / trocada / erro) — buscamos de volta
+  function sincronizaEstados(){
+    var l=ofertasNoAr(); if(!l.length) return;
+    fetch(apiBase()+'/ofertas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(remota){
+      if(!Array.isArray(remota)) return;
+      var mudou=false;
+      l.forEach(function(o){
+        var r=remota.find(function(x){ return x.id===o.id; });
+        if(r && (r.estado!==o.estado || (r.erro||'')!==(o.erro||''))){
+          o.estado=r.estado; o.erro=r.erro; mudou=true;
+        }
+      });
+      if(mudou){ try{ localStorage.setItem(K_OFERTA,JSON.stringify(l)); }catch(e){} renderAtual(); }
+    }).catch(function(){});
   }
 
   renderLista(); renderAtual();
   setInterval(renderAtual,500);
+  setInterval(sincronizaEstados,3000);
 })();
 </script>
 </body>

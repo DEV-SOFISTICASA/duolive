@@ -12,6 +12,8 @@
     "ensaio-oferta-tiktok": "node oferta-tiktok-ensaio.js",
     "robo-vendas": "node robo-vendas.js",
     "robo-tiktok": "node robo-vendas.js",
+    "produtos": "node robo-produtos.js",
+    "robo-oferta": "node robo-oferta.js",
     "robo-console": "node robo-console.js"
   },
   "engines": { "node": ">=18" },

@@ -62,15 +62,18 @@
       <small id="avTempo" style="margin-left:auto;color:var(--warn);font-variant-numeric:tabular-nums;font-weight:700"></small>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px">
-      <div class="tile"><small>👀 Assistindo</small><b id="avVis">–</b></div>
+      <div class="tile"><small>👀 Assistindo agora</small><b id="avVis">–</b></div>
       <div class="tile"><small>❤️ Curtidas</small><b id="avLikes">–</b></div>
-      <div class="tile"><small>🛒 Vendas</small><b id="avVendas">–</b></div>
       <div class="tile"><small>📦 Pedidos</small><b id="avPed">–</b></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div class="tile" style="border-color:rgba(0,0,0,.5);background:linear-gradient(135deg,var(--card),rgba(255,255,255,.04))"><small>🎵 TikTok — vendas</small><b id="avVendasTik">–</b></div>
+      <div class="tile" style="border-color:rgba(238,77,45,.45)"><small>🧡 Shopee — vendas</small><b id="avVendasSho">–</b></div>
     </div>
     <div id="avOferta" style="display:none;margin-top:8px;padding:7px 10px;border-radius:8px;background:rgba(255,92,53,.12);border:1px solid rgba(255,92,53,.4);font-size:12px">
       ⚡ <b id="avOfNome"></b> <span id="avOfPreco" style="color:var(--ok)"></span> <span id="avOfTempo" style="color:var(--warn);float:right;font-variant-numeric:tabular-nums"></span>
     </div>
-    <div style="font-size:9.5px;color:var(--text-3);margin-top:6px">Ao vivo: 👀❤️⏱️ do chat · 💰📦 GMV e pedidos do console de lives (cookies, como o LiveDash).</div>
+    <div style="font-size:9.5px;color:var(--text-3);margin-top:6px">Ao vivo: 👀❤️⏱️ do chat · 💰📦 do console de lives e do robô de vendas (cookies).</div>
   </div>
 
   <div class="filtros" id="filtros"></div>
@@ -90,14 +93,13 @@
     <div class="tile"><small>👀 Pessoas que assistiram</small><b id="tViews">–</b></div>
     <div class="tile"><small id="tHorasLbl">⏱️ Tempo de live</small><b id="tHoras">–</b></div>
     <div class="tile" id="tileSho" style="display:none;border-color:rgba(255,92,53,.4)"><small>🧡 Shopee — vendas anotadas</small><b id="tSho">–</b></div>
-    <div class="tile" id="tileShoMsg" style="display:none;border-color:rgba(255,92,53,.4)"><small>🧡 Shopee — chat da live</small><b id="tShoMsg">–</b></div>
     <div class="tile" id="tileTik" style="display:none"><small>🎵 TikTok — vendas anotadas</small><b id="tTik">–</b></div>
   </div>
 
   <div id="shoTit" style="display:none;font-size:12px;color:var(--text-2);margin:4px 0 6px">🧡 <b>Lives da Shopee</b></div>
   <div class="tabelaBox" id="shoBox" style="display:none;margin-bottom:14px">
     <table style="min-width:420px">
-      <thead><tr><th>Data</th><th>Duração</th><th>Chat</th><th>Vendas</th><th>Total</th></tr></thead>
+      <thead><tr><th>Data</th><th>Duração</th><th>Vendas</th><th>Total</th></tr></thead>
       <tbody id="shoCorpo"></tbody>
     </table>
   </div>
@@ -165,22 +167,13 @@
   var shoOficial=null; // numeros oficiais capturados pelo robo da Shopee
 
   function renderShopee(){
-    var aoVivoAgora = modo==='aovivo';
-    // caixinha do chat da live atual da Shopee
-    var l = (shoLives&&shoLives.length) ? shoLives[shoLives.length-1] : null;
-    var rolando = l && (Date.now()-l.fim) < 75*60000;
-    if(aoVivoAgora && rolando){
-      $('tShoMsg').textContent = inteiro(l.mensagens)+' msg';
-      $('tileShoMsg').style.display='';
-    } else $('tileShoMsg').style.display='none';
-    // tabela do histórico da Shopee
+    // tabela do histórico da Shopee (vendas e total — sem contagem de mensagens)
     if(modo==='historico' && shoLives && shoLives.length){
       var corpo=$('shoCorpo'); corpo.innerHTML='';
       shoLives.slice().reverse().forEach(function(x){
         var tr=document.createElement('tr');
         tr.innerHTML='<td>'+ddmm(new Date(x.inicio))+'</td>'
           +'<td>'+Math.max(1,Math.round((x.fim-x.inicio)/60000))+' min</td>'
-          +'<td>'+inteiro(x.mensagens)+'</td>'
           +'<td>'+inteiro(x.vendas)+'</td>'
           +'<td class="dinheiro">'+real(x.total)+'</td>';
         corpo.appendChild(tr);
@@ -336,8 +329,12 @@
       $('avConta').textContent = d.usuario ? ('@'+d.usuario) : '';
       $('avVis').textContent = inteiro(d.espectadores);
       $('avLikes').textContent = inteiro(d.likes);
-      $('avVendas').textContent = real2(d.total);
       $('avPed').textContent = inteiro(d.pedidos);
+      // vendas separadas por app (conector novo manda os dois; o antigo só o total)
+      var tik = (d.totalTiktok!=null) ? d.totalTiktok : d.total;
+      var sho = (d.totalShopee!=null) ? d.totalShopee : 0;
+      $('avVendasTik').textContent = real2(tik);
+      $('avVendasSho').textContent = real2(sho);
       av.inicio = d.inicio||0;
     }).catch(function(){ $('aoVivoBox').style.display='none'; av.inicio=0; });
     fetch(apiBase()+'/oferta',{cache:'no-store'}).then(function(r){return r.json();}).then(function(o){

@@ -7,6 +7,10 @@ conector/sessao-*.json
 # Capturas e historicos locais (podem conter dados de pedidos/clientes)
 conector/descoberta-*.json
 conector/historico-*.json
+conector/produtos-cache.json
+conector/precos-originais.json
+conector/ensaio-*.json
+conector/ensaio-*.png
 
 # Configuracao pessoal (URL do seu conector no Render)
 conector/conector.txt

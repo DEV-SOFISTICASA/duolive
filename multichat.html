@@ -61,7 +61,7 @@
 
   <div class="vendas">
     <b>🛒 Vendas da live:</b>
-    <span class="tot"><span id="vQtd">0</span> venda(s) · R$ <span id="vTot">0,00</span></span>
+    <span class="tot"><span id="vQtd">0</span> pedido(s) · 🎵 R$ <span id="vTik">0,00</span> · 🧡 R$ <span id="vSho">0,00</span></span>
     <button class="btn" id="btnVenda">+ anotar venda</button>
     <button class="btn ghost" id="btnZerar" title="Começar a contagem do zero (nova live)">zerar</button>
   </div>
@@ -144,13 +144,32 @@
     while(feed.children.length>MAX) feed.removeChild(feed.lastChild);
   }
 
-  // ---- vendas anotadas à mão ----
-  function dinheiro(n){ return n.toFixed(2).replace('.',','); }
+  // ---- contador de vendas: separado por app (TikTok e Shopee), pedidos somados ----
+  function dinheiro(n){ return (n||0).toFixed(2).replace('.',','); }
+  var doConector=null; // números do conector (automáticas + anotadas); null = sem conector
   function somaVendas(){
+    if(doConector){
+      $('vQtd').textContent=doConector.pedidos;
+      $('vTik').textContent=dinheiro(doConector.tik);
+      $('vSho').textContent=dinheiro(doConector.sho);
+      return;
+    }
+    var tik=0, sho=0;
+    vendas.forEach(function(v){ if(v.plataforma==='tiktok') tik+=v.valor||0; else sho+=v.valor||0; });
     $('vQtd').textContent=vendas.length;
-    var t=0; vendas.forEach(function(v){ t+=v.valor||0; });
-    $('vTot').textContent=dinheiro(t);
+    $('vTik').textContent=dinheiro(tik);
+    $('vSho').textContent=dinheiro(sho);
   }
+  // busca os números reais da live (inclui as vendas que o robô detecta sozinho)
+  function puxaDoConector(){
+    fetch('/ao-vivo',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(!d || d.totalTiktok==null){ doConector=null; somaVendas(); return; }
+      doConector={ pedidos:d.pedidos||0, tik:d.totalTiktok||0, sho:d.totalShopee||0 };
+      somaVendas();
+    }).catch(function(){ doConector=null; somaVendas(); });
+  }
+  puxaDoConector();
+  setInterval(puxaDoConector, 5000);
   function gravaVendas(){
     try{ localStorage.setItem(K_VENDAS,JSON.stringify(vendas)); }catch(e){}
     somaVendas();
