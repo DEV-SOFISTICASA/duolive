@@ -4,12 +4,15 @@
 // Quando terminar de logar, volte aqui e aperte Enter — a sessão fica guardada
 // em sessao-tiktok.json, só no seu PC.
 //
-// Como usar:  npm run login-tiktok
+// Como usar:  npm run login-tiktok -- --loja bellini
+// (sem --loja vale para a loja "principal"; cada loja guarda a sua sessão)
 
 const { chromium } = require('playwright-core');
 const path = require('path');
+const L = require('./lojas.js');
 
-const ARQ = path.join(__dirname, 'sessao-tiktok.json');
+const LOJA = L.lojaPedida();
+const ARQ = path.join(__dirname, 'sessao-tiktok-' + LOJA + '.json');
 
 (async () => {
   let browser;
@@ -23,6 +26,7 @@ const ARQ = path.join(__dirname, 'sessao-tiktok.json');
   await page.goto('https://seller.tiktokglobalshop.com');
 
   console.log('');
+  console.log('  Loja: ' + LOJA);
   console.log('  1. Na janela que abriu, FACA O LOGIN na conta do TikTok Shop.');
   console.log('  2. Quando estiver dentro do Seller Center, volte aqui e aperte Enter.');
   console.log('');

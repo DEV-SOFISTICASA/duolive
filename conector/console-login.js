@@ -8,17 +8,20 @@
 // Cupom e a "Lista de produtos nesta LIVE" — é ele que muda o preço que os
 // clientes veem AO VIVO.
 //
-// Como usar:  npm run login-console
+// Como usar:  npm run login-console -- --loja bellini
 //   1. Abre uma janela do Chrome no Console de LIVE.
 //   2. Faça o login (com o QR Code do app ou com a sua conta).
 //   3. Quando a lista de produtos aparecer, volte aqui e aperte Enter.
 //
-// A sessão fica guardada em sessao-console.json, só no seu PC.
+// Sem --loja, vale para a loja "principal". Cada loja guarda a sua sessão
+// (sessao-console-bellini.json), então uma não apaga a outra.
 
 const { chromium } = require('playwright-core');
 const path = require('path');
+const L = require('./lojas.js');
 
-const ARQ = path.join(__dirname, 'sessao-console.json');
+const LOJA = L.lojaPedida();
+const ARQ = path.join(__dirname, 'sessao-console-' + LOJA + '.json');
 const ALVO = 'https://shop.tiktok.com/streamer/live/product/dashboard';
 
 (async () => {
@@ -34,6 +37,7 @@ const ALVO = 'https://shop.tiktok.com/streamer/live/product/dashboard';
 
   console.log('');
   console.log('  CONSOLE DE LIVE do TikTok (onde fica a ⚡ Oferta Relâmpago)');
+  console.log('  Loja: ' + LOJA);
   console.log('');
   console.log('  1. Na janela que abriu, FACA O LOGIN na conta que faz a live.');
   console.log('  2. Espere aparecer o console com a "Lista de produtos nesta LIVE".');

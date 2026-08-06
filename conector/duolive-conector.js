@@ -37,11 +37,22 @@ const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
 let lojaAtual = '';        // qual loja o painel esta mostrando
 // ofertas relampago NO AR (varias ao mesmo tempo), transmitidas para todos os aparelhos
 let ofertas = [];
-// produtos lidos das lojas pelo robo de produtos (cookies): { tiktok: [...], shopee: [...] }
-const produtosPorPlat = { tiktok: [], shopee: [] };
-const produtosTs = { tiktok: 0, shopee: 0 };
-// UMA loja com as DUAS contas juntas: { nome, contas:{tiktok, shopee} }
-const minhaLoja = { nome: '', contas: { tiktok: '', shopee: '' } };
+// VARIAS lojas; cada loja junta as DUAS contas (TikTok + Shopee) com os produtos
+// de cada uma:  lojas['bellini'] = { nome, contas:{tiktok,shopee}, produtos:{tiktok:[],shopee:[]}, ts:{} }
+const lojas = {};
+function achaLoja(nome) {
+  const n = String(nome || 'principal').trim() || 'principal';
+  if (!lojas[n]) lojas[n] = { nome: n, contas: { tiktok: '', shopee: '' }, produtos: { tiktok: [], shopee: [] }, ts: {} };
+  return lojas[n];
+}
+// qual loja o painel esta mostrando (lojaAtual) — cai na primeira se nao escolheram.
+// Nao cria loja nenhuma aqui: senao aparece uma loja vazia na lista.
+const LOJA_VAZIA = { nome: '', contas: { tiktok: '', shopee: '' }, produtos: { tiktok: [], shopee: [] }, ts: {} };
+function lojaDoPainel() {
+  if (lojas[lojaAtual]) return lojas[lojaAtual];
+  const nomes = Object.keys(lojas);
+  return nomes.length ? lojas[nomes[0]] : LOJA_VAZIA;
+}
 
 function limpaOfertas() { // tira do ar as que ja venceram
   const agora = Date.now();
@@ -214,27 +225,43 @@ const server = http.createServer((req, res) => {
         try {
           const b = JSON.parse(corpo);
           const plat = b.plataforma === 'tiktok' ? 'tiktok' : 'shopee';
-          // as duas contas pertencem a UMA loja so' (ex.: Tokdecor12 no TikTok e na Shopee)
-          if (b.conta) minhaLoja.contas[plat] = String(b.conta).slice(0, 60);
-          if (b.loja) minhaLoja.nome = String(b.loja).slice(0, 60);
-          if (!minhaLoja.nome) minhaLoja.nome = minhaLoja.contas.tiktok || minhaLoja.contas.shopee || '';
+          // as duas contas pertencem a MESMA loja (ex.: Bellini no TikTok e na Shopee)
+          const loja = achaLoja(b.loja);
+          if (b.conta) loja.contas[plat] = String(b.conta).slice(0, 60);
           if (Array.isArray(b.produtos)) {
-            produtosPorPlat[plat] = b.produtos.slice(0, 3000);
-            produtosTs[plat] = Date.now();
-            console.log('  📦 ' + (minhaLoja.nome ? minhaLoja.nome + ' · ' : '') + plat
-              + (b.conta ? ' (' + b.conta + ')' : '') + ': ' + produtosPorPlat[plat].length + ' produto(s).');
+            loja.produtos[plat] = b.produtos.slice(0, 3000);
+            loja.ts[plat] = Date.now();
+            console.log('  📦 ' + loja.nome + ' · ' + plat + (b.conta ? ' (' + b.conta + ')' : '')
+              + ': ' + loja.produtos[plat].length + ' produto(s).');
           }
         } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
       });
       return;
     }
+    // GET /produtos            -> os da loja que o painel esta mostrando
+    // GET /produtos?loja=xxx   -> os de uma loja especifica
+    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
+    const l = qs.get('loja') ? achaLoja(qs.get('loja')) : lojaDoPainel();
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ tiktok: produtosPorPlat.tiktok, shopee: produtosPorPlat.shopee, ts: produtosTs, loja: minhaLoja }));
+    res.end(JSON.stringify({ tiktok: l.produtos.tiktok, shopee: l.produtos.shopee, ts: l.ts, loja: l }));
     return;
   }
 
-  // a MINHA loja: as duas contas (TikTok e Shopee) vistas como uma coisa so'
+  // TODAS as lojas: cada uma com as duas contas (TikTok + Shopee) vinculadas
+  if (req.url.startsWith('/lojas')) {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({
+      atual: lojaDoPainel().nome,
+      lojas: Object.values(lojas).map((l) => ({
+        nome: l.nome, contas: l.contas,
+        produtos: { tiktok: l.produtos.tiktok.length, shopee: l.produtos.shopee.length },
+      })),
+    }));
+    return;
+  }
+
+  // a loja que o painel esta mostrando (as duas contas vistas como uma coisa so')
   if (req.url.startsWith('/minha-loja')) {
     if (req.method === 'POST') {
       let corpo = '';
@@ -242,18 +269,23 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const b = JSON.parse(corpo);
-          if (b.nome != null) minhaLoja.nome = String(b.nome).slice(0, 60);
-          if (b.tiktok != null) minhaLoja.contas.tiktok = String(b.tiktok).slice(0, 60);
-          if (b.shopee != null) minhaLoja.contas.shopee = String(b.shopee).slice(0, 60);
+          const l = achaLoja(b.loja || lojaDoPainel().nome);
+          if (b.nome != null) l.nome = String(b.nome).slice(0, 60);
+          if (b.tiktok != null) l.contas.tiktok = String(b.tiktok).slice(0, 60);
+          if (b.shopee != null) l.contas.shopee = String(b.shopee).slice(0, 60);
+          if (b.selecionar) lojaAtual = l.nome;
         } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
       });
       return;
     }
+    const qs2 = new URLSearchParams((req.url.split('?')[1] || ''));
+    const l = qs2.get('loja') ? achaLoja(qs2.get('loja')) : lojaDoPainel();
     res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify({
-      nome: minhaLoja.nome, contas: minhaLoja.contas,
-      produtos: { tiktok: produtosPorPlat.tiktok.length, shopee: produtosPorPlat.shopee.length },
+      nome: l.nome, contas: l.contas,
+      produtos: { tiktok: l.produtos.tiktok.length, shopee: l.produtos.shopee.length },
+      todas: Object.keys(lojas),
     }));
     return;
   }

@@ -19,6 +19,17 @@ Painel único (página inicial): **Analytics** + **Ofertas** + **Multichat**.
 2. Vendas na hora (TikTok + Shopee): `npm run login-tiktok` e `npm run login-shopee` (1ª vez) e depois `npm run robo-vendas` durante a live — cada venda aparece no Multichat em segundos, com o logo da loja e o valor.
    - Conector na nuvem? Cole a URL do Render (ex.: `https://duolive-conector.onrender.com`) num arquivo `conector/conector.txt` — o robô passa a mandar as vendas para lá sozinho.
 3. Produtos das lojas: `npm run produtos` — lê o catálogo do TikTok e da Shopee (só leitura) e o painel de Ofertas passa a listar os produtos reais, **cada loja com o seu próprio preço**.
+
+**Várias lojas:** cada loja junta a conta do TikTok com a da Shopee. Para adicionar uma:
+
+```
+npm run login-tiktok  -- --loja bellini
+npm run login-shopee  -- --loja bellini
+npm run login-console -- --loja bellini    (Console de LIVE, p/ a oferta relâmpago)
+npm run produtos                            (lê TODAS as lojas; use --loja bellini p/ uma só)
+```
+
+As sessões ficam separadas (`sessao-tiktok-bellini.json`), então uma loja nunca apaga a outra. No painel de Ofertas aparecem abas 🏪 para trocar de loja.
 4. Oferta relâmpago de verdade:
    - **TikTok:** `npm run login-console` (1ª vez) — é o login do *Console de LIVE* (`shop.tiktok.com/streamer`), onde fica a ⚡ Oferta Relâmpago. É **outro login**, separado do `login-tiktok` do Seller Center.
    - Depois `npm run robo-oferta` (modo ensaio, não salva nada) para conferir; então `set DUOLIVE_OFERTA_REAL=1` + `npm run robo-oferta` para valer.

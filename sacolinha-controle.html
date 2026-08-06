@@ -178,6 +178,8 @@
     var alguns=false;
     produtos.forEach(function(p,i){
       if(p.plat!==aba) return;
+      // mostra os da loja escolhida + os que você criou à mão (que não têm loja)
+      if(p.daLoja && lojaEscolhida && p.loja && p.loja!==lojaEscolhida) return;
       alguns=true;
       var d=document.createElement('div'); d.className='prod';
       if(i===editando){
@@ -232,8 +234,10 @@
   // ---- buscar os produtos direto das lojas (robô de produtos, por cookies) ----
   function msgLoja(txt,cor){ var m=$('lojaMsg'); m.style.display=''; m.innerHTML=txt; m.style.color=cor||'var(--text-2)'; }
   $('btnLoja').onclick=function(){
-    msgLoja('🔄 Buscando os produtos das suas lojas…');
-    fetch(apiBase()+'/produtos',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    var qual=lojaEscolhida||'';
+    msgLoja('🔄 Buscando os produtos'+(qual?(' da <b>'+qual+'</b>'):'')+'…');
+    fetch(apiBase()+'/produtos'+(qual?('?loja='+encodeURIComponent(qual)):''),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){
       var novos=[], resumo=[];
       ['shopee','tiktok'].forEach(function(plat){
         var lista=(d&&d[plat])||[];
@@ -241,18 +245,18 @@
         lista.forEach(function(p){
           // "de" = preço normal da loja; "por" = o preço promocional que já existe lá (se houver)
           novos.push({ nome:p.nome, de:brl(p.preco), por:p.promo?brl(p.promo):'', plat:plat,
-                       id:p.id, sku:p.sku||'', daLoja:true });
+                       id:p.id, sku:p.sku||'', loja:qual, daLoja:true });
         });
         resumo.push(emoji(plat)+' '+lista.length);
       });
       if(!novos.length){
-        msgLoja('Não recebi produtos ainda. No PC, rode: <code>npm run produtos</code> (uma vez) e clique aqui de novo.','var(--warn)');
+        msgLoja('Não recebi produtos dessa loja ainda. No PC, rode: <code>npm run produtos</code> e clique aqui de novo.','var(--warn)');
         return;
       }
-      // substitui os produtos que vieram da loja, mantendo os que você criou à mão
-      produtos=produtos.filter(function(p){ return !p.daLoja; }).concat(novos);
+      // troca só os produtos DESSA loja; os das outras lojas e os feitos à mão ficam
+      produtos=produtos.filter(function(p){ return !p.daLoja || p.loja!==qual; }).concat(novos);
       editando=-1; gravar(K_PROD,produtos); renderLista();
-      msgLoja('✅ '+resumo.join(' · ')+' produto(s) das lojas. Cada loja com o <b>seu próprio preço</b>.','var(--ok)');
+      msgLoja('✅ '+resumo.join(' · ')+' produto(s) de <b>'+(qual||'sua loja')+'</b>. Cada loja com o <b>seu próprio preço</b>.','var(--ok)');
     }).catch(function(){
       msgLoja('Não consegui falar com o conector. Ele precisa estar ligado (<code>npm start</code>).','var(--warn)');
     });
@@ -263,26 +267,38 @@
   $('chkReal').onchange=function(){ $('notaReal').style.display=this.checked?'':'none'; };
 
   // ---- a MINHA loja: as duas contas (TikTok + Shopee) vistas como uma só ----
+  var lojaEscolhida=''; try{ lojaEscolhida=localStorage.getItem('ld-loja-ofertas')||''; }catch(e){}
   function mostraLoja(){
-    fetch(apiBase()+'/minha-loja',{cache:'no-store'}).then(function(r){return r.json();}).then(function(l){
-      if(!l) return;
-      var c=l.contas||{};
-      var p=(l.produtos)||{};
+    fetch(apiBase()+'/lojas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      var todas=(d&&d.lojas)||[];
+      if(!todas.length){ $('minhaLoja').style.display='none'; return; }
+      if(!lojaEscolhida || !todas.some(function(x){return x.nome===lojaEscolhida;})) lojaEscolhida=d.atual||todas[0].nome;
+      var l=todas.find(function(x){ return x.nome===lojaEscolhida; })||todas[0];
+      var c=l.contas||{}, p=l.produtos||{};
+      // abas de loja (só aparecem se você tiver mais de uma)
+      var abas='';
+      if(todas.length>1){
+        abas='<div class="abas" style="margin-bottom:5px">'+todas.map(function(x){
+          return '<span class="aba'+(x.nome===lojaEscolhida?' on':'')+'" data-loja="'+x.nome+'">🏪 '+x.nome+'</span>';
+        }).join('')+'</div>';
+      }
       var partes=[];
       if(p.tiktok) partes.push('🎵 TikTok'+(c.tiktok?(' ('+c.tiktok+')'):'')+' · '+p.tiktok+' prod.');
       if(p.shopee) partes.push('🧡 Shopee'+(c.shopee?(' ('+c.shopee+')'):'')+' · '+p.shopee+' prod.');
-      if(!partes.length && !l.nome) return;
-      $('minhaLoja').innerHTML='🏪 <b style="color:var(--text);cursor:pointer" id="lojaNomeEd" title="Clique para trocar o nome">'
-        +(l.nome||'dar nome à loja')+' ✎</b>'
-        +(partes.length?('<br><span style="color:var(--text-3)">uma loja só: '+partes.join(' &nbsp;+&nbsp; ')+'</span>'):'');
+      $('minhaLoja').innerHTML=abas
+        +'🏪 <b style="color:var(--text)">'+l.nome+'</b>'
+        +(partes.length?('<br><span style="color:var(--text-3)">uma loja só: '+partes.join(' &nbsp;+&nbsp; ')+'</span>')
+                       :'<br><span style="color:var(--warn)">sem produtos ainda — rode <code>npm run produtos</code></span>');
       $('minhaLoja').style.display='';
-      var ed=$('lojaNomeEd');
-      if(ed) ed.onclick=function(){
-        var novo=(prompt('Nome da sua loja (vale para o TikTok e a Shopee juntos):', l.nome||'')||'').trim();
-        if(!novo) return;
-        fetch(apiBase()+'/minha-loja',{method:'POST',headers:{'content-type':'application/json'},
-          body:JSON.stringify({nome:novo})}).then(mostraLoja).catch(function(){});
-      };
+      $('minhaLoja').querySelectorAll('[data-loja]').forEach(function(b){
+        b.onclick=function(){
+          lojaEscolhida=b.dataset.loja;
+          try{ localStorage.setItem('ld-loja-ofertas',lojaEscolhida); }catch(e){}
+          fetch(apiBase()+'/minha-loja',{method:'POST',headers:{'content-type':'application/json'},
+            body:JSON.stringify({loja:lojaEscolhida,selecionar:true})}).catch(function(){});
+          mostraLoja();
+        };
+      });
     }).catch(function(){});
   }
   mostraLoja();

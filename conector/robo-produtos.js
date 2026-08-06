@@ -33,33 +33,29 @@ const UMA_VEZ = process.env.DUOLIVE_UMA_VEZ === '1';
 const INTERVALO = Math.max(2, +(process.env.DUOLIVE_PRODUTOS_MIN || 10)) * 60000;
 const ARQ_CACHE = path.join(__dirname, 'produtos-cache.json');
 
-// nome da loja (junta as duas contas numa só): DUOLIVE_LOJA ou o arquivo loja.txt
-function nomeDaLoja() {
-  if (process.env.DUOLIVE_LOJA) return process.env.DUOLIVE_LOJA.trim();
-  try {
-    const t = fs.readFileSync(path.join(__dirname, 'loja.txt'), 'utf8').trim();
-    if (t) return t.split('\n')[0].trim();
-  } catch (e) {}
-  return '';
-}
-const LOJA = nomeDaLoja();
+const L = require('./lojas.js');
+// --loja bellini  lê só a Bellini; sem isso, lê TODAS as lojas que têm login
+const SO_UMA = (process.argv.indexOf('--loja') >= 0 || process.env.DUOLIVE_LOJA) ? L.lojaPedida() : '';
 
-const CONTAS = [
-  {
-    plataforma: 'tiktok',
-    sessao: path.join(__dirname, 'sessao-tiktok.json'),
-    pagina: 'https://seller-br.tiktok.com/product',
-    reUrl: /product\/local\/products\/list/i,
-    reConta: /seller\/shop\/get|shop_info|seller\/info|account\/info/i,
-  },
-  {
-    plataforma: 'shopee',
-    sessao: path.join(__dirname, 'sessao-shopee.json'),
-    pagina: 'https://seller.shopee.com.br/portal/product/list/all',
-    reUrl: /search_product_list/i,
-    reConta: /selleraccount\/shop_info|selleraccount\/user_info/i,
-  },
-];
+// as duas plataformas de cada loja (o caminho da sessão depende da loja)
+function contasDaLoja(loja) {
+  return [
+    {
+      plataforma: 'tiktok', loja: loja,
+      sessao: L.arquivoSessao('tiktok', loja),
+      pagina: 'https://seller-br.tiktok.com/product',
+      reUrl: /product\/local\/products\/list/i,
+      reConta: /seller\/shop\/get|shop_info|seller\/info|account\/info/i,
+    },
+    {
+      plataforma: 'shopee', loja: loja,
+      sessao: L.arquivoSessao('shopee', loja),
+      pagina: 'https://seller.shopee.com.br/portal/product/list/all',
+      reUrl: /search_product_list/i,
+      reConta: /selleraccount\/shop_info|selleraccount\/user_info/i,
+    },
+  ];
+}
 
 // procura o NOME da loja dentro de uma resposta do painel (ex.: "Tokdecor12").
 // Preferimos shop_name/seller_name; "username" e afins só se não houver nada melhor.
@@ -155,8 +151,8 @@ function leShopee(json) {
 }
 
 // ---------- envio para o conector ----------
-function manda(plataforma, produtos, conta) {
-  const dados = JSON.stringify({ plataforma: plataforma, produtos: produtos, loja: LOJA, conta: conta || '' });
+function manda(plataforma, produtos, conta, loja) {
+  const dados = JSON.stringify({ plataforma: plataforma, produtos: produtos, loja: loja, conta: conta || '' });
   const u = new URL(CONECTOR + '/produtos');
   const lib = u.protocol === 'https:' ? https : http;
   const req = lib.request({
@@ -169,7 +165,8 @@ function manda(plataforma, produtos, conta) {
 
 async function lerLoja(browser, conta) {
   if (!fs.existsSync(conta.sessao)) {
-    console.log('  ' + conta.plataforma + ': sem login (rode npm run login-' + conta.plataforma + '). Pulando.');
+    console.log('    ' + conta.plataforma + ': sem login desta loja (npm run login-' + conta.plataforma
+      + ' -- --loja ' + conta.loja + '). Pulando.');
     return null;
   }
   const ctx = await browser.newContext({ storageState: conta.sessao, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
@@ -249,17 +246,23 @@ async function lerLoja(browser, conta) {
 
 async function volta(browser) {
   const cache = {};
-  for (const conta of CONTAS) {
-    const r = await lerLoja(browser, conta);
-    if (!r) continue;
-    const { produtos, conta: nomeConta } = r;
-    if (!produtos.length) { console.log('  ' + conta.plataforma + ': nenhum produto lido (a pagina pode ter mudado).'); continue; }
-    manda(conta.plataforma, produtos, nomeConta);
-    cache[conta.plataforma] = produtos;
-    const ex = produtos[0];
-    console.log('  ✅ ' + conta.plataforma + (nomeConta ? ' (' + nomeConta + ')' : '') + ': ' + produtos.length
-      + ' produto(s). Ex.: ' + ex.nome.slice(0, 40)
-      + ' — R$ ' + brl(ex.preco) + (ex.promo ? (' (hoje por R$ ' + brl(ex.promo) + ')') : ''));
+  const lojas = SO_UMA ? [SO_UMA] : L.lojasComLogin();
+  if (!lojas.length) { console.log('  Nenhuma loja com login. Rode npm run login-tiktok / login-shopee.'); return; }
+  for (const loja of lojas) {
+    console.log('\n  🏪 loja: ' + loja);
+    cache[loja] = {};
+    for (const conta of contasDaLoja(loja)) {
+      const r = await lerLoja(browser, conta);
+      if (!r) continue;
+      const { produtos, conta: nomeConta } = r;
+      if (!produtos.length) { console.log('    ' + conta.plataforma + ': nenhum produto lido (a pagina pode ter mudado).'); continue; }
+      manda(conta.plataforma, produtos, nomeConta, loja);
+      cache[loja][conta.plataforma] = produtos;
+      const ex = produtos[0];
+      console.log('    ✅ ' + conta.plataforma + (nomeConta ? ' (' + nomeConta + ')' : '') + ': ' + produtos.length
+        + ' produto(s). Ex.: ' + ex.nome.slice(0, 38)
+        + ' — R$ ' + brl(ex.preco) + (ex.promo ? (' (hoje por R$ ' + brl(ex.promo) + ')') : ''));
+    }
   }
   try { fs.writeFileSync(ARQ_CACHE, JSON.stringify(cache, null, 1)); } catch (e) {}
 }

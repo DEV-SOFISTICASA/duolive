@@ -4,12 +4,15 @@
 // Quando terminar de logar, volte aqui e aperte Enter — a sessão (cookies)
 // fica guardada no arquivo sessao-shopee.json, só no seu PC.
 //
-// Como usar:  npm run login-shopee
+// Como usar:  npm run login-shopee -- --loja bellini
+// (sem --loja vale para a loja "principal"; cada loja guarda a sua sessão)
 
 const { chromium } = require('playwright-core');
 const path = require('path');
+const L = require('./lojas.js');
 
-const ARQ = path.join(__dirname, 'sessao-shopee.json');
+const LOJA = L.lojaPedida();
+const ARQ = path.join(__dirname, 'sessao-shopee-' + LOJA + '.json');
 
 (async () => {
   let browser;
@@ -27,6 +30,7 @@ const ARQ = path.join(__dirname, 'sessao-shopee.json');
   await page.goto('https://creator.shopee.com.br');
 
   console.log('');
+  console.log('  Loja: ' + LOJA);
   console.log('  1. Na janela que abriu, FACA O LOGIN na conta da Shopee da sua loja.');
   console.log('  2. Quando estiver dentro do painel, volte aqui e aperte Enter.');
   console.log('');
