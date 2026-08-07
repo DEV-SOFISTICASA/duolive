@@ -21,6 +21,7 @@ const COOKIES = require('./cookies.js');
 const AUTH = require('./auth.js');
 const SB = require('./supabase.js');
 const CONTAS = require('./contas.js');
+const OFERTAS = require('./ofertas.js');
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
@@ -509,6 +510,36 @@ const server = http.createServer((req, res) => {
       produtos: { tiktok: l.produtos.tiktok.length, shopee: l.produtos.shopee.length },
       todas: Object.keys(lojas),
     }));
+    return;
+  }
+
+  // ---------- Descontos fixos (conjunto + exceção), salvos no Supabase ----------
+  // O ADM configura no painel e FICA salvo até mudar. Conjunto (sku vazio) vale para
+  // todas as estampas; exceção (com sku) sobrepõe UMA estampa. Vendedora só enxerga.
+  if (req.url.startsWith('/descontos') && req.method === 'GET') {
+    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
+    const loja = qs.get('loja') || lojaAtual || '';
+    const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
+    res.setHeader('content-type', 'application/json');
+    OFERTAS.listar(loja)
+      .then((l) => res.end(JSON.stringify({ ok: true, loja: loja, ehAdm: ehAdm, descontos: l })))
+      .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
+    return;
+  }
+  if ((req.url.startsWith('/desconto-salvar') || req.url.startsWith('/desconto-remover')) && req.method === 'POST') {
+    const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
+    if (!ehAdm) { res.statusCode = 403; res.setHeader('content-type', 'application/json'); res.end('{"ok":false,"erro":"So o ADM edita os descontos."}'); return; }
+    const remover = req.url.startsWith('/desconto-remover');
+    let corpo = '';
+    req.on('data', (d) => { corpo += d; if (corpo.length > 65536) req.destroy(); });
+    req.on('end', () => {
+      let b; try { b = JSON.parse(corpo); } catch (e) { b = null; }
+      res.setHeader('content-type', 'application/json');
+      if (!b || !b.loja || !b.produto_id) { res.statusCode = 400; res.end('{"ok":false,"erro":"faltou loja/produto"}'); return; }
+      const acao = remover ? OFERTAS.remover(b) : OFERTAS.salvar(b);
+      acao.then(() => res.end('{"ok":true}'))
+        .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
+    });
     return;
   }
 

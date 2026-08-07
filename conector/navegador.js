@@ -25,6 +25,17 @@ function achaBrave() {
 // tenta Chrome, depois Edge, depois Brave. Se não tiver nenhum, explica e encerra.
 // Diz na tela qual abriu — quando algo dá errado, essa é a primeira pergunta.
 async function abreNavegador(invisivel) {
+  // Na NUVEM (Render/Docker) não existe Chrome/Edge/Brave instalado: usamos o
+  // Chromium que já vem junto do Playwright, com as flags que todo contêiner
+  // exige (sem sandbox, sem depender de /dev/shm). Liga com DUOLIVE_CHROMIUM_NUVEM=1.
+  if (process.env.DUOLIVE_CHROMIUM_NUVEM === '1' || process.env.DUOLIVE_NUVEM === '1') {
+    const b = await chromium.launch({
+      headless: invisivel !== false,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-first-run'],
+    });
+    console.log('  (usando o Chromium do Playwright — modo nuvem)');
+    return b;
+  }
   try {
     const b = await chromium.launch({ headless: invisivel, channel: 'chrome' });
     console.log('  (usando o Google Chrome)');

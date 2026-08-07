@@ -47,11 +47,56 @@
   .chk input{width:auto}
   .note{font-size:10.5px;color:var(--text-3);line-height:1.45;margin-top:10px}
   .vazio{font-size:11.5px;color:var(--text-3);padding:6px 2px;line-height:1.6}
+  /* ---- Ofertas fixas (conjunto + estampa), salvas no Supabase ---- */
+  #fixCard{border-color:rgba(74,222,128,.35)}
+  .fix{display:flex;gap:9px;align-items:flex-start;padding:9px 2px;border-bottom:1px solid var(--line)}
+  .fix:last-child{border-bottom:none}
+  .fix .th{width:42px;height:42px;border-radius:7px;object-fit:cover;background:var(--card-2);flex:none;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-3)}
+  .fix .cnt{flex:1;min-width:0}
+  .fix .nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fix .lin{display:flex;align-items:center;gap:7px;margin-top:4px;flex-wrap:wrap}
+  .fix s{color:var(--text-3);font-size:11px}
+  .fix .porTxt{color:var(--ok);font-weight:700}
+  .fix .pct{color:var(--warn);font-size:11px}
+  .miniIn{width:76px;background:var(--card-2);border:1px solid var(--line);border-radius:6px;padding:4px 7px;color:var(--text);font-size:12px}
+  .miniIn:focus{outline:none;border-color:var(--accent)}
+  .de{font-size:10px;color:var(--text-3)}
+  .salvoOk{color:var(--ok);font-size:10.5px;opacity:0;transition:opacity .2s}
+  .salvoOk.on{opacity:1}
+  .estBox{margin:7px 0 0 51px}
+  .est{display:flex;align-items:center;gap:6px;padding:3px 0}
+  .est .en{flex:1;font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .exp{background:none;border:none;color:var(--azul);font-size:11px;cursor:pointer;padding:2px 3px}
+  .pickWrap{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:18px 12px}
+  .pickBox{background:var(--card);border:1px solid var(--line);border-radius:12px;width:100%;max-width:430px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+  .pickTop{padding:10px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+  .pickTop input{flex:1}
+  .pickList{overflow-y:auto;padding:4px 6px}
+  .pickItem{display:flex;gap:8px;align-items:center;padding:6px;border-radius:8px;cursor:pointer}
+  .pickItem:hover{background:var(--card-2)}
+  .pickItem .th{width:38px;height:38px;border-radius:6px;object-fit:cover;background:var(--card-2);flex:none}
+  .pickItem .pn{flex:1;min-width:0}
+  .pickItem .pn b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pickItem .pn span{font-size:10.5px;color:var(--text-3)}
 </style>
 </head>
 <body>
   <h1>🛍️ Ofertas da live</h1>
   <div class="sub" id="minhaLoja" style="display:none"></div>
+
+  <!-- Ofertas fixas: o desconto do conjunto (e a exceção de cada estampa) ficam
+       salvos até o ADM mudar. As vendedoras só enxergam; quem edita é o ADM. -->
+  <div class="card" id="fixCard" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <b style="font-size:12.5px">💾 Ofertas fixas <span style="color:var(--text-3);font-weight:400">— ficam salvas até mudar</span></b>
+      <span id="fixQuem" style="font-size:10.5px;color:var(--text-3)"></span>
+    </div>
+    <div id="fixLista" style="margin-top:8px"></div>
+    <div id="fixAdd" style="margin-top:10px;display:none">
+      <button class="btn mini" id="btnFixAdd" style="background:var(--ok);color:#04120a">+ Adicionar produto</button>
+      <button class="btn ghost mini" id="btnFixManual">✍️ Digitar à mão</button>
+    </div>
+  </div>
 
   <div class="card" id="atual" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -301,6 +346,7 @@
           fetch(apiBase()+'/minha-loja',{method:'POST',headers:{'content-type':'application/json'},
             body:JSON.stringify({loja:lojaEscolhida,selecionar:true})}).catch(function(){});
           mostraLoja();
+          try{ carregaFixas(); }catch(e){}   // troquei de loja: recarrega as ofertas fixas dela
         };
       });
     }).catch(function(){});
@@ -488,6 +534,182 @@
       if(mudou){ try{ localStorage.setItem(K_OFERTA,JSON.stringify(juntas)); }catch(e){} renderAtual(); }
     }).catch(function(){});
   }
+
+  // ======== Ofertas fixas (conjunto + estampa) — salvas no Supabase; só o ADM edita ========
+  var fixEhAdm=false, fixEditando=false;
+  function brlNum(s){ s=String(s==null?'':s).replace(/[^\d.,]/g,''); if(!s) return null; if(s.indexOf(',')>=0&&s.indexOf('.')>=0) s=s.replace(/\./g,''); s=s.replace(',','.'); var n=parseFloat(s); return isNaN(n)?null:n; }
+  function pctOff(de,por){ de=+de; por=+por; if(de>0&&por>0&&por<de) return '−'+Math.round(100*(1-por/de))+'%'; return ''; }
+  function slug(s){ return String(s).normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]','g'),'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40); }
+
+  // salva/atualiza uma linha (conjunto = sku vazio; estampa = sku preenchido)
+  function salvaFix(o, aoOk){
+    o.loja=lojaEscolhida||''; o.plataforma=o.plataforma||'tiktok';
+    return fetch(apiBase()+'/desconto-salvar',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(o)})
+      .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok&&aoOk) aoOk(); return d; })
+      .catch(function(){});
+  }
+  function removeFix(o){
+    return fetch(apiBase()+'/desconto-remover',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({loja:lojaEscolhida||'', produto_id:o.produto_id, sku:o.sku||null})}).then(function(r){return r.json();}).catch(function(){});
+  }
+  function carregaFixas(){
+    var loja=lojaEscolhida||'';
+    fetch(apiBase()+'/descontos'+(loja?('?loja='+encodeURIComponent(loja)):''),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!d||!d.ok) return;
+        fixEhAdm=!!d.ehAdm;
+        $('fixCard').style.display='';
+        $('fixAdd').style.display=fixEhAdm?'':'none';
+        $('fixQuem').textContent=fixEhAdm?'você é o ADM · edita os valores':'só o ADM edita';
+        if(!fixEditando) renderFixas(d.descontos||[]);
+      }).catch(function(){ /* conector offline: mantém o card escondido */ });
+  }
+  function agrupaFixas(descontos){
+    var g={}, ordem=[];
+    descontos.forEach(function(o){
+      var k=String(o.produto_id||'');
+      if(!g[k]){ g[k]={id:k, conj:null, estampas:[]}; ordem.push(k); }
+      if(o.sku) g[k].estampas.push(o); else g[k].conj=o;
+    });
+    return ordem.map(function(k){ return g[k]; });
+  }
+  // um campo de preço que grava sozinho ~0,7s depois de você parar de digitar
+  function campoPreco(valor, salvar){
+    var wrap=document.createElement('span'); wrap.style.cssText='display:inline-flex;align-items:center;gap:6px';
+    var i=document.createElement('input'); i.className='miniIn'; i.setAttribute('inputmode','decimal'); i.placeholder='0,00';
+    if(valor!=null) i.value=brl(valor);
+    var ok=document.createElement('span'); ok.className='salvoOk'; ok.textContent='salvo ✓';
+    i.addEventListener('focus',function(){ fixEditando=true; });
+    i.addEventListener('blur',function(){ setTimeout(function(){ fixEditando=false; },400); });
+    i.addEventListener('input',function(){
+      clearTimeout(i._t); i._t=setTimeout(function(){
+        salvar(brlNum(i.value), function(){ ok.classList.add('on'); setTimeout(function(){ ok.classList.remove('on'); },1300); });
+      },700);
+    });
+    wrap.appendChild(i); wrap.appendChild(ok);
+    return wrap;
+  }
+  function iconeVazio(){ var e=document.createElement('div'); e.className='th'; e.textContent='🛍️'; return e; }
+  function atualizaPct(lin,de,por){ var p=lin.querySelector('[data-pct]'); if(p) p.textContent=pctOff(de,por); }
+
+  function linhaConjunto(gp){
+    var c=gp.conj||{produto_id:gp.id};
+    var d=document.createElement('div'); d.className='fix';
+    var th; if(c.imagem){ th=document.createElement('img'); th.className='th'; th.src=c.imagem; th.onerror=function(){ this.replaceWith(iconeVazio()); }; } else th=iconeVazio();
+    d.appendChild(th);
+    var cnt=document.createElement('div'); cnt.className='cnt';
+    var nm=document.createElement('div'); nm.className='nm'; nm.textContent=c.nome||'(produto)'; cnt.appendChild(nm);
+    var lin=document.createElement('div'); lin.className='lin';
+    if(c.valor_normal!=null){ var s=document.createElement('s'); s.textContent='R$ '+brl(c.valor_normal); lin.appendChild(s); }
+    if(fixEhAdm){
+      var lb=document.createElement('span'); lb.className='de'; lb.textContent='por R$'; lin.appendChild(lb);
+      lin.appendChild(campoPreco(c.valor_desconto, function(v,ok){
+        salvaFix({produto_id:gp.id, sku:null, nome:c.nome, imagem:c.imagem, valor_normal:c.valor_normal, valor_desconto:v}, function(){ c.valor_desconto=v; ok(); atualizaPct(lin,c.valor_normal,v); });
+      }));
+    } else {
+      var por=document.createElement('span'); por.className='porTxt'; por.textContent=c.valor_desconto!=null?('R$ '+brl(c.valor_desconto)):'—'; lin.appendChild(por);
+    }
+    var pct=document.createElement('span'); pct.className='pct'; pct.dataset.pct='1'; pct.textContent=pctOff(c.valor_normal,c.valor_desconto); lin.appendChild(pct);
+    cnt.appendChild(lin);
+    var nEst=gp.estampas.length;
+    if(nEst || fixEhAdm){
+      var exp=document.createElement('button'); exp.className='exp'; exp.textContent='▸ estampas'+(nEst?(' ('+nEst+')'):'');
+      var estBox=document.createElement('div'); estBox.className='estBox'; estBox.style.display='none';
+      exp.onclick=function(){ var ab=estBox.style.display==='none'; estBox.style.display=ab?'':'none'; exp.textContent=(ab?'▾':'▸')+' estampas'+(nEst?(' ('+nEst+')'):''); if(ab) montaEstampas(estBox,gp,c); };
+      cnt.appendChild(exp); cnt.appendChild(estBox);
+    }
+    d.appendChild(cnt);
+    if(fixEhAdm){
+      var x=document.createElement('button'); x.className='x'; x.title='Tirar da oferta'; x.textContent='✕';
+      x.onclick=function(){ if(!confirm('Tirar "'+(c.nome||'este produto')+'" das ofertas fixas?')) return; removeFix({produto_id:gp.id,sku:null}).then(carregaFixas); };
+      d.appendChild(x);
+    }
+    return d;
+  }
+  function montaEstampas(box, gp, conj){
+    box.innerHTML='';
+    gp.estampas.forEach(function(es){
+      var row=document.createElement('div'); row.className='est';
+      var en=document.createElement('div'); en.className='en'; en.textContent=es.variacao_nome||es.sku; row.appendChild(en);
+      if(fixEhAdm){
+        var lb=document.createElement('span'); lb.className='de'; lb.textContent='R$'; row.appendChild(lb);
+        row.appendChild(campoPreco(es.valor_desconto, function(v,ok){
+          salvaFix({produto_id:gp.id, sku:es.sku, nome:conj.nome, imagem:conj.imagem, valor_normal:conj.valor_normal, variacao_nome:es.variacao_nome, valor_desconto:v}, function(){ es.valor_desconto=v; ok(); });
+        }));
+        var x=document.createElement('button'); x.className='x'; x.textContent='✕'; x.title='Tirar a exceção';
+        x.onclick=function(){ removeFix({produto_id:gp.id,sku:es.sku}).then(function(){ gp.estampas=gp.estampas.filter(function(z){return z.sku!==es.sku;}); montaEstampas(box,gp,conj); }); };
+        row.appendChild(x);
+      } else {
+        var v=document.createElement('span'); v.className='porTxt'; v.textContent=es.valor_desconto!=null?('R$ '+brl(es.valor_desconto)):'—'; row.appendChild(v);
+      }
+      box.appendChild(row);
+    });
+    if(fixEhAdm){
+      var add=document.createElement('button'); add.className='exp'; add.textContent='+ estampa';
+      add.onclick=function(){
+        var nome=(prompt('Nome da estampa (ex.: Folhas, Dubai):','')||'').trim();
+        if(!nome) return;
+        var sku=slug(nome); if(!sku) return;
+        salvaFix({produto_id:gp.id, sku:sku, nome:conj.nome, imagem:conj.imagem, valor_normal:conj.valor_normal, variacao_nome:nome, valor_desconto:null}, function(){
+          gp.estampas.push({produto_id:gp.id, sku:sku, variacao_nome:nome, valor_desconto:null}); montaEstampas(box,gp,conj);
+        });
+      };
+      box.appendChild(add);
+    }
+  }
+  function renderFixas(descontos){
+    var el=$('fixLista'); el.innerHTML='';
+    var grupos=agrupaFixas(descontos);
+    if(!grupos.length){
+      el.innerHTML='<div class="vazio">'+(fixEhAdm
+        ? 'Nenhuma oferta fixa ainda. Toque em <b>+ Adicionar produto</b> — o desconto que você puser fica salvo até mudar.'
+        : 'Sem ofertas fixas ainda. O ADM define os descontos aqui.')+'</div>';
+      return;
+    }
+    grupos.forEach(function(gp){ el.appendChild(linhaConjunto(gp)); });
+  }
+  // adicionar produto: escolher do catálogo do TikTok (imagem + valor normal vêm de lá)
+  function abrePicker(){
+    var loja=lojaEscolhida||'';
+    var wrap=document.createElement('div'); wrap.className='pickWrap';
+    wrap.innerHTML='<div class="pickBox"><div class="pickTop"><input id="pkBusca" placeholder="Buscar produto…"><button class="btn ghost mini" id="pkFecha">✕</button></div><div class="pickList" id="pkList"><div class="vazio">Buscando os produtos…</div></div></div>';
+    document.body.appendChild(wrap);
+    wrap.addEventListener('click',function(e){ if(e.target===wrap) wrap.remove(); });
+    wrap.querySelector('#pkFecha').onclick=function(){ wrap.remove(); };
+    var todos=[];
+    function pinta(filtro){
+      var lst=wrap.querySelector('#pkList'); lst.innerHTML='';
+      var f=slug(filtro||'');
+      var vis=todos.filter(function(p){ return !f || slug(p.nome).indexOf(f)>=0; }).slice(0,60);
+      if(!vis.length){ lst.innerHTML='<div class="vazio">Nada encontrado. No PC rode <code>npm run produtos</code> para atualizar o catálogo.</div>'; return; }
+      vis.forEach(function(p){
+        var it=document.createElement('div'); it.className='pickItem';
+        it.innerHTML='<img class="th" src="'+(p.imagem||'')+'" onerror="this.style.visibility=\'hidden\'"><div class="pn"><b></b><span>'+(p.preco?('R$ '+brl(p.preco)):'sem preço')+(p.variacoes>1?(' · '+p.variacoes+' variações'):'')+'</span></div>';
+        it.querySelector('b').textContent=p.nome;
+        it.onclick=function(){ salvaFix({produto_id:p.id, sku:null, nome:p.nome, imagem:p.imagem, valor_normal:p.preco||null, valor_desconto:null, plataforma:p.plataforma||'tiktok'}, function(){ wrap.remove(); carregaFixas(); }); };
+        lst.appendChild(it);
+      });
+    }
+    fetch(apiBase()+'/produtos'+(loja?('?loja='+encodeURIComponent(loja)):''),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){
+        todos=((d&&d.tiktok)||[]).concat((d&&d.shopee)||[]);
+        if(!todos.length){ wrap.querySelector('#pkList').innerHTML='<div class="vazio">Catálogo vazio. No PC rode <code>npm run produtos</code> e tente de novo.</div>'; return; }
+        pinta('');
+      }).catch(function(){ wrap.querySelector('#pkList').innerHTML='<div class="vazio">Não consegui falar com o conector.</div>'; });
+    var busca=wrap.querySelector('#pkBusca'); busca.oninput=function(){ pinta(busca.value); }; busca.focus();
+  }
+  // adicionar à mão (produto fora do catálogo, ex.: Rubi/Franjas) — Claude põe a imagem depois
+  function addManual(){
+    var nome=(prompt('Nome do produto/conjunto (ex.: Kit Cozinha Rubi):','')||'').trim();
+    if(!nome) return;
+    var de=brlNum(prompt('Valor normal — De R$ (pode deixar em branco):','')||'');
+    var por=brlNum(prompt('Desconto — Por R$ (pode deixar em branco):','')||'');
+    salvaFix({produto_id:'manual-'+slug(nome), sku:null, nome:nome, imagem:'', valor_normal:de, valor_desconto:por}, carregaFixas);
+  }
+  if($('btnFixAdd')) $('btnFixAdd').onclick=abrePicker;
+  if($('btnFixManual')) $('btnFixManual').onclick=addManual;
+  carregaFixas();
+  setInterval(function(){ if(!fixEditando) carregaFixas(); }, 12000);
 
   renderLista(); renderAtual();
   setInterval(renderAtual,500);

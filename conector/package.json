@@ -18,11 +18,13 @@
     "robo-console": "node robo-console.js",
     "subir-sessoes": "node subir-sessoes.js",
     "baixar-sessoes": "node baixar-sessoes.js",
+    "empacotar-sessoes": "node empacotar-sessoes.js",
+    "robo-nuvem": "node robo-nuvem.js",
     "test": "node testes/rodar-tudo.js"
   },
   "engines": { "node": ">=18" },
   "dependencies": {
-    "playwright-core": "^1.48.0",
+    "playwright-core": "1.48.0",
     "tiktok-live-connector": "^2.4.3",
     "ws": "^8.18.0"
   }

@@ -106,9 +106,11 @@ function leTikTok(json) {
       const b = (s && s.base_price) || {};
       const v = num(b.sale_price);
       const pr = num(b.promotion_price);
-      if (v && (!normal || v < normal)) { normal = v; skuId = String(s.id || ''); }
+      // o SKU que o lojista reconhece é o seller_sku (ex.: KIT-COZ-CRU), não o id interno
+      if (v && (!normal || v < normal)) { normal = v; skuId = String(s.seller_sku || s.id || ''); }
       if (pr && (!promo || pr < promo)) promo = pr;
     });
+    if (!skuId && skus[0]) skuId = String(skus[0].seller_sku || skus[0].id || '');
     if (!normal) normal = num((p.sale_price_ranges || [])[0] && p.sale_price_ranges[0].price_range);
     const img = (p.image && (p.image.url_list || p.image.thumb_url_list) || [])[0] || '';
     return {

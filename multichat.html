@@ -190,6 +190,7 @@
     vendas.push({valor:v, plataforma:platVenda, quem:quem, ts:Date.now()});
     gravaVendas();
     add('venda','🛒', quem||'Venda anotada', 'comprou'+(v?(' · R$ '+dinheiro(v)):''), Date.now(), platVenda);
+    mostraCompra(quem||'Venda', 'comprou'+(v?(' · R$ '+dinheiro(v)):''), platVenda);
     $('vValor').value=''; $('vQuem').value=''; $('formVenda').style.display='none';
   };
   $('vValor').addEventListener('keydown',function(e){ if(e.key==='Enter') $('btnVendaOk').click(); });
@@ -218,7 +219,36 @@
     else if(ev.tipo==='presente') add('presente','🎁',ev.quem,'mandou '+(ev.qtd>1?ev.qtd+'× ':'')+(ev.presente||'presente'),ev.ts,p);
     else if(ev.tipo==='entrada') add('entrada','👋',ev.quem,'entrou na live',ev.ts,p);
     else if(ev.tipo==='share') add('share','🔁',ev.quem,'compartilhou a live',ev.ts,p);
-    else if(ev.tipo==='venda') add('venda','🛒',ev.quem||'Venda',ev.texto||'',ev.ts,p);
+    else if(ev.tipo==='venda'){ add('venda','🛒',ev.quem||'Venda',ev.texto||'',ev.ts,p); mostraCompra(ev.quem, ev.texto, p); }
+  }
+
+  // ---- splash "COMPRA!" na tela a cada venda (~4s) — some sozinho ----
+  (function(){
+    var css=document.createElement('style');
+    css.textContent="#compraOv{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .25s}"
+      +"#compraOv.on{opacity:1}"
+      +"#compraOv .raios{position:absolute;width:150vmax;height:150vmax;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,214,0,0) 0deg 6deg,rgba(255,214,0,.30) 6deg 12deg,rgba(255,0,0,0) 12deg 18deg,rgba(255,70,70,.24) 18deg 24deg);animation:ldGira 9s linear infinite}"
+      +"#compraOv .miolo{position:relative;text-align:center;padding:0 16px}"
+      +"#compraOv.on .miolo{animation:ldPop .5s cubic-bezier(.2,1.4,.4,1)}"
+      +"#compraOv .bang{font-family:'Arial Black',Arial,sans-serif;font-weight:900;font-size:min(22vw,190px);line-height:.9;color:#b00020;-webkit-text-stroke:6px #ffd600;text-shadow:0 6px 0 rgba(0,0,0,.15),0 0 30px rgba(255,70,70,.6);letter-spacing:-2px}"
+      +"#compraOv .quemV{margin-top:10px;font-weight:800;font-size:min(5vw,34px);color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.7)}"
+      +"#compraOv .valorV{margin-top:2px;font-weight:900;font-size:min(9vw,64px);color:#4ade80;text-shadow:0 3px 14px rgba(0,0,0,.75)}"
+      +"@keyframes ldGira{to{transform:rotate(360deg)}}"
+      +"@keyframes ldPop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1)}}";
+    document.head.appendChild(css);
+    var ov=document.createElement('div'); ov.id='compraOv';
+    ov.innerHTML='<div class="raios"></div><div class="miolo"><div class="bang">COMPRA!</div><div class="quemV"></div><div class="valorV"></div></div>';
+    document.body.appendChild(ov);
+  })();
+  var compraTimer=null;
+  function mostraCompra(quem, texto, plat){
+    var ov=document.getElementById('compraOv'); if(!ov) return;
+    var m=String(texto||'').match(/R\$\s*[\d.,]+/);
+    ov.querySelector('.valorV').textContent=m?m[0]:'';
+    ov.querySelector('.quemV').textContent=(plat==='shopee'?'🧡 ':'🎵 ')+(quem||'Alguém')+' comprou';
+    ov.classList.remove('on'); void ov.offsetWidth; ov.classList.add('on'); // reinicia a animação
+    clearTimeout(compraTimer);
+    compraTimer=setTimeout(function(){ ov.classList.remove('on'); }, 4200);
   }
 
   function conecta(){

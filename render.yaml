@@ -34,3 +34,26 @@ services:
         sync: false          # https://XXXX.supabase.co (do projeto duolive)
       - key: SUPABASE_KEY
         sync: false          # a chave SECRETA (service_role) do Supabase
+
+  # ----------------------------------------------------------------------------
+  # Robô de vendas 24h NA NUVEM: um navegador de verdade (Chromium) num contêiner,
+  # lendo o Gerenciador de LIVE e mandando as vendas para o web service acima.
+  # Fica SEPARADO do painel — se o robô reiniciar, o painel nem sente.
+  #
+  # Além das variáveis abaixo, suba no painel do Render (deste serviço):
+  #   Environment > Secret Files > Add Secret File
+  #     Filename: sessoes.cofre   (gere no PC com:  npm run empacotar-sessoes)
+  # ----------------------------------------------------------------------------
+  - type: worker
+    name: duolive-robo
+    runtime: docker
+    dockerfilePath: conector/Dockerfile   # caminhos a partir da raiz do repositório
+    dockerContext: conector
+    plan: starter          # se reiniciar por falta de memória, troque para "standard"
+    envVars:
+      - key: DUOLIVE_CONECTOR
+        sync: false          # a URL pública do web service (ex.: https://duolive-conector-jipn.onrender.com)
+      - key: DUOLIVE_TOKEN
+        sync: false          # o MESMO crachá (DUOLIVE_TOKEN) do web service
+      - key: DUOLIVE_SENHA
+        sync: false          # a senha do cofre (a de: npm run empacotar-sessoes)

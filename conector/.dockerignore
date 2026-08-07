@@ -1,0 +1,27 @@
+# O robô da nuvem NÃO deve carregar logins nem segredos dentro da imagem —
+# eles chegam pelo Secret File (sessoes.cofre) e pelas variáveis do Render.
+node_modules
+npm-debug.log
+
+# logins e cofres (nunca vão para dentro da imagem)
+sessao-*.json
+*.anterior
+sessoes.cofre
+*.cofre
+.cofre-nuvem
+
+# arquivos de segredo/config locais
+cofre.txt
+cofre.exemplo.txt
+conector.txt
+chave-*.txt
+senha-*.txt
+minhas-lojas.txt
+link-atual.txt
+
+# ferramentas e dados locais que a nuvem não precisa
+cloudflared.exe
+produtos-cache.json
+descoberta-*.json
+descoberta-ws.json
+testes/dados

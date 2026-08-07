@@ -89,6 +89,11 @@ function contasDaLoja(loja) {
     });
   }
 
+  // Modo nuvem/leve (DUOLIVE_SO_CONSOLE=1): vigia SÓ o Gerenciador de LIVE — o
+  // feed instantâneo com valor, que é o que importa na live. Um navegador com uma
+  // aba só cabe numa máquina pequena (Render) e evita 3 sessões abertas de uma vez.
+  if (process.env.DUOLIVE_SO_CONSOLE === '1') return lista;
+
   // 2) Seller Center — a lista de pedidos "oficial". Continua valendo: pega o que
   //    o console nao mostrar e serve de rede de seguranca. Pedido repetido nos
   //    dois lugares avisa uma vez so' (a conferencia e' por numero do pedido).
@@ -648,5 +653,6 @@ async function principal() {
 }
 
 if (require.main === module) principal();
-// exporta o leitor para testes (não liga o robô quando importado)
-module.exports = { parsePedido: parsePedido, garimpa: garimpa, achaValor: achaValor, CONTAS: CONTAS };
+// exporta o leitor para testes e o principal() para o modo nuvem (robo-nuvem.js),
+// que prepara as sessões e chama principal() — sem religar quando só importado.
+module.exports = { parsePedido: parsePedido, garimpa: garimpa, achaValor: achaValor, CONTAS: CONTAS, principal: principal };
