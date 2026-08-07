@@ -241,8 +241,17 @@ const server = http.createServer((req, res) => {
   if (req.url.split('?')[0] === '/eu') {
     res.setHeader('content-type', 'application/json');
     const u = req.usuario || null;
-    if (u && u.papel === 'vendedora' && u.sigla) { siglaAtiva = u.sigla; siglaAtivaTs = Date.now(); }
-    res.end(JSON.stringify(u ? { sigla: u.sigla, nome: u.nome, papel: u.papel } : {}));
+    if (!u) { res.end('{}'); return; }
+    if (u.papel === 'vendedora' && u.sigla) { siglaAtiva = u.sigla; siglaAtivaTs = Date.now(); }
+    // busca o nome ATUAL no banco: o cracha (cookie) pode ter um nome antigo, ex.
+    // depois de renomear a vendedora. Assim o painel mostra o nome certo sem relogar.
+    if (SB.ativo() && u.sigla) {
+      SB.seleciona('usuarios', 'sigla=eq.' + encodeURIComponent(u.sigla) + '&select=nome,papel&limit=1')
+        .then((r) => { const a = r && r[0]; res.end(JSON.stringify({ sigla: u.sigla, nome: (a && a.nome) || u.nome, papel: (a && a.papel) || u.papel })); })
+        .catch(() => res.end(JSON.stringify({ sigla: u.sigla, nome: u.nome, papel: u.papel })));
+      return;
+    }
+    res.end(JSON.stringify({ sigla: u.sigla, nome: u.nome, papel: u.papel }));
     return;
   }
 
