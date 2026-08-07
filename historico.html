@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DuoLive · Histórico de vendas</title>
+<style>
+  :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:16px;max-width:1100px;margin:0 auto}
+  .topo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+  h1{font-size:17px;flex:1;min-width:180px}
+  .eu{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
+  .eu b{color:var(--text)}
+  .sair{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer}
+  .sair:hover{border-color:var(--accent);color:var(--text)}
+  .sub{font-size:11.5px;color:var(--text-3);margin-bottom:14px}
+  .filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{font-size:12px;padding:5px 14px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none;background:var(--card)}
+  .chip.on{color:var(--text);border-color:var(--accent);background:rgba(255,92,53,.14)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card small{font-size:10.5px;color:var(--text-3);display:block}
+  .card b{font-size:21px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .pessoas{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
+  .pessoa{background:var(--card);border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:9px 13px;min-width:130px}
+  .pessoa .nm{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .pessoa .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .pessoa .vl{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px}
+  .pessoa .qt{font-size:12px;color:var(--text-2);font-weight:700;margin-top:1px}
+  .graf{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 8px 8px}
+  .graf h2{font-size:12px;color:var(--text-2);font-weight:600;margin:0 8px 12px}
+  .barras{display:flex;align-items:flex-end;gap:10px;height:230px;overflow-x:auto;padding:0 8px 4px}
+  .col{flex:0 0 auto;width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
+  .col .val{font-size:10px;color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .stack{width:34px;display:flex;flex-direction:column-reverse;border-radius:5px 5px 0 0;overflow:hidden;min-height:3px}
+  .seg{width:100%}
+  .col .hora{font-size:9.5px;color:var(--text-3);text-align:center;line-height:1.25;white-space:nowrap}
+  .legenda{display:flex;gap:12px;flex-wrap:wrap;margin:12px 8px 2px;font-size:11px;color:var(--text-2)}
+  .legenda span{display:inline-flex;align-items:center;gap:5px}
+  .legenda i{width:10px;height:10px;border-radius:2px;display:inline-block}
+  .vazio{color:var(--text-3);font-size:12.5px;padding:26px 10px;text-align:center;line-height:1.7}
+  .erro{display:none;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:12.5px;color:var(--text-2)}
+</style>
+</head>
+<body>
+  <div class="topo">
+    <h1>📈 Histórico de vendas</h1>
+    <div class="eu" id="eu" style="display:none">👤 <b id="euNome"></b> <button class="sair" onclick="location.href='/sair'">Sair</button></div>
+  </div>
+  <div class="sub" id="sub">Cada barra é uma <b>live</b> (pelo horário que ela começou). A cor mostra <b>quem vendeu</b>.</div>
+
+  <div class="filtros" id="filtros">
+    <span class="chip" data-d="1">Hoje</span>
+    <span class="chip on" data-d="7">7 dias</span>
+    <span class="chip" data-d="30">30 dias</span>
+  </div>
+
+  <div class="cards">
+    <div class="card"><small>💰 Total no período</small><b id="cTotal" style="color:var(--ok)">R$ 0,00</b></div>
+    <div class="card"><small>🛒 Vendas</small><b id="cQtd">0</b></div>
+    <div class="card"><small>📺 Lives</small><b id="cLives">0</b></div>
+  </div>
+
+  <div class="pessoas" id="pessoas"></div>
+
+  <div class="graf">
+    <h2 id="grafTit">Vendas por live</h2>
+    <div class="barras" id="barras"></div>
+    <div class="legenda" id="legenda"></div>
+    <div class="vazio" id="vazio" style="display:none"></div>
+  </div>
+  <div class="erro" id="erro">Não consegui carregar o histórico agora. Recarregue a página (F5).</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var dias=7, ehAdm=false, papel=null, minhaSigla=null;
+  function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function corDe(cores,sig){ return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
+  function nomeDe(cores,sig){ if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
+  function quando(ms){ var d=new Date(ms); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+
+  // quem está logado (nome + Sair)
+  fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).then(function(u){
+    if(u&&u.nome){ $('euNome').textContent=u.nome+(u.papel==='adm'?' (ADM)':''); $('eu').style.display=''; }
+  }).catch(function(){});
+
+  $('filtros').addEventListener('click',function(e){
+    var c=e.target.closest('.chip'); if(!c) return;
+    dias=+c.dataset.d;
+    document.querySelectorAll('#filtros .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
+    carregar();
+  });
+
+  function carregar(){
+    fetch('/vendas-historico?dias='+dias,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(!d||!d.ok){ $('erro').style.display='block'; return; }
+      $('erro').style.display='none';
+      ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla;
+      $('sub').innerHTML = (papel==='vendedora')
+        ? 'Você vê só as <b>suas</b> vendas. Cada barra é uma <b>live</b> (pelo horário que começou).'
+        : 'Cada barra é uma <b>live</b> (pelo horário que ela começou). A cor mostra <b>quem vendeu</b>.';
+      render(d.vendas||[], d.cores||{});
+    }).catch(function(){ $('erro').style.display='block'; });
+  }
+
+  function render(vendas, cores){
+    // filtro "Hoje" = só a partir da meia-noite de hoje
+    if(dias===1){
+      var m=new Date(); m.setHours(0,0,0,0); var t0=m.getTime();
+      vendas=vendas.filter(function(v){ return new Date(v.ts).getTime()>=t0; });
+    }
+    var total=0, qtd=vendas.length;
+    // por pessoa (sigla)
+    var porSig={};
+    // por live (agrupa pelo ts = início da live), e dentro dela por sigla
+    var porLive={};
+    vendas.forEach(function(v){
+      var val=+v.valor||0; total+=val;
+      var sig=v.sigla||'';
+      if(!porSig[sig]) porSig[sig]={sig:sig,total:0,qtd:0}; porSig[sig].total+=val; porSig[sig].qtd++;
+      var k=v.ts||'?';
+      if(!porLive[k]) porLive[k]={ts:new Date(v.ts).getTime(),total:0,qtd:0,porSig:{}};
+      porLive[k].total+=val; porLive[k].qtd++;
+      porLive[k].porSig[sig]=(porLive[k].porSig[sig]||0)+val;
+    });
+    var lives=Object.keys(porLive).map(function(k){return porLive[k];}).sort(function(a,b){return a.ts-b.ts;});
+
+    $('cTotal').textContent=real(total);
+    $('cQtd').textContent=qtd;
+    $('cLives').textContent=lives.length;
+
+    // cartões por pessoa (ADM vê todas; vendedora vê só a dela). Ordena por total.
+    var pess=Object.keys(porSig).map(function(s){return porSig[s];}).sort(function(a,b){return b.total-a.total;});
+    var pe=$('pessoas'); pe.innerHTML='';
+    pess.forEach(function(p){
+      var cor=corDe(cores,p.sig);
+      var d=document.createElement('div'); d.className='pessoa'; d.style.borderLeftColor=cor;
+      d.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+nomeDe(cores,p.sig)+(p.sig?(' ('+p.sig+')'):'')+'</div>'
+        +'<div class="vl">'+real(p.total)+'</div><div class="qt">'+p.qtd+' venda'+(p.qtd===1?'':'s')+'</div>';
+      pe.appendChild(d);
+    });
+
+    // gráfico de barras (uma por live), empilhado por sigla
+    var barras=$('barras'); barras.innerHTML='';
+    if(!lives.length){
+      barras.style.display='none'; $('legenda').style.display='none';
+      $('vazio').style.display='';
+      $('vazio').innerHTML = (papel==='vendedora')
+        ? 'Nenhuma venda sua neste período ainda.<br>Assim que você fizer uma live logada, ela aparece aqui.'
+        : 'Nenhuma venda registrada neste período ainda.<br>Assim que o robô pegar a primeira venda de uma live, ela aparece aqui.';
+      return;
+    }
+    barras.style.display=''; $('legenda').style.display='flex'; $('vazio').style.display='none';
+    var maxT=Math.max.apply(null, lives.map(function(l){return l.total;}))||1;
+    lives.forEach(function(l){
+      var col=document.createElement('div'); col.className='col';
+      var altura=Math.max(3, Math.round(l.total/maxT*190)); // px da coluna cheia
+      var stack='';
+      // segmentos por sigla dentro da live
+      Object.keys(l.porSig).sort(function(a,b){return l.porSig[b]-l.porSig[a];}).forEach(function(sig){
+        var h=Math.round(l.porSig[sig]/l.total*altura);
+        stack+='<div class="seg" style="height:'+h+'px;background:'+corDe(cores,sig)+'"></div>';
+      });
+      col.innerHTML='<div class="val">'+real(l.total).replace('R$ ','')+'</div>'
+        +'<div class="stack" style="height:'+altura+'px">'+stack+'</div>'
+        +'<div class="hora">'+quando(l.ts).replace(' ','<br>')+'</div>';
+      col.title=quando(l.ts)+' · '+real(l.total)+' · '+l.qtd+' venda(s)';
+      barras.appendChild(col);
+    });
+
+    // legenda (só as siglas que aparecem)
+    var leg=$('legenda'); leg.innerHTML='';
+    pess.forEach(function(p){
+      var s=document.createElement('span');
+      s.innerHTML='<i style="background:'+corDe(cores,p.sig)+'"></i>'+nomeDe(cores,p.sig);
+      leg.appendChild(s);
+    });
+  }
+
+  carregar();
+  setInterval(carregar, 30000); // atualiza sozinho a cada 30s
+})();
+</script>
+</body>
+</html>

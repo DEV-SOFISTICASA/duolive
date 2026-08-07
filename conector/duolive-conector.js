@@ -35,12 +35,42 @@ let usuario = (process.argv[2] || process.env.DUOLIVE_TIKTOK_USER || '').replace
 let vendasAnotadas = [];        // manuais (o multichat manda a lista)
 let vendasAuto = [];            // automaticas (o robo de vendas por cookies)
 const vendasAutoIds = new Set(); // evita contar o mesmo pedido duas vezes
+// sistema de vendedoras: quem esta' vendendo agora e quando a live atual comecou.
+// O grafico do historico agrupa as vendas POR LIVE (horario = inicio da live).
+let siglaAtiva = '';            // sigla da vendedora logada que esta' na live
+let siglaAtivaTs = 0;           // quando foi marcada (expira sozinha)
+let liveAtualInicio = 0;        // horario que a live atual comecou
+let ultimaVendaTs = 0;          // ultima venda vista (para detectar quando comeca outra live)
 
 // estado AO VIVO da conta ativa (vem da conexao do chat do TikTok)
 let liveEstado = { espectadores: 0, likes: 0, inicio: 0 };
 // numeros oficiais do console de lives (Compass) por loja, lidos por cookies como no LiveDash
 const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
 let lojaAtual = '';        // qual loja o painel esta mostrando
+
+// horario da LIVE atual (o grafico usa isto): a 1a venda, ou a volta depois de
+// +40 min parado, abre uma live nova. Se o chat estiver conectado, usa o inicio dele.
+function inicioDaLiveAtual() {
+  const agora = Date.now();
+  if (!liveAtualInicio || (ultimaVendaTs && agora - ultimaVendaTs > 40 * 60000)) {
+    liveAtualInicio = liveEstado.inicio || agora;
+  }
+  ultimaVendaTs = agora;
+  return liveAtualInicio;
+}
+// grava a venda no historico (Supabase). Nao trava o fluxo se der erro/estiver off.
+function gravaVendaHistorico(v) {
+  if (!SB.ativo()) return;
+  const sigla = (siglaAtiva && (Date.now() - siglaAtivaTs < 12 * 3600000)) ? siglaAtiva : null;
+  const ts = new Date(inicioDaLiveAtual()).toISOString();
+  const linha = {
+    order_id: String(v.orderId || v.id || ('m' + Date.now() + Math.round(Math.random() * 1e6))),
+    sigla: sigla, quem: v.quem || null, produto: v.produto || null,
+    valor: (+v.valor || 0) || null, plataforma: v.plataforma || 'tiktok',
+    loja: lojaAtual || null, ts: ts,
+  };
+  SB.upsert('vendas', [linha], 'order_id').catch(() => {}); // upsert = nao conta 2x
+}
 // ofertas relampago NO AR (varias ao mesmo tempo), transmitidas para todos os aparelhos
 let ofertas = [];
 // VARIAS lojas; cada loja junta as DUAS contas (TikTok + Shopee) com os produtos
@@ -206,6 +236,38 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // quem esta' logado (o painel mostra o nome + botao Sair). De quebra, marca a
+  // sigla da vendedora como "ativa na live" — as vendas do robo saem no nome dela.
+  if (req.url.split('?')[0] === '/eu') {
+    res.setHeader('content-type', 'application/json');
+    const u = req.usuario || null;
+    if (u && u.papel === 'vendedora' && u.sigla) { siglaAtiva = u.sigla; siglaAtivaTs = Date.now(); }
+    res.end(JSON.stringify(u ? { sigla: u.sigla, nome: u.nome, papel: u.papel } : {}));
+    return;
+  }
+
+  // historico de vendas (Supabase) para a pagina /historico. Vendedora ve so' as
+  // dela; ADM (ou acesso local do PC) ve todas. O navegador agrupa por live.
+  if (req.url.split('?')[0] === '/vendas-historico') {
+    res.setHeader('content-type', 'application/json');
+    if (!SB.ativo()) { res.end('{"ok":false,"erro":"supabase off"}'); return; }
+    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
+    const dias = Math.min(90, Math.max(1, +qs.get('dias') || 7));
+    const corte = new Date(Date.now() - dias * 86400000).toISOString();
+    const u = req.usuario || null;
+    const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(u);
+    let filtro = 'ts=gte.' + corte + '&select=sigla,quem,produto,valor,plataforma,loja,ts&order=ts.desc&limit=5000';
+    if (u && u.papel === 'vendedora' && u.sigla) filtro += '&sigla=eq.' + encodeURIComponent(u.sigla);
+    Promise.all([
+      SB.seleciona('vendas', filtro),
+      SB.seleciona('usuarios', 'select=sigla,nome,cor'),
+    ]).then((r) => {
+      const cores = {}; (r[1] || []).forEach((x) => { cores[x.sigla] = { nome: x.nome, cor: x.cor }; });
+      res.end(JSON.stringify({ ok: true, ehAdm: ehAdm, minhaSigla: u ? u.sigla : null, papel: u ? u.papel : null, vendas: r[0] || [], cores: cores }));
+    }).catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
+    return;
+  }
+
   // recebe as mensagens do chat da Shopee (mandadas pelo espião que roda no navegador)
   if (req.url.startsWith('/eventos') && req.method === 'POST') {
     let corpo = '';
@@ -238,8 +300,9 @@ const server = http.createServer((req, res) => {
           const plataforma = v.plataforma === 'tiktok' ? 'tiktok' : 'shopee';
           const valor = +v.valor || 0;
           const quem = String(v.quem || '').slice(0, 60).trim();
-          const venda = { valor: valor, plataforma: plataforma, quem: quem, ts: Date.now(), auto: true, orderId: id };
+          const venda = { valor: valor, plataforma: plataforma, quem: quem, ts: Date.now(), auto: true, orderId: id, produto: v.produto || '' };
           vendasAuto.push(venda);
+          gravaVendaHistorico(venda); // salva no historico (Supabase), com a sigla e o inicio da live
           if (plataforma === 'shopee') liveShopeeAtual();
           // aparece no Multichat na hora, com quem comprou e o valor
           emitir({ tipo: 'venda', quem: quem || 'Venda', texto: 'comprou' + (valor ? ' · R$ ' + valor.toFixed(2).replace('.', ',') : ''), plataforma: plataforma });
@@ -655,6 +718,8 @@ const server = http.createServer((req, res) => {
     '/index.html': 'index.html',
     '/analytics.html': 'analytics.html',
     '/sacolinha-controle.html': 'sacolinha-controle.html',
+    '/historico': 'historico.html',
+    '/historico.html': 'historico.html',
     '/conectar': 'conectar.html',
     '/conectar.html': 'conectar.html',
     '/lib/xlsx.min.js': 'lib/xlsx.min.js',

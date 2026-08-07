@@ -65,6 +65,11 @@
       <span class="seta">▼</span>
     </button>
     <div id="menuLojas"></div>
+    <span id="euBar" style="margin-left:auto;display:none;align-items:center;gap:9px;font-size:12px;color:var(--text-2)">
+      <a href="/historico" target="_blank" style="color:var(--text-2);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px">📈 Histórico</a>
+      <span>👤 <b id="euBarNome" style="color:var(--text)"></b></span>
+      <a href="/sair" style="color:var(--text-2);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px">Sair</a>
+    </span>
   </div>
   <div class="grade">
     <div class="esq">
@@ -319,6 +324,15 @@
     document.documentElement.style.removeProperty('--esq');
     try{ localStorage.removeItem('ld-painel-esq'); }catch(e){}
   });
+
+  // mostra quem está logado (nome + Sair + link do Histórico). Só aparece quando
+  // há login de verdade (ex.: na nuvem); no PC local sem senha, fica escondido.
+  fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).then(function(u){
+    if(u&&u.nome){
+      var b=document.getElementById('euBarNome'); if(b) b.textContent=u.nome+(u.papel==='adm'?' · ADM':'');
+      var e=document.getElementById('euBar'); if(e) e.style.display='flex';
+    }
+  }).catch(function(){});
 })();
 </script>
 </body>
