@@ -277,6 +277,43 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---------- Lojas fixas (Monaco/Fast/Mania/Bellini + @). Iguais p/ todos; só o ADM edita ----------
+  if (req.url.split('?')[0] === '/lojas-fixas' && req.method === 'GET') {
+    res.setHeader('content-type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+    const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
+    const PADRAO = [
+      { nome: 'Monaco', tiktok: 'tokdecor12', shopee: null, ordem: 1 },
+      { nome: 'Fast', tiktok: 'fasthome46', shopee: null, ordem: 2 },
+      { nome: 'Mania', tiktok: 'maniadicasa24', shopee: null, ordem: 3 },
+      { nome: 'Bellini', tiktok: 'bellacasa56', shopee: null, ordem: 4 },
+    ];
+    if (!SB.ativo()) { res.end(JSON.stringify({ ok: true, ehAdm: ehAdm, lojas: PADRAO })); return; }
+    SB.seleciona('lojas', 'select=nome,tiktok,shopee,ordem&order=ordem,nome')
+      .then((l) => res.end(JSON.stringify({ ok: true, ehAdm: ehAdm, lojas: (l && l.length) ? l : PADRAO })))
+      .catch(() => res.end(JSON.stringify({ ok: true, ehAdm: ehAdm, lojas: PADRAO }))); // tabela ainda não criada
+    return;
+  }
+  if ((req.url.startsWith('/lojas-fixas-remover') || req.url.split('?')[0] === '/lojas-fixas') && req.method === 'POST') {
+    const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
+    if (!ehAdm) { res.statusCode = 403; res.setHeader('content-type', 'application/json'); res.end('{"ok":false,"erro":"So o ADM edita as lojas."}'); return; }
+    if (!SB.ativo()) { res.statusCode = 400; res.setHeader('content-type', 'application/json'); res.end('{"ok":false,"erro":"Supabase off."}'); return; }
+    const remover = req.url.startsWith('/lojas-fixas-remover');
+    let corpo = '';
+    req.on('data', (d) => { corpo += d; if (corpo.length > 8192) req.destroy(); });
+    req.on('end', () => {
+      let b; try { b = JSON.parse(corpo); } catch (e) { b = null; }
+      res.setHeader('content-type', 'application/json');
+      const nome = b && String(b.nome || '').trim();
+      if (!nome) { res.statusCode = 400; res.end('{"ok":false,"erro":"faltou o nome da loja"}'); return; }
+      const acao = remover
+        ? SB.req('DELETE', 'lojas?nome=eq.' + encodeURIComponent(nome))
+        : SB.upsert('lojas', [{ nome: nome, tiktok: (b.tiktok || '').trim() || null, shopee: (b.shopee || '').trim() || null }], 'nome');
+      acao.then(() => res.end('{"ok":true}')).catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
+    });
+    return;
+  }
+
   // recebe as mensagens do chat da Shopee (mandadas pelo espião que roda no navegador)
   if (req.url.startsWith('/eventos') && req.method === 'POST') {
     let corpo = '';

@@ -43,7 +43,26 @@ create table if not exists ofertas (
   atualizado_em timestamptz default now()
 );
 
+-- ========== LOJAS (fixas; iguais para todos; só o ADM edita/adiciona) ==========
+create table if not exists lojas (
+  id        bigint generated always as identity primary key,
+  nome      text unique not null,   -- Monaco, Fast, Mania, Bellini
+  tiktok    text,                   -- @ do TikTok da loja (sem o @)
+  shopee    text,                   -- usuário da Shopee (opcional)
+  ordem     int default 0,
+  criado_em timestamptz default now()
+);
+
+-- as 4 lojas fixas (rodar de novo só atualiza o @; não duplica)
+insert into lojas (nome, tiktok, ordem) values
+  ('Monaco','tokdecor12',1),
+  ('Fast','fasthome46',2),
+  ('Mania','maniadicasa24',3),
+  ('Bellini','bellacasa56',4)
+on conflict (nome) do update set tiktok = excluded.tiktok;
+
 -- Segurança: sem a chave secreta (que só o servidor tem), ninguém acessa.
 alter table usuarios enable row level security;
 alter table vendas   enable row level security;
 alter table ofertas  enable row level security;
+alter table lojas    enable row level security;

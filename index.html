@@ -111,7 +111,7 @@
     if(base!==URL_MC){
       URL_MC=base; ligado=false; mc.removeAttribute('src');
       // trocou o endereco do conector: reenvia a conta da loja selecionada
-      if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta((mapaTT()[lojaSel])||''); }catch(e){} }
+      if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta(ttDe(lojaSel)); }catch(e){} }
     }
     fetch(URL_MC+'/', {mode:'no-cors', cache:'no-store'}).then(function(){
       if(!ligado){ ligado=true; mc.src=URL_MC+'/'; aviso.style.display='none'; }
@@ -134,7 +134,7 @@
     try{ if(v) localStorage.setItem('ld-api', v); else localStorage.removeItem('ld-api'); }catch(e){}
     confere();
     // ja reenvia a conta da loja atual para o novo endereco
-    if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta((mapaTT()[lojaSel])||''); }catch(e){} }
+    if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta(ttDe(lojaSel)); }catch(e){} }
   };
   aviso.style.display='flex';
   confere();
@@ -142,17 +142,12 @@
 
   /* ===== Seletor de lojas (igual ao LiveDash): lista vem do Supabase; o @ do
      TikTok de cada loja fica salvo aqui; selecionar troca a conta no conector. ===== */
-  var SUPA_URL='https://nqgfxpbzybobzsrevvom.supabase.co';
-  var SUPA_ANON='sb_publishable_9XkQ6Q8IDUF30qXXKmbp1w_xE2wMC02';
-  var lojas=[];               // nomes das lojas (do Supabase)
+  var lojas=[];               // nomes das lojas (FIXAS, do Supabase — iguais p/ todos)
+  var fixas={};               // { nome: {tiktok, shopee} }
   var lojaSel='';             // loja ativa
-  function mapaTT(){ try{ return JSON.parse(localStorage.getItem('ld-loja-tt'))||{}; }catch(e){ return {}; } }
-  function setTT(loja,tt){ var m=mapaTT(); if(tt) m[loja]=tt; else delete m[loja]; try{ localStorage.setItem('ld-loja-tt', JSON.stringify(m)); }catch(e){} }
-  /* a conta da Shopee tem usuario PROPRIO: quase nunca e' o mesmo @ do TikTok,
-     entao cada loja guarda os dois nomes separados. */
-  function mapaSH(){ try{ return JSON.parse(localStorage.getItem('ld-loja-shopee'))||{}; }catch(e){ return {}; } }
-  function setSH(loja,u){ var m=mapaSH(); if(u) m[loja]=u; else delete m[loja]; try{ localStorage.setItem('ld-loja-shopee', JSON.stringify(m)); }catch(e){} }
-  function lojasExtra(){ try{ return JSON.parse(localStorage.getItem('ld-lojas-extra'))||[]; }catch(e){ return []; } }
+  var ehAdm=false;            // só o ADM pode editar/adicionar lojas
+  function ttDe(l){ return (fixas[l]&&fixas[l].tiktok)||''; }
+  function shDe(l){ return (fixas[l]&&fixas[l].shopee)||''; }
 
   function postConta(tt){
     // manda o @ (chat) e a loja (numeros do console) juntos
@@ -161,91 +156,78 @@
   /* guarda as DUAS contas da loja no conector (elas aparecem no painel de Ofertas) */
   function postLoja(loja){
     try{ fetch(URL_MC+'/minha-loja',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({loja:loja,nome:loja,tiktok:mapaTT()[loja]||'',shopee:mapaSH()[loja]||''})}).catch(function(){}); }catch(e){}
+      body:JSON.stringify({loja:loja,nome:loja,tiktok:ttDe(loja),shopee:shDe(loja)})}).catch(function(){}); }catch(e){}
   }
-  /* tira a loja da lista. Os logins guardados no PC NAO sao apagados. */
+  /* só o ADM: guarda/apaga a loja no Supabase (vale para TODOS os aparelhos) */
+  function salvarLoja(nome,tiktok,shopee){
+    return fetch(URL_MC+'/lojas-fixas',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({nome:nome,tiktok:tiktok,shopee:shopee})}).then(function(r){return r.json();});
+  }
   function apagarLoja(loja){
-    if(!confirm('Tirar a loja "'+loja+'" da lista?\n\nOs logins guardados no seu PC continuam salvos.')) return;
-    var ex=lojasExtra().filter(function(n){ return n!==loja; });
-    try{ localStorage.setItem('ld-lojas-extra', JSON.stringify(ex)); }catch(e){}
-    setTT(loja,''); setSH(loja,'');
-    if(lojaSel===loja){ lojaSel=''; try{ localStorage.removeItem('ld-loja-sel'); }catch(e){} }
-    lojas=lojas.filter(function(n){ return n!==loja; });
-    try{ fetch(URL_MC+'/apagar-loja',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({loja:loja})}).catch(function(){}); }catch(e){}
-    renderLojas();
+    if(!ehAdm){ alert('Só o ADM pode tirar lojas.'); return; }
+    if(!confirm('Tirar a loja "'+loja+'" da lista? Isso vale para todos.')) return;
+    fetch(URL_MC+'/lojas-fixas-remover',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({nome:loja})}).then(function(){
+        if(lojaSel===loja){ lojaSel=''; try{ localStorage.removeItem('ld-loja-sel'); }catch(e){} }
+        carregarLojas();
+      }).catch(function(){});
   }
-  /* pergunta os dois usuarios da loja. Cancelar NAO apaga o que ja estava salvo. */
   function editarContas(loja){
-    var tt=prompt('@ do TikTok da loja "'+loja+'"\n(a conta que faz a live — sem o @)', mapaTT()[loja]||'');
-    if(tt!==null) setTT(loja, tt.trim().replace(/^@/,''));
-    var sh=prompt('Usuário da Shopee da loja "'+loja+'"\n(pode ser diferente do TikTok — deixe em branco se não souber)', mapaSH()[loja]||'');
-    if(sh!==null) setSH(loja, sh.trim().replace(/^@/,''));
-    postLoja(loja);
-    if(loja===lojaSel) postConta(mapaTT()[loja]||'');
-    renderLojas();
+    if(!ehAdm){ alert('Só o ADM pode editar as contas das lojas.'); return; }
+    var tt=prompt('@ do TikTok da loja "'+loja+'"\n(a conta que faz a live — sem o @)', ttDe(loja));
+    if(tt===null) return;
+    var sh=prompt('Usuário da Shopee da loja "'+loja+'"\n(deixe em branco se não tiver)', shDe(loja));
+    if(sh===null) sh=shDe(loja);
+    salvarLoja(loja, tt.trim().replace(/^@/,''), sh.trim().replace(/^@/,'')).then(function(){
+      carregarLojas();
+      if(loja===lojaSel) postConta(ttDe(loja));
+    });
   }
   function fechaMenu(){ document.getElementById('menuLojas').classList.remove('aberto'); }
   function selecionar(loja, automatico){
     lojaSel=loja;
     if(!automatico) escolhaManual=true; // voce escolheu na mao -> paro de trocar sozinho
     try{ localStorage.setItem('ld-loja-sel', loja); }catch(e){}
-    var tt=mapaTT()[loja]||'';
-    if(!tt && !automatico){
-      var r=prompt('Qual é o @ do TikTok da loja "'+loja+'"? (a conta que faz a live)','');
-      if(r!==null){ tt=r.trim().replace(/^@/,''); if(tt) setTT(loja,tt); }
-    }
-    postConta(tt);
+    postConta(ttDe(loja));
     postLoja(loja);
     var af=document.querySelector('.esq .caixa iframe');
     if(af) af.setAttribute('src','analytics.html?api='+encodeURIComponent(URL_MC)+'&loja='+encodeURIComponent(loja));
     fechaMenu();
     renderLojas();
   }
+  // como as duas contas aparecem: 🎵@tiktok · 🧡usuario-da-shopee
+  function rotulo(loja){
+    var p=[]; if(ttDe(loja)) p.push('🎵@'+ttDe(loja)); if(shDe(loja)) p.push('🧡'+shDe(loja));
+    return p.length?p.join(' · '):'sem conta';
+  }
   function renderLojas(){
-    var m=mapaTT(), s=mapaSH();
-    // como as duas contas aparecem juntas: 🎵@tiktok · 🧡usuario-da-shopee
-    function rotulo(loja){
-      var p=[];
-      if(m[loja]) p.push('🎵@'+m[loja]);
-      if(s[loja]) p.push('🧡'+s[loja]);
-      return p.length?p.join(' · '):'sem contas';
-    }
-    // botao mostra a loja atual
     document.getElementById('lojaNome').textContent = lojaSel || 'escolher…';
     document.getElementById('lojaTT').textContent = lojaSel ? rotulo(lojaSel) : '';
-    // menu com todas as lojas
     var menu=document.getElementById('menuLojas'); menu.innerHTML='';
     lojas.forEach(function(loja){
       var d=document.createElement('div'); d.className='item'+(loja===lojaSel?' on':'');
       var vivo=(typeof lojasLive!=='undefined' && lojasLive.indexOf(loja)>=0);
-      d.innerHTML=(vivo?'<span title="ao vivo" style="color:#f43f5e">●</span> ':'')+'<span class="nome"></span><span class="tt"></span><span class="ed" title="Editar as contas do TikTok e da Shopee">✎</span><span class="ed del" title="Tirar esta loja da lista">🗑</span>';
+      // as engrenagens (editar/apagar) só aparecem para o ADM
+      var edits = ehAdm ? '<span class="ed" title="Editar as contas (só ADM)">✎</span><span class="ed del" title="Tirar da lista (só ADM)">🗑</span>' : '';
+      d.innerHTML=(vivo?'<span title="ao vivo" style="color:#f43f5e">●</span> ':'')+'<span class="nome"></span><span class="tt"></span>'+edits;
       d.querySelector('.nome').textContent=loja;
       d.querySelector('.tt').textContent=rotulo(loja);
       d.onclick=function(ev){
-        if(ev.target.classList.contains('del')){
-          ev.stopPropagation();
-          apagarLoja(loja);
-          return;
-        }
-        if(ev.target.classList.contains('ed')){
-          ev.stopPropagation();
-          editarContas(loja);
-          return;
-        }
+        if(ev.target.classList.contains('del')){ ev.stopPropagation(); apagarLoja(loja); return; }
+        if(ev.target.classList.contains('ed')){ ev.stopPropagation(); editarContas(loja); return; }
         selecionar(loja);
       };
       menu.appendChild(d);
     });
-    var add=document.createElement('div'); add.className='add'; add.textContent='+ adicionar loja';
-    add.onclick=function(){
-      var nome=(prompt('Nome da nova loja:','')||'').trim();
-      if(!nome) return;
-      var ex=lojasExtra(); if(ex.indexOf(nome)<0){ ex.push(nome); try{ localStorage.setItem('ld-lojas-extra', JSON.stringify(ex)); }catch(e){} }
-      if(lojas.indexOf(nome)<0){ lojas.push(nome); lojas.sort(); }
-      selecionar(nome);
-    };
-    menu.appendChild(add);
+    if(ehAdm){
+      var add=document.createElement('div'); add.className='add'; add.textContent='+ adicionar loja';
+      add.onclick=function(){
+        var nome=(prompt('Nome da nova loja:','')||'').trim(); if(!nome) return;
+        var tt=(prompt('@ do TikTok da loja "'+nome+'" (sem @):','')||'').trim().replace(/^@/,'');
+        salvarLoja(nome, tt, '').then(function(){ carregarLojas(); selecionar(nome); });
+      };
+      menu.appendChild(add);
+    }
   }
   document.getElementById('btnLoja').onclick=function(ev){
     ev.stopPropagation();
@@ -255,26 +237,19 @@
     if(!document.getElementById('barraLojas').contains(ev.target)) fechaMenu();
   });
   function carregarLojas(){
-    // as lojas vêm de 3 lugares: o conector (as que têm login guardado),
-    // o LiveDash (Supabase) e as que você adicionou à mão aqui.
-    var doConector=fetch(URL_MC+'/lojas',{cache:'no-store'})
-      .then(function(r){ return r.ok?r.json():null; })
-      .then(function(d){ return (d&&d.lojas)?d.lojas.map(function(x){ return x.nome; }):[]; })
-      .catch(function(){ return []; });
-    var doSupabase=fetch(SUPA_URL+'/rest/v1/livedash_state?key=like.tts_lives:*&select=key',{headers:{apikey:SUPA_ANON,Authorization:'Bearer '+SUPA_ANON}})
-      .then(function(r){ return r.ok?r.json():[]; })
-      .then(function(rows){ return rows.map(function(r){ return String(r.key).replace('tts_lives:',''); }); })
-      .catch(function(){ return []; });
-
-    Promise.all([doConector,doSupabase]).then(function(res){
-      var nomes=[];
-      res[0].concat(res[1]).concat(lojasExtra()).forEach(function(n){ if(n && nomes.indexOf(n)<0) nomes.push(n); });
-      lojas=nomes.sort();
-      var salva=''; try{ salva=localStorage.getItem('ld-loja-sel')||''; }catch(e){}
-      renderLojas();
-      if(salva && lojas.indexOf(salva)>=0) selecionar(salva, true);       // restaura a sua escolha
-      else if(!lojaSel && lojas.length===1) selecionar(lojas[0], true);   // só uma loja: já entra nela
-    });
+    // a lista FIXA de lojas (Supabase, igual p/ todos). O próprio conector diz se
+    // quem está pedindo pode editar (ehAdm = ADM logado, ou o PC local).
+    fetch(URL_MC+'/lojas-fixas',{cache:'no-store'}).then(function(r){return r.json();})
+      .then(function(d){
+        ehAdm=!!(d&&d.ehAdm);
+        var arr=(d&&d.lojas)||[]; lojas=[]; fixas={};
+        arr.forEach(function(l){ lojas.push(l.nome); fixas[l.nome]={tiktok:l.tiktok||'',shopee:l.shopee||''}; });
+        renderLojas();
+        var salva=''; try{ salva=localStorage.getItem('ld-loja-sel')||''; }catch(e){}
+        if(salva && lojas.indexOf(salva)>=0) selecionar(salva, true);       // restaura a sua escolha
+        else if(!lojaSel && lojas.length===1) selecionar(lojas[0], true);   // só uma loja: já entra nela
+      })
+      .catch(function(){ lojas=[]; fixas={}; renderLojas(); });
   }
   carregarLojas();
 
@@ -289,7 +264,7 @@
       // foca sozinho na loja em live (se voce nao escolheu na mao e ela tem @ cadastrado)
       if(!escolhaManual && lojasLive.length){
         var alvo=lojasLive[0];
-        if(alvo!==lojaSel && (mapaTT()[alvo])){ selecionar(alvo, true); }
+        if(alvo!==lojaSel && ttDe(alvo)){ selecionar(alvo, true); }
       }
     }).catch(function(){});
   }
