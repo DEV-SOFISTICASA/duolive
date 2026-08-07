@@ -12,11 +12,12 @@
 //   ensaio-oferta-*.png        -> fotos de cada passo
 //   ensaio-oferta-mapa.json    -> botões/links/campos achados (me mande este)
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const fs = require('fs');
 const path = require('path');
+const L = require('./lojas.js');
 
-const ARQ_SESSAO = path.join(__dirname, 'sessao-shopee.json');
+const ARQ_SESSAO = L.arquivoSessao('shopee', L.lojaPedida());
 const MAPA = path.join(__dirname, 'ensaio-oferta-mapa.json');
 
 // telas onde a Shopee costuma ter oferta relâmpago / promoções ao vivo
@@ -56,12 +57,7 @@ async function mapa(page) {
     console.log('Falta o login. Rode primeiro:  npm run login-shopee');
     process.exit(1);
   }
-  let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (e) {
-    try { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
-    catch (e2) { console.log('Instale o Google Chrome e tente de novo.'); process.exit(1); }
-  }
+  const browser = await abreNavegador(true);
   const ctx = await browser.newContext({ storageState: ARQ_SESSAO, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
 

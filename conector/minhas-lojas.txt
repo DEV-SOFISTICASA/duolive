@@ -1,0 +1,7 @@
+# As suas lojas. Uma por linha.
+# E' esta lista que aparece nos atalhos de login da area de trabalho.
+# Para acrescentar ou tirar uma loja, edite aqui e salve.
+fast
+monaco
+bellini
+mania

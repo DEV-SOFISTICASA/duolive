@@ -16,6 +16,9 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const L = require('./lojas.js');
+const COOKIES = require('./cookies.js');
+const AUTH = require('./auth.js');
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
@@ -40,8 +43,11 @@ let ofertas = [];
 // VARIAS lojas; cada loja junta as DUAS contas (TikTok + Shopee) com os produtos
 // de cada uma:  lojas['bellini'] = { nome, contas:{tiktok,shopee}, produtos:{tiktok:[],shopee:[]}, ts:{} }
 const lojas = {};
+// O nome da loja passa SEMPRE pela mesma limpeza (a de lojas.js, que tambem
+// batiza os arquivos de login). Sem isso, "Petit Store" digitado no painel e
+// "petit-store" gravado pelo login virariam duas lojas diferentes na lista.
 function achaLoja(nome) {
-  const n = String(nome || 'principal').trim() || 'principal';
+  const n = L.limpaNome(nome);
   if (!lojas[n]) lojas[n] = { nome: n, contas: { tiktok: '', shopee: '' }, produtos: { tiktok: [], shopee: [] }, ts: {} };
   return lojas[n];
 }
@@ -87,12 +93,78 @@ function liveShopeeAtual() {
   return l;
 }
 
+// Rotas que o ROBÔ usa (mandam dados de máquina). Não têm cookie de navegador;
+// quando há senha na nuvem, elas se protegem pelo token (DUOLIVE_TOKEN).
+const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos', '/oferta-estado'];
+// Rotas liberadas sem login (a própria tela de senha e o que ela precisa).
+const ROTAS_LIVRES = ['/login', '/entrar', '/favicon.ico'];
+
+function paginaLogin(erro) {
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1"><title>DuoLive · Entrar</title>'
+    + '<style>:root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--accent:#ff5c35}'
+    + '*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--text);'
+    + 'font:14px -apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;min-height:100vh;'
+    + 'align-items:center;justify-content:center}form{background:var(--card);border:1px solid var(--line);'
+    + 'border-radius:14px;padding:28px;width:320px;max-width:92vw}h1{font-size:20px;margin-bottom:4px}'
+    + 'p{color:#a3a3ad;font-size:12.5px;margin-bottom:18px}input{width:100%;background:var(--bg);'
+    + 'border:1px solid var(--line);border-radius:9px;color:var(--text);padding:11px 13px;font-size:14px;outline:none}'
+    + 'input:focus{border-color:var(--accent)}button{width:100%;margin-top:12px;padding:11px;border:0;'
+    + 'border-radius:9px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer}'
+    + '.erro{color:#f87171;font-size:12.5px;margin-top:10px}</style></head><body>'
+    + '<form method="POST" action="/entrar"><h1>🎥 DuoLive</h1><p>Digite a senha para entrar no painel.</p>'
+    + '<input type="password" name="senha" placeholder="Senha" autofocus>'
+    + '<button type="submit">Entrar</button>'
+    + (erro ? '<div class="erro">' + erro + '</div>' : '') + '</form></body></html>';
+}
+
 const server = http.createServer((req, res) => {
   // deixa o analytics (que roda no site) buscar as vendas aqui do seu PC
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'content-type');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type, x-duolive-token');
   if (req.method === 'OPTIONS') { res.end(); return; }
+
+  const caminhoLimpo = req.url.split('?')[0];
+
+  // saúde: o Render bate aqui para saber se o serviço está no ar. Sempre 200, sem senha.
+  if (caminhoLimpo === '/saude') { res.setHeader('content-type', 'text/plain'); res.end('ok'); return; }
+
+  // ---- porteiro: só quando há senha configurada (na nuvem). Local fica aberto. ----
+  if (AUTH.protegido()) {
+    // POST da tela de senha
+    if (caminhoLimpo === '/entrar' && req.method === 'POST') {
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 2048) req.destroy(); });
+      req.on('end', () => {
+        const senha = decodeURIComponent(String((corpo.match(/senha=([^&]*)/) || [])[1] || '').replace(/\+/g, ' '));
+        if (AUTH.senhaConfere(senha)) {
+          res.setHeader('Set-Cookie', AUTH.cookieSet());
+          res.statusCode = 302; res.setHeader('Location', '/painel'); res.end();
+        } else {
+          res.statusCode = 401; res.setHeader('content-type', 'text/html; charset=utf-8');
+          res.end(paginaLogin('Senha incorreta.'));
+        }
+      });
+      return;
+    }
+    if (caminhoLimpo === '/login') {
+      res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(paginaLogin('')); return;
+    }
+    if (caminhoLimpo === '/sair') {
+      res.setHeader('Set-Cookie', AUTH.cookieSet(0));
+      res.statusCode = 302; res.setHeader('Location', '/login'); res.end(); return;
+    }
+    // Quem pode passar: rota livre, OU o robô (token de máquina), OU navegador logado
+    // (cookie), OU acesso local. Senão, manda para o login.
+    const livre = ROTAS_LIVRES.includes(caminhoLimpo);
+    if (!livre && !AUTH.temTokenValido(req) && !AUTH.autenticado(req)) {
+      const querPagina = (req.headers.accept || '').includes('text/html');
+      if (querPagina) { res.statusCode = 302; res.setHeader('Location', '/login'); res.end(); }
+      else { res.statusCode = 401; res.setHeader('content-type', 'application/json'); res.end('{"erro":"nao autenticado"}'); }
+      return;
+    }
+  }
 
   // recebe as mensagens do chat da Shopee (mandadas pelo espião que roda no navegador)
   if (req.url.startsWith('/eventos') && req.method === 'POST') {
@@ -144,7 +216,7 @@ const server = http.createServer((req, res) => {
       let corpo = '';
       req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
       req.on('end', () => {
-        try { const b = JSON.parse(corpo); if (b.loja != null) lojaAtual = String(b.loja); ligarConta(b.tiktok || b.conta || ''); } catch (e) {}
+        try { const b = JSON.parse(corpo); if (b.loja != null) lojaAtual = b.loja ? L.limpaNome(b.loja) : ''; ligarConta(b.tiktok || b.conta || ''); } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
       });
       return;
@@ -170,7 +242,7 @@ const server = http.createServer((req, res) => {
   }
 
   // quais lojas estao em live agora (o robo do console marca) — o painel usa para focar sozinho
-  if (req.url.startsWith('/lojas-live')) {
+  if (req.url.split('?')[0] === '/lojas-live') {
     const agora = Date.now();
     const lista = Object.keys(compassPorLoja).map((loja) => {
       const c = compassPorLoja[loja];
@@ -248,16 +320,125 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // TODAS as lojas: cada uma com as duas contas (TikTok + Shopee) vinculadas
-  if (req.url.startsWith('/lojas')) {
-    res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({
-      atual: lojaDoPainel().nome,
-      lojas: Object.values(lojas).map((l) => ({
+  // TODAS as lojas: cada uma com as duas contas (TikTok + Shopee) vinculadas.
+  // A lista junta duas coisas: as lojas que ja tiveram os produtos lidos e as
+  // que tem LOGIN guardado neste PC — assim, assim que voce faz o login de uma
+  // loja ela ja aparece no seletor 🏪, sem precisar digitar o nome de novo.
+  // caminho EXATO: senao esta rota engoliria /lojas-conectadas e /lojas-live
+  if (req.url.split('?')[0] === '/lojas') {
+    const mapa = {};
+    Object.values(lojas).forEach((l) => {
+      mapa[l.nome] = {
         nome: l.nome, contas: l.contas,
         produtos: { tiktok: l.produtos.tiktok.length, shopee: l.produtos.shopee.length },
-      })),
+        login: { tiktok: false, shopee: false, console: false },
+      };
+    });
+    let comLogin = [];
+    try { comLogin = L.resumoDasLojas(); } catch (e) {}
+    comLogin.forEach((r) => {
+      if (!mapa[r.loja]) {
+        mapa[r.loja] = {
+          nome: r.loja, contas: { tiktok: '', shopee: '' },
+          produtos: { tiktok: 0, shopee: 0 }, login: {},
+        };
+      }
+      mapa[r.loja].login = { tiktok: r.tiktok, shopee: r.shopee, console: r.console };
+    });
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({
+      // 'selecionada' e' o que voce escolheu no seletor 🏪, mesmo que essa loja
+      // ainda nao tenha produtos carregados. E' por ela que os robos se guiam.
+      selecionada: lojaAtual,
+      atual: lojaDoPainel().nome,
+      lojas: Object.values(mapa),
     }));
+    return;
+  }
+
+  // ---------- conectar loja por cookies (a pagina /conectar) ----------
+  // Voce ja esta logado nas lojas no SEU Chrome. Em vez de abrir outro navegador
+  // e pedir senha, voce copia a requisicao (Copy as cURL) e cola la'. Daqui sai
+  // uma sessao no mesmo formato de sempre, entao os robos nao mudam em nada.
+
+  // as lojas do arquivo minhas-lojas.txt (para o seletor da pagina)
+  if (req.url.startsWith('/minhas-lojas')) {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ lojas: L.minhasLojas() }));
+    return;
+  }
+
+  // o que ja esta conectado, e ha quanto tempo
+  if (req.url.startsWith('/lojas-conectadas')) {
+    const saida = L.minhasLojas().map((loja) => {
+      const item = { loja: loja };
+      ['tiktok', 'shopee', 'console'].forEach((p) => {
+        const arq = L.arquivoSessao(p, loja);
+        try {
+          const st = fs.statSync(arq);
+          item[p] = { ts: st.mtimeMs };
+        } catch (e) { item[p] = null; }
+      });
+      return item;
+    });
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ lojas: saida }));
+    return;
+  }
+
+  if (req.url.startsWith('/conectar-loja') && req.method === 'POST') {
+    let corpo = '';
+    req.on('data', (d) => { corpo += d; if (corpo.length > 2e6) req.destroy(); });
+    req.on('end', () => {
+      res.setHeader('content-type', 'application/json');
+      try {
+        const b = JSON.parse(corpo);
+        const plat = ['tiktok', 'shopee', 'console'].includes(b.plataforma) ? b.plataforma : 'tiktok';
+        const loja = L.limpaNome(b.loja);
+        const lido = COOKIES.entende(b.texto, plat);
+        COOKIES.confere(lido, plat); // copiou a requisicao da loja certa?
+        const sessao = COOKIES.paraSessao(lido, plat);
+
+        const arq = path.join(__dirname, 'sessao-' + plat + '-' + loja + '.json');
+        fs.writeFileSync(arq, JSON.stringify(sessao));
+
+        // guarda tambem a chamada capturada (URL, cabecalhos, corpo). Ainda nao e'
+        // usada pelos robos, mas e' o que vai permitir ler os pedidos sem navegador.
+        if (lido.url) {
+          try {
+            fs.writeFileSync(path.join(__dirname, 'chamada-' + plat + '-' + loja + '.json'),
+              JSON.stringify({ url: lido.url, metodo: lido.metodo, cabecalhos: lido.cabecalhos, corpo: lido.corpo, ts: Date.now() }, null, 1));
+          } catch (e) {}
+        }
+        console.log('  🔌 ' + loja + ' · ' + plat + ': ' + sessao.cookies.length + ' cookie(s) conectados (' + lido.origem + ').');
+        res.end(JSON.stringify({ ok: true, loja: loja, plataforma: plat, cookies: sessao.cookies.length }));
+      } catch (e) {
+        res.end(JSON.stringify({ ok: false, erro: String((e && e.message) || e).slice(0, 200) }));
+      }
+    });
+    return;
+  }
+
+  // apagar uma loja da lista (o 🗑 do seletor no painel).
+  // So' tira daqui da memoria: os arquivos de login continuam no disco, entao
+  // ninguem perde acesso a loja por engano — para sumir de vez, apague o
+  // sessao-*-<loja>.json (ou use o proprio painel de novo depois do login).
+  if (req.url.startsWith('/apagar-loja') && req.method === 'POST') {
+    let corpo = '';
+    req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
+    req.on('end', () => {
+      let apagada = '';
+      try {
+        const b = JSON.parse(corpo);
+        const n = L.limpaNome(b.loja);
+        if (lojas[n]) { delete lojas[n]; apagada = n; }
+        if (lojaAtual === n) lojaAtual = '';
+        ofertas = ofertas.filter((o) => String(o.loja || '') !== n);
+        if (apagada) console.log('  🗑  loja "' + apagada + '" tirada da lista.');
+      } catch (e) {}
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ ok: true, apagada: apagada }));
+    });
     return;
   }
 
@@ -270,7 +451,9 @@ const server = http.createServer((req, res) => {
         try {
           const b = JSON.parse(corpo);
           const l = achaLoja(b.loja || lojaDoPainel().nome);
-          if (b.nome != null) l.nome = String(b.nome).slice(0, 60);
+          // o nome passa pela mesma limpeza da chave, senao a loja apareceria
+          // duas vezes na lista (uma do painel, outra do login)
+          if (b.nome != null) l.nome = L.limpaNome(b.nome);
           if (b.tiktok != null) l.contas.tiktok = String(b.tiktok).slice(0, 60);
           if (b.shopee != null) l.contas.shopee = String(b.shopee).slice(0, 60);
           if (b.selecionar) lojaAtual = l.nome;
@@ -318,10 +501,18 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const b = JSON.parse(corpo);
-          if (Array.isArray(b)) ofertas = b.filter((o) => o && o.nome && o.fim > Date.now());
-          else if (b && b.nome) ofertas = [b];
-          else ofertas = [];
-          emitir({ tipo: 'oferta', ofertas: ofertas, oferta: ofertas[0] || null });
+          // Cada oferta pertence a UMA loja (o produto e o preco sao de la').
+          // O painel so' conhece as ofertas da loja que ele esta' mostrando, entao
+          // trocamos apenas as dessa loja e preservamos as das outras — senao a
+          // loja A apagaria as ofertas da loja B ao mandar a lista dela.
+          const dono = String(lojaAtual || '');
+          const deOutrasLojas = ofertas.filter((o) => String(o.loja || '') !== dono);
+          let novas = [];
+          if (Array.isArray(b)) novas = b.filter((o) => o && o.nome && o.fim > Date.now());
+          else if (b && b.nome) novas = [b];
+          novas.forEach((o) => { o.loja = dono; });
+          ofertas = deOutrasLojas.concat(novas);
+          emitir({ tipo: 'oferta', ofertas: novas, oferta: novas[0] || null, loja: dono });
         } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
       });
@@ -329,9 +520,14 @@ const server = http.createServer((req, res) => {
     }
     limpaOfertas();
     res.setHeader('content-type', 'application/json');
+    // so' as ofertas da loja pedida (?loja=) ou da que o painel esta' mostrando.
+    // Sem loja nenhuma escolhida, devolve tudo (uma loja so' funciona como antes).
+    const qs3 = new URLSearchParams((req.url.split('?')[1] || ''));
+    const pedida = qs3.has('loja') ? qs3.get('loja') : lojaAtual;
+    const minhas = pedida ? ofertas.filter((o) => String(o.loja || '') === String(pedida)) : ofertas;
     // /ofertas -> lista (novo)   ·   /oferta -> a primeira (compatibilidade)
     const querLista = req.url.split('?')[0] === '/ofertas';
-    res.end(JSON.stringify(querLista ? ofertas : (ofertas[0] || null)));
+    res.end(JSON.stringify(querLista ? minhas : (minhas[0] || null)));
     return;
   }
 
@@ -389,6 +585,8 @@ const server = http.createServer((req, res) => {
     '/index.html': 'index.html',
     '/analytics.html': 'analytics.html',
     '/sacolinha-controle.html': 'sacolinha-controle.html',
+    '/conectar': 'conectar.html',
+    '/conectar.html': 'conectar.html',
     '/lib/xlsx.min.js': 'lib/xlsx.min.js',
   };
   const caminho = req.url.split('?')[0];
@@ -465,10 +663,21 @@ if (TESTE) {
 const ttlive = require('tiktok-live-connector');
 const { TikTokLiveConnection, WebcastEvent } = ttlive;
 // A leitura do chat do TikTok passa por um servico que "assina" o pedido (Euler
-// Stream). Pegue a chave gratis em https://www.eulerstream.com e informe em
-// DUOLIVE_SIGN_KEY.
-const SIGN_KEY = process.env.DUOLIVE_SIGN_KEY || '';
-if (SIGN_KEY) console.log('  (usando sua chave de assinatura do TikTok)');
+// Stream). Pegue a chave gratis em https://www.eulerstream.com.
+// De onde ela vem: 1o a variavel DUOLIVE_SIGN_KEY; 2o o arquivo chave-tiktok.txt
+// (uma linha so'), que fica de fora do repositorio pelo .gitignore.
+function chaveDoTiktok() {
+  if (process.env.DUOLIVE_SIGN_KEY) return process.env.DUOLIVE_SIGN_KEY.trim();
+  try {
+    const t = fs.readFileSync(path.join(__dirname, 'chave-tiktok.txt'), 'utf8');
+    const linha = t.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'))[0];
+    if (linha) return linha;
+  } catch (e) {}
+  return '';
+}
+const SIGN_KEY = chaveDoTiktok();
+// mostra so' o comecinho: confirma que leu a chave certa sem expor ela no log
+if (SIGN_KEY) console.log('  (chave de assinatura do TikTok carregada: ' + SIGN_KEY.slice(0, 10) + '...)');
 else console.log('  (sem chave de assinatura — se der erro de "sign", pegue uma gratis em eulerstream.com)');
 const opcoes = {};
 if (SIGN_KEY) opcoes.signApiKey = SIGN_KEY;

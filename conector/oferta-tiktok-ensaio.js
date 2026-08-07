@@ -12,19 +12,20 @@
 //   ensaio-tiktok-*.png        -> fotos de cada passo
 //   ensaio-tiktok-mapa.json    -> botões/campos achados (me mande este)
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const fs = require('fs');
 const path = require('path');
+const L = require('./lojas.js');
 
-const ARQ_SESSAO = path.join(__dirname, 'sessao-tiktok.json');
+const ARQ_SESSAO = L.arquivoSessao('tiktok', L.lojaPedida());
 const MAPA = path.join(__dirname, 'ensaio-tiktok-mapa.json');
 
 // telas onde o TikTok Shop costuma ter promoções / flash deals
 const CANDIDATAS = [
-  { nome: 'promotions',   url: 'https://seller.tiktokglobalshop.com/promotion' },
-  { nome: 'flash-deals',  url: 'https://seller.tiktokglobalshop.com/promotion/flash-deal' },
-  { nome: 'marketing',    url: 'https://seller.tiktokglobalshop.com/marketing' },
-  { nome: 'live-center',  url: 'https://seller.tiktokglobalshop.com/account/register/live' },
+  { nome: 'promotions',   url: 'https://seller-br.tiktok.com/promotion' },
+  { nome: 'flash-deals',  url: 'https://seller-br.tiktok.com/promotion/flash-deal' },
+  { nome: 'marketing',    url: 'https://seller-br.tiktok.com/marketing' },
+  { nome: 'live-center',  url: 'https://seller-br.tiktok.com/account/register/live' },
 ];
 
 const GATILHOS = /(flash\s?deal|rel[aâ]mpago|promo[çc][aã]o|promotion|discount|desconto|criar|create.*(deal|promo|discount)|add.*(deal|promo|discount))/i;
@@ -53,12 +54,7 @@ async function mapa(page) {
     console.log('Falta o login. Rode primeiro:  npm run login-tiktok');
     process.exit(1);
   }
-  let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (e) {
-    try { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
-    catch (e2) { console.log('Instale o Google Chrome e tente de novo.'); process.exit(1); }
-  }
+  const browser = await abreNavegador(true);
   const ctx = await browser.newContext({ storageState: ARQ_SESSAO, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
 

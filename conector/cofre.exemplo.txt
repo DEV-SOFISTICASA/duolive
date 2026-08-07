@@ -1,0 +1,15 @@
+# Cofre das sessões · onde guardar na nuvem
+#
+# COMO USAR:
+#   1. Crie um repositório PRIVADO no GitHub (github.com/new).
+#      - Nome sugerido: duolive-cofre
+#      - Marque "Private" (é obrigatório: aqui ficam os seus logins!)
+#      - Pode deixar vazio, sem README.
+#   2. Copie este arquivo para "cofre.txt" (na mesma pasta).
+#   3. Troque a linha de baixo pelo endereço do SEU repositório.
+#
+# Depois disso:
+#   npm run subir-sessoes    (neste computador, depois de fazer os logins)
+#   npm run baixar-sessoes   (no outro computador)
+
+https://github.com/DEV-SOFISTICASA/duolive-cofre.git

@@ -1,22 +1,32 @@
-# DuoLive · Deploy do conector do chat no Render (always-on, 24h)
-# Como usar:
+# DuoLive · Deploy do painel/conector no Render (no ar 24h)
+#
+# Como usar (uma vez):
 #  1. No Render: New +  ->  Blueprint  ->  conecte o repositorio DEV-SOFISTICASA/duolive
-#  2. Ele le este arquivo e cria o servico. Preencha as duas variaveis:
-#       DUOLIVE_SIGN_KEY   = sua chave do eulerstream.com
-#       DUOLIVE_TIKTOK_USER= o @ da conta do TikTok (sem @)
-#  3. Deploy. Copie a URL publica (algo como https://duolive-xxxx.onrender.com)
-#  4. No painel (site), clique no engrenagem do Multichat e cole essa URL.
+#  2. Ele le este arquivo e cria o servico. Preencha as variaveis marcadas "sync: false":
+#       DUOLIVE_SENHA_PAINEL = a senha para entrar no painel (ex.: 01061705)
+#       DUOLIVE_TOKEN        = um cracha secreto qualquer (o robo do PC usa o MESMO)
+#       DUOLIVE_SIGN_KEY     = sua chave do eulerstream.com (chat do TikTok)
+#       DUOLIVE_TIKTOK_USER  = o @ da conta do TikTok (sem @) — opcional
+#  3. Deploy. Copie a URL publica (algo como https://duolive-conector.onrender.com)
+#  4. No PC, no arquivo conector/conector.txt, ponha:
+#       1a linha: a URL do Render
+#       2a linha: o MESMO valor de DUOLIVE_TOKEN
+#     Assim o robo manda as vendas para a nuvem.
 services:
   - type: web
     name: duolive-conector
     runtime: node
-    plan: free
+    plan: starter          # always-on (24h). O "free" dorme apos 15 min sem acesso.
     rootDir: conector
     buildCommand: npm install
     startCommand: node duolive-conector.js
-    healthCheckPath: /vendas
+    healthCheckPath: /saude # responde sempre, sem senha
     envVars:
+      - key: DUOLIVE_SENHA_PAINEL
+        sync: false          # a senha do painel (voce preenche no painel do Render)
+      - key: DUOLIVE_TOKEN
+        sync: false          # cracha secreto; o robo do PC usa o mesmo
       - key: DUOLIVE_SIGN_KEY
-        sync: false          # voce preenche no painel do Render (secreto)
+        sync: false          # chave do eulerstream.com (chat do TikTok)
       - key: DUOLIVE_TIKTOK_USER
-        sync: false          # o @ da conta do TikTok, sem o @
+        sync: false          # o @ da conta do TikTok, sem o @ (opcional)

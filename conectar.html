@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DuoLive · Conectar lojas</title>
+<style>
+  :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--erro:#f87171;--azul:#38bdf8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:16px;max-width:820px;margin:0 auto}
+  h1{font-size:19px;margin-bottom:12px}
+  h2{font-size:13px;margin:0 0 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .passos{background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.8;color:var(--text-2)}
+  .passos b{color:var(--text)}
+  code{background:#000;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11.5px;color:var(--azul)}
+  label{display:block;font-size:11px;color:var(--text-3);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.4px}
+  select,textarea,input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);
+    padding:9px 11px;font:13px/1.5 inherit;outline:none}
+  select:focus,textarea:focus,input:focus{border-color:var(--accent)}
+  textarea{resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;min-height:120px}
+  .plats{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .plat{padding:7px 13px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--text-2);background:var(--bg)}
+  .plat.on{border-color:var(--accent);color:#fff;background:rgba(255,92,53,.15)}
+  .btn{margin-top:12px;padding:10px 20px;border:0;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;
+    background:var(--accent);color:#fff}
+  .btn:disabled{opacity:.5;cursor:default}
+  .aviso{margin-top:10px;padding:10px 12px;border-radius:8px;font-size:12.5px;display:none;line-height:1.6}
+  .aviso.ok{display:block;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.35);color:var(--ok)}
+  .aviso.ruim{display:block;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35);color:var(--erro)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-weight:500;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:0 8px 7px 0}
+  td{padding:8px 8px 8px 0;border-top:1px solid var(--line)}
+  .bola{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+  .viva{background:var(--ok)} .velha{background:var(--warn)} .morta{background:var(--text-3)}
+  .vazio{color:var(--text-3);font-size:12.5px;padding:8px 0}
+</style>
+</head>
+<body>
+
+<h1>🔌 Conectar Lojas · DuoLive</h1>
+
+<div class="card">
+  <div class="passos">
+    <b style="color:var(--accent)">Você já está logado nas lojas no seu Chrome</b> — é só copiar a sessão, sem digitar senha:
+    <div style="margin-top:8px" id="passos"></div>
+  </div>
+
+  <div style="margin-top:10px;color:var(--text-3);font-size:11.5px">
+    Também aceita o <b>cURL</b> (Copy as cURL) — mas só serve se a requisição ainda trouxer o cookie,
+    o que o Chrome novo não faz mais. Por isso o Cookie-Editor acima é o caminho recomendado.
+  </div>
+</div>
+
+<div class="card">
+  <h2>Conectar uma loja</h2>
+
+  <label>Plataforma</label>
+  <div class="plats" id="plats">
+    <span class="plat on" data-p="tiktok">🎵 TikTok Seller</span>
+    <span class="plat" data-p="shopee">🧡 Shopee</span>
+    <span class="plat" data-p="console">⚡ Console de LIVE</span>
+  </div>
+
+  <label>Loja</label>
+  <select id="loja"></select>
+
+  <label>Cole aqui o que você copiou</label>
+  <textarea id="txt" placeholder="curl &quot;https://...&quot; -H &quot;cookie: sessionid=...&quot; ..."></textarea>
+
+  <button class="btn" id="btn">Conectar loja</button>
+  <div class="aviso" id="aviso"></div>
+</div>
+
+<div class="card">
+  <h2>Lojas conectadas</h2>
+  <div id="lista"></div>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:9797';
+  var plat='tiktok';
+
+  // Só precisamos dos COOKIES, e toda requisição daquela página carrega os mesmos.
+  // Por isso não mandamos procurar uma chamada específica (o nome muda de tempos
+  // em tempos e o filtro vinha vazio): serve qualquer uma da lista.
+  // O Gerenciador de LIVE (shop.tiktok.com/streamer) e' onde os pedidos da live
+  // aparecem na hora — e' de la' que o robo de vendas le durante a transmissao.
+  var ENDERECO={
+    tiktok:'seller-br.tiktok.com/order',
+    shopee:'seller.shopee.com.br/portal/sale/order',
+    console:'shop.tiktok.com/streamer/live/product/dashboard'
+  };
+  function pintaPassos(){
+    var p=[
+      'No Chrome, instale a extensão <b>Cookie-Editor</b> (grátis, na Chrome Web Store) — só na 1ª vez',
+      'Abra <code>'+ENDERECO[plat]+'</code>, já logado na conta da loja',
+      'Clique no <b>ícone do Cookie-Editor</b> (ao lado da barra de endereço)',
+      'Lá embaixo, clique em <b style="color:var(--accent)">Export</b> → <b>Export as JSON</b> (ele copia sozinho)',
+      'Cole abaixo, escolha a loja e clique em <b>Conectar</b>'
+    ];
+    $('passos').innerHTML=p.map(function(t,i){ return (i+1)+'. '+t; }).join('<br>')
+      +'<div style="margin-top:8px;color:var(--warn);font-size:11.5px">'
+      +'Por que não é mais pelo cURL: desde 2025 o Chrome <b>não copia mais os cookies</b> no "Copy as cURL" '
+      +'(mudança de segurança dele). O Cookie-Editor pega os cookies direto — é o jeito que funciona hoje.'
+      +'</div>';
+  }
+
+  document.querySelectorAll('#plats .plat').forEach(function(el){
+    el.onclick=function(){
+      document.querySelectorAll('#plats .plat').forEach(function(x){ x.classList.remove('on'); });
+      el.classList.add('on'); plat=el.dataset.p; pintaPassos(); pintaLista();
+    };
+  });
+
+  function carregaLojas(){
+    fetch(API+'/minhas-lojas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
+      var s=$('loja'); s.innerHTML='';
+      (v.lojas||[]).forEach(function(n){
+        var o=document.createElement('option'); o.value=n; o.textContent=n; s.appendChild(o);
+      });
+      if(!(v.lojas||[]).length){
+        var o=document.createElement('option'); o.value=''; o.textContent='(nenhuma loja em minhas-lojas.txt)'; s.appendChild(o);
+      }
+    }).catch(function(){});
+  }
+
+  function quando(ts){
+    if(!ts) return '—';
+    var d=Math.floor((Date.now()-ts)/86400000);
+    if(d>=1) return d+'d';
+    var h=Math.floor((Date.now()-ts)/3600000);
+    if(h>=1) return h+'h';
+    return Math.max(1,Math.floor((Date.now()-ts)/60000))+'min';
+  }
+  function pintaLista(){
+    fetch(API+'/lojas-conectadas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
+      var l=v.lojas||[];
+      if(!l.length){ $('lista').innerHTML='<div class="vazio">Nenhuma loja conectada ainda.</div>'; return; }
+      var linhas=l.map(function(x){
+        var cels=['tiktok','shopee','console'].map(function(p){
+          var c=x[p];
+          if(!c) return '<td style="color:var(--text-3)">—</td>';
+          var dias=(Date.now()-c.ts)/86400000;
+          var cor=dias<7?'viva':(dias<21?'velha':'morta');
+          return '<td><span class="bola '+cor+'"></span>'+quando(c.ts)+'</td>';
+        }).join('');
+        return '<tr><td><b>'+x.loja+'</b></td>'+cels+'</tr>';
+      }).join('');
+      $('lista').innerHTML='<table><tr><th>Loja</th><th>🎵 TikTok</th><th>🧡 Shopee</th><th>⚡ Console</th></tr>'+linhas+'</table>'
+        +'<div style="margin-top:8px;font-size:11px;color:var(--text-3)">'
+        +'<span class="bola viva"></span>recente &nbsp; <span class="bola velha"></span>com mais de 1 semana &nbsp; '
+        +'<span class="bola morta"></span>antiga — vale reconectar</div>';
+    }).catch(function(){ $('lista').innerHTML='<div class="vazio">Conector fora do ar.</div>'; });
+  }
+
+  $('btn').onclick=function(){
+    var loja=$('loja').value, txt=$('txt').value;
+    var av=$('aviso');
+    if(!loja){ av.className='aviso ruim'; av.textContent='Escolha uma loja (elas vêm do arquivo minhas-lojas.txt).'; return; }
+    if(!txt.trim()){ av.className='aviso ruim'; av.textContent='Cole o que você copiou do Chrome.'; return; }
+    $('btn').disabled=true; av.className='aviso'; av.textContent='';
+    fetch(API+'/conectar-loja',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({loja:loja,plataforma:plat,texto:txt})})
+      .then(function(r){return r.json();}).then(function(v){
+        $('btn').disabled=false;
+        if(v.ok){
+          av.className='aviso ok';
+          av.textContent='Pronto! '+v.cookies+' cookie(s) guardados para a loja "'+v.loja+'". Os robôs já podem usar.';
+          $('txt').value=''; pintaLista();
+        } else {
+          av.className='aviso ruim'; av.textContent=v.erro||'Não consegui entender o que você colou.';
+        }
+      }).catch(function(){
+        $('btn').disabled=false;
+        av.className='aviso ruim'; av.textContent='Não consegui falar com o conector. Ele está ligado?';
+      });
+  };
+
+  pintaPassos(); carregaLojas(); pintaLista();
+  setInterval(pintaLista, 30000);
+})();
+</script>
+</body>
+</html>

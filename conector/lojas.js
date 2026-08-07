@@ -46,6 +46,20 @@ function arquivoSessao(plataforma, loja) {
   return comNome; // ainda não existe: é aqui que o login vai gravar
 }
 
+// As SUAS lojas, listadas em minhas-lojas.txt (uma por linha).
+// É essa lista que os atalhos de login mostram para você escolher — assim o
+// nome sai sempre igual e o painel e os robôs se encontram.
+function minhasLojas() {
+  try {
+    const t = fs.readFileSync(path.join(__dirname, 'minhas-lojas.txt'), 'utf8');
+    const nomes = t.split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'))
+      .map(limpaNome);
+    return nomes.filter((n, i) => nomes.indexOf(n) === i); // sem repetidas
+  } catch (e) { return []; }
+}
+
 // todas as lojas que já têm pelo menos um login guardado
 function lojasComLogin() {
   const achadas = new Set();
@@ -69,4 +83,4 @@ function resumoDasLojas() {
   }));
 }
 
-module.exports = { PADRAO, limpaNome, lojaPedida, arquivoSessao, lojasComLogin, resumoDasLojas };
+module.exports = { PADRAO, limpaNome, lojaPedida, arquivoSessao, lojasComLogin, resumoDasLojas, minhasLojas };

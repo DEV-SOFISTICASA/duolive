@@ -34,6 +34,15 @@ As sessões ficam separadas (`sessao-tiktok-bellini.json`), então uma loja nunc
    - **TikTok:** `npm run login-console` (1ª vez) — é o login do *Console de LIVE* (`shop.tiktok.com/streamer`), onde fica a ⚡ Oferta Relâmpago. É **outro login**, separado do `login-tiktok` do Seller Center.
    - Depois `npm run robo-oferta` (modo ensaio, não salva nada) para conferir; então `set DUOLIVE_OFERTA_REAL=1` + `npm run robo-oferta` para valer.
    - Dá para deixar **várias ofertas no ar ao mesmo tempo**. Emergência: `npm run robo-oferta -- --restaurar-tudo`.
-5. Abrir a página inicial do site — o Multichat acende sozinho.
-6. Chat da Shopee: Tampermonkey + `shopee-chat.user.js`, com a página da live aberta.
-7. Transmissão: OBS → Shopee (RTMP) e TikTok via Live Studio + Câmera Virtual (ou Aitum Multistream se as duas contas tiverem chave RTMP).
+5. **Usar em outro computador (logins na nuvem):** os arquivos `sessao-*.json` são o seu login — nunca vão para a nuvem como estão. O cofre junta todos num arquivo só, embaralhado com uma senha sua:
+   - Crie um repositório **privado** no GitHub e cole o endereço em `conector/cofre.txt` (veja `cofre.exemplo.txt`).
+   - Neste PC: `npm run subir-sessoes` (pede uma senha e envia).
+   - No outro PC: `npm run baixar-sessoes` (pede a senha e devolve os logins).
+   - Sem a senha ninguém abre o cofre — nem quem tiver o arquivo. Guarde-a bem: não há como recuperá-la.
+6. Abrir a página inicial do site — o Multichat acende sozinho.
+7. Chat da Shopee: Tampermonkey + `shopee-chat.user.js`, com a página da live aberta.
+8. Transmissão: OBS → Shopee (RTMP) e TikTok via Live Studio + Câmera Virtual (ou Aitum Multistream se as duas contas tiverem chave RTMP).
+
+> **Navegador:** os robôs usam o Chrome, o Edge **ou o Brave** — o primeiro que acharem instalado (`conector/navegador.js`).
+
+> **Chave do chat do TikTok:** a leitura do chat passa pelo [Euler Stream](https://www.eulerstream.com). Coloque a sua chave (grátis) em `conector/chave-tiktok.txt`, uma linha só — ou na variável `DUOLIVE_SIGN_KEY`. **Uma chave serve para todas as lojas:** ela identifica a sua conta no serviço, não o @ assistido. O arquivo é ignorado pelo git.

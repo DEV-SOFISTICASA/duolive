@@ -18,12 +18,15 @@
 // qualquer mudança. Se algo der errado no meio da live, rode:
 //   npm run robo-oferta -- --restaurar-tudo
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
+const L = require('./lojas.js');
+
+const LOJA = L.lojaPedida();
 
 function enderecoConector() {
   if (process.env.DUOLIVE_CONECTOR) return process.env.DUOLIVE_CONECTOR;
@@ -42,13 +45,12 @@ const RITMO = 4000;
 
 // O Console de LIVE do TikTok (shop.tiktok.com/streamer) tem sessão PRÓPRIA,
 // separada do Seller Center. É nele que fica a ⚡ Oferta Relâmpago da live.
+// 'let' porque muda quando voce troca de loja no painel (cada loja tem os seus logins)
+let TEM_CONSOLE = fs.existsSync(L.arquivoSessao('console', LOJA));
 const SESSOES = {
-  tiktok: fs.existsSync(path.join(__dirname, 'sessao-console.json'))
-    ? path.join(__dirname, 'sessao-console.json')
-    : path.join(__dirname, 'sessao-tiktok.json'),
-  shopee: path.join(__dirname, 'sessao-shopee.json'),
+  tiktok: TEM_CONSOLE ? L.arquivoSessao('console', LOJA) : L.arquivoSessao('tiktok', LOJA),
+  shopee: L.arquivoSessao('shopee', LOJA),
 };
-const TEM_CONSOLE = fs.existsSync(path.join(__dirname, 'sessao-console.json'));
 
 // onde fica o campo de preço de cada loja (tentamos os endereços em ordem).
 // Nas duas lojas a tela de edição vem dentro de um iframe — por isso procuramos
@@ -369,6 +371,117 @@ async function ciclo(browser) {
   }
 }
 
+// ---------- seguir a loja escolhida no painel ----------
+// Trocar de loja com preço trocado no ar é perigoso: o robô perderia de vista
+// os produtos com desconto e eles ficariam baratos para sempre. Por isso,
+// antes de trocar, ele DEVOLVE os preços das ofertas da loja que sai.
+let lojaAtiva = LOJA;
+let trocandoLoja = false;
+
+function lojaDoPainel() {
+  return new Promise((ok) => {
+    const u = new URL(CONECTOR + '/lojas');
+    const lib = u.protocol === 'https:' ? https : http;
+    const req = lib.get({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, timeout: 8000 }, (res) => {
+      let corpo = '';
+      res.on('data', (d) => { corpo += d; if (corpo.length > 1e6) req.destroy(); });
+      res.on('end', () => {
+        try { const b = JSON.parse(corpo); ok(L.limpaNome(b.selecionada || b.atual || '')); } catch (e) { ok(''); }
+      });
+    });
+    req.on('error', () => ok(''));
+    req.on('timeout', () => { req.destroy(); ok(''); });
+  });
+}
+
+// Devolve o preço original de TODAS as ofertas que estão com desconto agora.
+// É o freio de emergência: serve para o fim da live, a troca de loja e o Ctrl+C.
+async function devolverAplicadas(browser, motivo) {
+  const pendentes = Array.from(aplicadas.values()).filter((o) => o.real);
+  if (!pendentes.length) { aplicadas.clear(); return 0; }
+  console.log('  ↩️  Devolvendo ' + pendentes.length + ' preco(s) — ' + motivo + '...');
+  let devolvidos = 0;
+  for (const [id, o] of Array.from(aplicadas)) {
+    aplicadas.delete(id);
+    if (!o.real) continue;
+    const chave = (o.plat === 'tiktok' ? 'tiktok' : 'shopee') + ':' + o.prodId;
+    const g = originais[chave];
+    const original = (Array.isArray(g) && g.length) ? g[0].preco : num(o.de);
+    if (!original) {
+      console.log('     (nao sei o preco original de ' + o.nome.slice(0, 30) + ' — CONFIRA NA LOJA!)');
+      continue;
+    }
+    try {
+      await mexerNoPreco(browser, o, original, true);
+      esqueceOriginal(chave);
+      avisaEstado(id, 'restaurada');
+      devolvidos++;
+    } catch (e) {
+      console.log('     ⚠️  NAO devolvi o preco de ' + o.nome.slice(0, 30) + ' — CONFIRA NA LOJA!');
+      console.log('        O preco original era R$ ' + brl(original));
+    }
+  }
+  return devolvidos;
+}
+
+async function seguirLoja(browser, nova) {
+  if (trocandoLoja || !nova || nova === lojaAtiva) return;
+  trocandoLoja = true;
+  try {
+    console.log('\n  🏪 O painel trocou para a loja "' + nova + '".');
+    await devolverAplicadas(browser, 'saindo da loja "' + lojaAtiva + '"');
+    lojaAtiva = nova;
+    TEM_CONSOLE = fs.existsSync(L.arquivoSessao('console', nova));
+    SESSOES.tiktok = TEM_CONSOLE ? L.arquivoSessao('console', nova) : L.arquivoSessao('tiktok', nova);
+    SESSOES.shopee = L.arquivoSessao('shopee', nova);
+    console.log('  🏪 Agora usando os logins da loja "' + nova + '".\n');
+  } catch (e) {
+    console.log('  (erro ao trocar de loja: ' + String(e).slice(0, 80) + ')');
+  }
+  trocandoLoja = false;
+}
+
+// ---------- o desconto só vale com a live no ar ----------
+// Quando a live termina, o preço promocional TEM que sair junto. Aqui a gente
+// pergunta ao conector se a live ainda está no ar; se ela caiu e continuou
+// fora do ar por um tempinho (para não reagir a uma queda de conexão), os
+// preços voltam sozinhos.
+const GRACA_FIM = +(process.env.DUOLIVE_GRACA_FIM || 90) * 1000;
+let viLiveAberta = false;
+let foraDoArDesde = 0;
+
+function liveNoAr() { // true | false | null (não consegui saber)
+  return new Promise((ok) => {
+    const u = new URL(CONECTOR + '/ao-vivo');
+    const lib = u.protocol === 'https:' ? https : http;
+    const req = lib.get({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, timeout: 8000 }, (res) => {
+      let corpo = '';
+      res.on('data', (d) => { corpo += d; if (corpo.length > 1e6) req.destroy(); });
+      res.on('end', () => { try { ok(!!JSON.parse(corpo).aoVivo); } catch (e) { ok(null); } });
+    });
+    req.on('error', () => ok(null));
+    req.on('timeout', () => { req.destroy(); ok(null); });
+  });
+}
+
+async function conferirFimDaLive(browser) {
+  const vivo = await liveNoAr();
+  if (vivo === null) return;                 // conector fora do ar: não arrisca
+  if (vivo) { viLiveAberta = true; foraDoArDesde = 0; return; }
+  if (!viLiveAberta) return;                 // ainda nem começou: não mexe em nada
+  if (!aplicadas.size) { foraDoArDesde = 0; return; }
+  if (!foraDoArDesde) {
+    foraDoArDesde = Date.now();
+    console.log('\n  📴 A live saiu do ar. Se não voltar em ' + Math.round(GRACA_FIM / 1000) + 's, devolvo os precos.');
+    return;
+  }
+  if (Date.now() - foraDoArDesde < GRACA_FIM) return;
+  console.log('\n  📴 A live terminou.');
+  await devolverAplicadas(browser, 'a live terminou');
+  viLiveAberta = false;
+  foraDoArDesde = 0;
+}
+
 async function restaurarTudo(browser) {
   const chaves = Object.keys(originais);
   if (!chaves.length) { console.log('  Nenhum preco pendente de restauro. Tudo certo.'); return; }
@@ -402,11 +515,8 @@ async function principal() {
   // Por isso abrimos uma janela de verdade — ela pode ficar minimizada num canto.
   // Para forçar o modo invisível (só Shopee):  set DUOLIVE_OFERTA_INVISIVEL=1
   const INVISIVEL = process.env.DUOLIVE_OFERTA_INVISIVEL === '1';
-  if (!INVISIVEL) console.log('  (vai abrir uma janela do Chrome — pode minimizar, mas nao feche)\n');
-  let browser;
-  try { browser = await chromium.launch({ headless: INVISIVEL, channel: 'chrome' }); }
-  catch (e) { try { browser = await chromium.launch({ headless: INVISIVEL, channel: 'msedge' }); }
-    catch (e2) { console.log('  Instale o Google Chrome e tente de novo.'); process.exit(1); } }
+  if (!INVISIVEL) console.log('  (vai abrir uma janela do navegador — pode minimizar, mas nao feche)\n');
+  const browser = await abreNavegador(INVISIVEL);
 
   if (RESTAURAR_TUDO) { await restaurarTudo(browser); await browser.close(); process.exit(0); }
 
@@ -415,13 +525,45 @@ async function principal() {
     console.log('     Para devolver todos agora:  npm run robo-oferta -- --restaurar-tudo\n');
   }
 
+  console.log('  Loja: ' + lojaAtiva + ' (segue o seletor 🏪 do painel)\n');
+
   let rodando = false;
   setInterval(() => {
-    if (rodando) return;
+    if (rodando || trocandoLoja) return;
     rodando = true;
     ciclo(browser).catch(() => {}).then(() => { rodando = false; });
   }, RITMO);
+
+  // segue a loja escolhida no painel — devolvendo os precos da anterior antes
+  setInterval(() => {
+    if (rodando || trocandoLoja) return;
+    lojaDoPainel().then((l) => seguirLoja(browser, l)).catch(() => {});
+  }, 5000);
+
+  // o desconto so' vale com a live no ar
+  setInterval(() => {
+    if (rodando || trocandoLoja) return;
+    conferirFimDaLive(browser).catch(() => {});
+  }, 10000);
+
+  // fechou o robo (Ctrl+C ou fechou a janela)? devolve os precos antes de sair
+  let saindo = false;
+  const sairDireito = async () => {
+    if (saindo) return;
+    saindo = true;
+    if (aplicadas.size) {
+      console.log('\n  Saindo — nao vou deixar preco promocional para tras.');
+      try { await devolverAplicadas(browser, 'o robo foi fechado'); } catch (e) {}
+    }
+    try { await browser.close(); } catch (e) {}
+    process.exit(0);
+  };
+  process.on('SIGINT', sairDireito);
+  process.on('SIGTERM', sairDireito);
+
   console.log('  Esperando voce lancar ofertas no painel...\n');
+  console.log('  (o desconto sai sozinho quando a oferta acabar, quando voce trocar');
+  console.log('   de loja, quando a live terminar ou quando voce fechar o robo)\n');
 }
 
 if (require.main === module) principal();

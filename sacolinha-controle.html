@@ -8,6 +8,10 @@
   :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--azul:#38bdf8}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:12px}
+  /* dentro do painel esta pagina fica num quadro; a barra de rolagem dele so
+     polui a tela. Some com a barra — a rolagem pela rodinha do mouse continua. */
+  html{scrollbar-width:none;-ms-overflow-style:none}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0;height:0;display:none}
   h1{font-size:14px;margin-bottom:2px}
   .sub{font-size:11px;color:var(--text-3);margin-bottom:12px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
@@ -91,10 +95,10 @@
       <textarea id="impTxt" rows="5" placeholder="Tapete Sala 2x1,5m | 129,90 | 89,90&#10;Kit 3 Capas de Almofada | 59,90 | 39,90" style="resize:vertical;font-size:12px"></textarea>
       <div style="margin-top:6px"><button class="btn mini" id="btnImp">Importar</button></div>
     </div>
-  </div>
 
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+    <!-- a lista de produtos mora no MESMO cartao do cadastro: eram duas caixas
+         coladas uma na outra, so' dobrando as bordas na tela -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
       <div class="abas" id="abas">
         <span class="aba on" data-a="shopee">🧡 Shopee</span>
         <span class="aba" data-a="tiktok">🎵 TikTok</span>
@@ -102,7 +106,7 @@
       </div>
       <span style="font-size:10.5px;color:var(--text-3)">duração: <input id="pMin" value="10" inputmode="numeric" style="width:36px;display:inline-block;padding:3px 6px;text-align:center"> min</span>
     </div>
-    <div id="lista"></div>
+    <div id="lista" style="margin-top:8px"></div>
   </div>
 
 <script src="lib/xlsx.min.js"></script>
@@ -445,8 +449,13 @@
           +(pct?' <span style="color:var(--warn)">'+pct+'</span>':'');
         var est=o.real?(ESTADOS[o.estado||'pendente']||ESTADOS.pendente):null;
         var selo=est?('<div style="font-size:10px;color:'+est[2]+';margin-top:2px">'+est[0]+' '+est[1]+(o.erro?(' — '+o.erro):'')+'</div>'):'';
+        // quanto tempo esta oferta foi lançada para durar (o relógio ao lado mostra
+        // o que ainda falta; aqui você vê se ela é de 10, 15 ou 30 minutos)
+        var dur=(o.inicio&&o.fim)?Math.max(1,Math.round((o.fim-o.inicio)/60000)):0;
+        var durTxt=dur?('<div style="font-size:10px;color:var(--text-3)">anúncio de '+dur+' min</div>'):'';
         d.innerHTML='<div class="l1"><div class="nome"><b></b><span>'+precos+'</span>'+selo+'</div>'
           +'<div style="text-align:right"><div class="tempo" data-t="'+o.id+'" style="font-size:17px">--:--</div>'
+          +durTxt
           +'<button class="btn ghost mini" data-f="'+o.id+'">Encerrar</button></div></div>';
         d.querySelector('.nome b').textContent=emoji(o.plat)+' '+o.nome;
         el.appendChild(d);

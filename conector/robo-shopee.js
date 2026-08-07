@@ -10,11 +10,12 @@
 //  - descoberta-shopee.json        -> amostra das respostas capturadas (p/ ajustar o leitor)
 //  - historico-shopee-oficial.json -> as lives que ele conseguiu entender
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const fs = require('fs');
 const path = require('path');
+const L = require('./lojas.js');
 
-const ARQ_SESSAO = path.join(__dirname, 'sessao-shopee.json');
+const ARQ_SESSAO = L.arquivoSessao('shopee', L.lojaPedida());
 const ARQ_DESCOBERTA = path.join(__dirname, 'descoberta-shopee.json');
 const ARQ_OFICIAL = path.join(__dirname, 'historico-shopee-oficial.json');
 
@@ -81,9 +82,7 @@ function garimpa(json, achadas) {
     console.log('Falta o login. Rode primeiro:  npm run login-shopee');
     process.exit(1);
   }
-  let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (e) { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
+  const browser = await abreNavegador(true);
   const ctx = await browser.newContext({ storageState: ARQ_SESSAO, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
 

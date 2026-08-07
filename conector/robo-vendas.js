@@ -17,52 +17,130 @@
 //   DUOLIVE_CONECTOR=https://seu-conector.onrender.com   (padrão: local 9797)
 //   DUOLIVE_RITMO=3                                      (segundos entre leituras, mínimo 2)
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
+const L = require('./lojas.js');
+const ATIVIDADE = require('./atividade-live.js');
+
+const LOJA = L.lojaPedida();
 
 // Para onde mandar as vendas: 1º a variável DUOLIVE_CONECTOR; 2º o arquivo
-// conector.txt (cole nele a URL do Render, uma linha só); 3º o conector local.
+// conector.txt (1ª linha = URL do Render; 2ª linha = o token, opcional); 3º o local.
+function leConectorTxt() {
+  try {
+    const linhas = fs.readFileSync(path.join(__dirname, 'conector.txt'), 'utf8')
+      .split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+    return linhas;
+  } catch (e) { return []; }
+}
 function enderecoConector() {
   if (process.env.DUOLIVE_CONECTOR) return process.env.DUOLIVE_CONECTOR;
-  try {
-    const txt = fs.readFileSync(path.join(__dirname, 'conector.txt'), 'utf8').trim();
-    if (/^https?:\/\//.test(txt)) return txt;
-  } catch (e) {}
+  const l = leConectorTxt();
+  if (l[0] && /^https?:\/\//.test(l[0])) return l[0];
   return 'http://127.0.0.1:' + (process.env.DUOLIVE_PORTA || 9797);
 }
+// o crachá para mandar dados ao conector na nuvem (o mesmo DUOLIVE_TOKEN do Render).
+// Vem da variável DUOLIVE_TOKEN ou da 2ª linha do conector.txt. Sem token (uso
+// local), fica vazio e nada muda.
+function tokenConector() {
+  if (process.env.DUOLIVE_TOKEN) return process.env.DUOLIVE_TOKEN.trim();
+  const l = leConectorTxt();
+  return (l[1] || '').trim();
+}
 const CONECTOR = enderecoConector().replace(/\/+$/, '');
+const TOKEN = tokenConector();
 const ARQ_DESCOBERTA = path.join(__dirname, 'descoberta-vendas.json');
 const RITMO = Math.max(2, +(process.env.DUOLIVE_RITMO || 3)) * 1000;
 const INICIO = Date.now();
-const TOLERANCIA = 10 * 60000; // conta pedidos feitos até 10 min antes de ligar o robô
+// conta pedidos feitos até 20 min antes de ligar (ou de se recuperar de uma
+// falha). Janela generosa DE PROPÓSITO: se o robô ficar um tempo sem ler, ao
+// voltar ele reencontra na lista as vendas desse período e dispara as que ainda
+// não avisou (a dedup por número do pedido impede repetir). É a rede que evita
+// perder venda num tropeço.
+const TOLERANCIA = +(process.env.DUOLIVE_TOLERANCIA_MIN || 20) * 60000;
 const RE_LOGIN = /login|passport|signin|account\/register/i;
 
-// as duas lojas; cada uma tem sua sessão e suas páginas de pedidos
-const CONTAS = [
-  {
-    plataforma: 'tiktok',
-    sessao: path.join(__dirname, 'sessao-tiktok.json'),
-    paginas: ['https://seller-br.tiktok.com/order', 'https://seller.tiktokglobalshop.com/order'],
-    reUrl: /order|trade|pack|fulfillment/i,
-  },
-  {
-    plataforma: 'shopee',
-    sessao: path.join(__dirname, 'sessao-shopee.json'),
-    paginas: ['https://seller.shopee.com.br/portal/sale/order', 'https://creator.shopee.com.br'],
-    reUrl: /order|trade|pack|sale/i,
-    // a lista da Shopee busca os detalhes por ids fixos — repetir a chamada devolve sempre
-    // os mesmos pedidos. Para ela o jeito certo é recarregar a página direto (~10s).
-    soRecarga: true,
-  },
-];
+// as duas contas da loja; cada uma tem sua sessão e suas páginas de pedidos.
+// A loja pode mudar no meio da live (você troca no painel), então as contas
+// são montadas de novo a cada troca — daí ser uma função.
+function contasDaLoja(loja) {
+  const lista = [];
+
+  // 1) Gerenciador de LIVE — e' AQUI que o pedido aparece no instante em que a
+  //    pessoa compra, ainda durante a transmissao. O Seller Center so' mostra
+  //    depois. Tem login PROPRIO (sessao-console-*), por isso e' uma conta a
+  //    parte; se voce nao conectou o console, ela simplesmente nao entra.
+  const daLive = L.arquivoSessao('console', loja);
+  if (fs.existsSync(daLive)) {
+    lista.push({
+      plataforma: 'tiktok',
+      apelido: 'tiktok (gerenciador de live)',
+      chave: 'console',
+      sessao: daLive,
+      paginas: ['https://shop.tiktok.com/streamer/live/product/dashboard'],
+      // este é lido de um jeito PRÓPRIO: a chamada "user_activity_history" traz
+      // as vendas da live com valor (feed da tela "Atividade"). Ver atividade-live.js.
+      viaAtividade: true,
+      reUrl: /user_activity_history/i,
+    });
+  }
+
+  // 2) Seller Center — a lista de pedidos "oficial". Continua valendo: pega o que
+  //    o console nao mostrar e serve de rede de seguranca. Pedido repetido nos
+  //    dois lugares avisa uma vez so' (a conferencia e' por numero do pedido).
+  lista.push(
+    {
+      plataforma: 'tiktok',
+      apelido: 'tiktok (seller center)',
+      chave: 'tiktok',
+      sessao: L.arquivoSessao('tiktok', loja),
+      paginas: ['https://seller-br.tiktok.com/order', 'https://seller.tiktokglobalshop.com/order'],
+      reUrl: /order|trade|pack|fulfillment/i,
+    },
+    {
+      plataforma: 'shopee',
+      chave: 'shopee',
+      sessao: L.arquivoSessao('shopee', loja),
+      paginas: ['https://seller.shopee.com.br/portal/sale/order', 'https://creator.shopee.com.br'],
+      reUrl: /order|trade|pack|sale/i,
+      // a lista da Shopee busca os detalhes por ids fixos — repetir a chamada devolve sempre
+      // os mesmos pedidos. Para ela o jeito certo é recarregar a página direto (~10s).
+      soRecarga: true,
+    },
+  );
+  return lista;
+}
+let CONTAS = contasDaLoja(LOJA);
+
+// como a conta aparece nas mensagens (ha' DUAS do tiktok: o gerenciador de live
+// e o seller center), e onde refazer o login dela
+const nome = (c) => c.apelido || c.plataforma;
+const ondeLogar = (c) => c.chave || c.plataforma;
 
 const jaVistos = new Set(); // plataforma+orderId
 const amostras = [];        // respostas COM pedidos (a estrutura que importa)
 const amostrasOutras = [];  // outras respostas com cara de pedido
+const framesWS = [];        // amostras dos frames de WebSocket (para entender o formato)
+const urlsWSVistas = new Set();
+function guardaFrameWS(conta, url, corpo, tamanho, pedidos) {
+  // guarda no maximo 40 amostras; sempre as que TEM pedido, e ate 2 por tipo de frame
+  const marca = (pedidos ? 'P:' : '') + String(url).replace(/\?.*$/, '');
+  if (!pedidos && urlsWSVistas.has(marca) && framesWS.filter((f) => f.marca === marca).length >= 2) return;
+  if (framesWS.length >= 40 && !pedidos) return;
+  urlsWSVistas.add(marca);
+  framesWS.push({ marca: marca, plataforma: conta.plataforma, url: String(url).slice(0, 160), tamanho: tamanho, pedidos: pedidos || 0, corpo: corpo });
+}
+
+// cabeçalhos para falar com o conector; leva o crachá (token) quando há um
+function comToken(extra) {
+  const h = Object.assign({}, extra || {});
+  if (TOKEN) h['x-duolive-token'] = TOKEN;
+  return h;
+}
 
 // ---------- envio para o conector ----------
 function manda(plataforma, p) {
@@ -71,7 +149,7 @@ function manda(plataforma, p) {
   const lib = u.protocol === 'https:' ? https : http;
   const req = lib.request({
     hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'POST',
-    headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(dados) },
+    headers: comToken({ 'content-type': 'application/json', 'content-length': Buffer.byteLength(dados) }),
   });
   req.on('error', () => console.log('  (nao consegui falar com o conector em ' + CONECTOR + ')'));
   req.end(dados);
@@ -222,7 +300,7 @@ async function guardaAlvo(conta, req, pontos) {
       url: req.url(), method: req.method(), data: req.postData() || undefined,
       headersFull: headers, ct: todos['content-type'] || '', modo: null, nasceu: Date.now(), pontos: pontos,
     };
-    if (primeira) console.log('  ✅ ' + conta.plataforma + ': achei a chamada de pedidos! Leitura rapida a cada ' + (RITMO / 1000) + 's ligada.');
+    if (primeira) console.log('  ✅ ' + nome(conta) + ': achei a chamada de pedidos! Leitura rapida a cada ' + (RITMO / 1000) + 's ligada.');
   } catch (e) {}
 }
 
@@ -276,6 +354,7 @@ async function ler(conta) { // uma repetição da chamada dourada
     conta.ultimaOk = Date.now();
     conta.falhas = 0;
     conta.mortesRapidas = 0;
+    conta.recusas = 0;
   } catch (e) {
     const msg = String((e && e.message) || e);
     const conclusivo = msg.includes('nenhum jeito'); // calibração recusada = não adianta insistir
@@ -285,13 +364,25 @@ async function ler(conta) { // uma repetição da chamada dourada
       const morreuLogo = alvo.nasceu && Date.now() - alvo.nasceu < 30000;
       conta.alvo = null;
       conta.falhas = 0;
-      if (morreuLogo) {
+      // O TikTok assina a chamada com um prazo curto; quando vence, NENHUM jeito de
+      // repetir e' aceito, mesmo pegando uma chamada fresca. Em vez de ficar em
+      // loop (vencer -> recarregar -> recusar), depois de 2 recusas o robo passa a
+      // RECARREGAR a pagina a cada ~10s — mais lento, mas nunca falha, porque e' o
+      // proprio navegador logado navegando (mesma tecnica robusta da Shopee).
+      if (conclusivo) {
+        conta.recusas = (conta.recusas || 0) + 1;
+        if (conta.recusas >= 2 && !conta.modoRecarga) {
+          conta.modoRecarga = true;
+          console.log('  ' + conta.plataforma + ': o site nao deixa repetir a chamada — passando a recarregar a pagina (~10s por leitura, bem mais estavel).');
+        }
+      }
+      if (morreuLogo && !conta.modoRecarga) {
         conta.mortesRapidas++;
         if (conta.mortesRapidas >= 3) {
           conta.modoRecarga = true;
           console.log('  ' + conta.plataforma + ': a pagina nao aceita repetir a chamada — vou recarregar direto (leitura a cada ~10s).');
         }
-      } else {
+      } else if (!conta.modoRecarga) {
         console.log('  ' + conta.plataforma + ': a chamada de pedidos venceu — recarregando para renovar...');
       }
       carregar(conta).catch(() => {});
@@ -306,15 +397,25 @@ async function carregar(conta) { // abre (ou reabre) a página de pedidos e capt
   for (const u of lista) {
     try {
       await conta.page.goto(u, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      // espera a própria página buscar a lista de pedidos (em vez de um tempo fixo)
-      await conta.page.waitForResponse(
-        (r) => conta.reUrl.test(r.url()) && String(r.headers()['content-type'] || '').includes('json'),
-        { timeout: 12000 }
-      ).catch(() => {});
-      await conta.page.waitForTimeout(2000); // folga para as chamadas irmãs chegarem
       if (pareceLogin(conta.page.url())) {
-        console.log('  ⚠️  ' + conta.plataforma + ': a sessao expirou! Rode de novo:  npm run login-' + conta.plataforma);
+        console.log('  ⚠️  ' + nome(conta) + ': a sessao expirou! Rode de novo:  npm run login-' + ondeLogar(conta));
         continue;
+      }
+      // A tabela de pedidos do TikTok só busca a lista DEPOIS de montar na tela, e
+      // às vezes só quando rola a página. Como precisamos que essa chamada dispare
+      // (é a que TEM os pedidos), a gente insiste: espera, rola, espera de novo —
+      // até uns 20s. Sem isso, a navegação só pega as chamadas de configuração.
+      conta.viuAlvo = false;
+      for (let tentativa = 0; tentativa < 4; tentativa++) {
+        const veio = await conta.page.waitForResponse(
+          (r) => conta.reUrl.test(r.url()) && String(r.headers()['content-type'] || '').includes('json'),
+          { timeout: 5000 }
+        ).then(() => true).catch(() => false);
+        // já achou a chamada dourada (com pedidos)? pode parar de insistir
+        if (conta.alvo || conta.viuAlvo) break;
+        // empurra a página: rola para baixo e volta, o que costuma disparar a busca da lista
+        try { await conta.page.mouse.wheel(0, 1400); await conta.page.waitForTimeout(600); await conta.page.mouse.wheel(0, -600); } catch (e) {}
+        if (!veio) await conta.page.waitForTimeout(1500);
       }
       conta.paginaBoa = u;
       break;
@@ -327,7 +428,7 @@ async function carregar(conta) { // abre (ou reabre) a página de pedidos e capt
 
 async function vigiar(browser, conta) {
   if (!fs.existsSync(conta.sessao)) {
-    console.log('  ' + conta.plataforma + ': sem login (rode npm run login-' + conta.plataforma + '). Pulando.');
+    console.log('  ' + nome(conta) + ': sem login (rode npm run login-' + ondeLogar(conta) + '). Pulando.');
     return;
   }
   const ctx = await browser.newContext({ storageState: conta.sessao, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
@@ -338,6 +439,11 @@ async function vigiar(browser, conta) {
     return rota.continue();
   });
   conta.page = await ctx.newPage();
+
+  // O Gerenciador de LIVE é lido de um jeito PRÓPRIO (feed de atividade com valor),
+  // não pela lógica de "farejar a chamada de pedidos". Desvia para lá e sai.
+  if (conta.viaAtividade) { await vigiarAtividade(conta); return; }
+
   conta.alvo = null; conta.falhas = 0; conta.mortesRapidas = 0; conta.modoRecarga = !!conta.soRecarga;
   conta.recarregando = false; conta.paginaBoa = null; conta.ultimaOk = 0; conta.ultimaCarga = 0;
   conta.fontesVistas = new Set(); conta.marcoDagua = new Map(); conta.modoBom = null; conta.jaDiagnosticou = false;
@@ -357,6 +463,7 @@ async function vigiar(browser, conta) {
         pool.push({ plataforma: conta.plataforma, pedidos: achados.length, url: resp.url().slice(0, 200), corpo: txt.length <= 40000 ? json : '(resposta grande) ' + txt.slice(0, 6000) });
       }
       if (achados.length) { // essa chamada sabe listar pedidos — a mais rica vira a dourada
+        conta.viuAlvo = true; // avisa o carregar() que a chamada de pedidos chegou
         const ricos = achados.filter((p) => p.valor || p.quem || p.criado).length;
         await guardaAlvo(conta, resp.request(), ricos * 1000 + achados.length);
       }
@@ -365,41 +472,181 @@ async function vigiar(browser, conta) {
     } catch (e) {}
   });
 
-  console.log('  ' + conta.plataforma + ': vigiando pedidos...' + (conta.soRecarga ? ' (recarga continua, ~10s por leitura)' : ''));
+  // O Gerenciador de LIVE empurra os pedidos por WebSocket, nao por chamada HTTP.
+  // Aqui a gente escuta esses frames tambem: os que forem JSON com pedido viram
+  // venda na hora; de todos guardamos uma amostra (descoberta-ws.json) para
+  // entender o formato quando algo novo aparecer.
+  conta.page.on('websocket', (ws) => {
+    const url = ws.url();
+    ws.on('framereceived', (ev) => {
+      try {
+        const p = ev && ev.payload;
+        if (p == null) return;
+        // frame binario (Buffer) = provavelmente protobuf; guarda so' o tamanho
+        if (typeof p !== 'string') { guardaFrameWS(conta, url, null, p.length); return; }
+        let json; try { json = JSON.parse(p); } catch (e) { guardaFrameWS(conta, url, p.slice(0, 500), p.length); return; }
+        const achados = [];
+        garimpa(json, achados);
+        guardaFrameWS(conta, url, achados.length ? json : (p.length > 4000 ? p.slice(0, 2000) : json), p.length, achados.length);
+        if (achados.length) { console.log('  🔔 ' + nome(conta) + ': pedido via WebSocket!'); processa(conta, achados, 'ws:' + url); }
+      } catch (e) {}
+    });
+  });
+
+  console.log('  ' + nome(conta) + ': vigiando pedidos...' + (conta.soRecarga ? ' (recarga continua, ~10s por leitura)' : ''));
   await carregar(conta);
 
-  // leitura rápida: repete a chamada dourada a cada RITMO
-  setInterval(() => { ler(conta).catch(() => {}); }, RITMO);
+  // os relógios ficam guardados: ao trocar de loja eles precisam ser desligados,
+  // senão sobram dois robôs lendo ao mesmo tempo.
+  conta.relogios = [
+    // leitura rápida: repete a chamada dourada a cada RITMO
+    setInterval(() => { ler(conta).catch(() => {}); }, RITMO),
+    // vigia: plano B, chamada sumida, leitura travada ou renovação preventiva
+    setInterval(() => {
+      const agora = Date.now();
+      if (conta.recarregando) return;
+      if (conta.modoRecarga) { if (agora - conta.ultimaCarga > 3000) carregar(conta).catch(() => {}); return; }
+      if (!conta.alvo && agora - conta.ultimaCarga > 30000) { carregar(conta).catch(() => {}); return; }
+      if (conta.alvo && agora - conta.ultimaOk > 90000) { console.log('  ' + conta.plataforma + ': sem leitura ha 90s — recarregando...'); conta.alvo = null; carregar(conta).catch(() => {}); return; }
+      if (agora - conta.ultimaCarga > 10 * 60000) carregar(conta).catch(() => {});
+    }, 5000),
+  ];
+}
 
-  // vigia: plano B, chamada sumida, leitura travada ou renovação preventiva
-  setInterval(() => {
-    const agora = Date.now();
-    if (conta.recarregando) return;
-    if (conta.modoRecarga) { if (agora - conta.ultimaCarga > 3000) carregar(conta).catch(() => {}); return; }
-    if (!conta.alvo && agora - conta.ultimaCarga > 30000) { carregar(conta).catch(() => {}); return; }
-    if (conta.alvo && agora - conta.ultimaOk > 90000) { console.log('  ' + conta.plataforma + ': sem leitura ha 90s — recarregando...'); conta.alvo = null; carregar(conta).catch(() => {}); return; }
-    if (agora - conta.ultimaCarga > 10 * 60000) carregar(conta).catch(() => {});
-  }, 5000);
+// ---------- leitura das VENDAS da LIVE (feed de atividade, com valor) ----------
+async function abrirLive(conta) {
+  if (conta.recarregando) return;
+  conta.recarregando = true;
+  try {
+    await conta.page.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 45000 });
+    // espera a página buscar o feed de atividade (dá um empurrão de scroll)
+    for (let i = 0; i < 6 && !conta.urlAtividade; i++) {
+      await conta.page.waitForResponse((r) => /user_activity_history/i.test(r.url()), { timeout: 4000 }).catch(() => {});
+      if (!conta.urlAtividade) { try { await conta.page.mouse.wheel(0, 800); } catch (e) {} await conta.page.waitForTimeout(1500); }
+    }
+    if (pareceLogin(conta.page.url())) console.log('  ⚠️  ' + nome(conta) + ': a sessao do console expirou! Reconecte a loja.');
+  } catch (e) {}
+  conta.ultimaCarga = Date.now();
+  conta.recarregando = false;
+  if (!conta.urlAtividade) console.log('  (' + nome(conta) + ': ainda procurando o feed de vendas da live...)');
+}
+
+async function lerAtividade(conta) {
+  if (!conta.urlAtividade || conta.recarregando) return;
+  try {
+    const resp = await conta.page.request.fetch(conta.urlAtividade, { timeout: 15000 });
+    const j = await resp.json();
+    const vendas = ATIVIDADE.vendasDaAtividade(j);
+    for (const v of vendas) {
+      const chave = 'atv:' + v.messageId;
+      if (jaVistos.has(chave)) continue;
+      jaVistos.add(chave);
+      // vendas antigas (fora da janela) só são marcadas como vistas, não disparam
+      if (v.ts && v.ts < INICIO - TOLERANCIA) continue;
+      manda('tiktok', { orderId: v.messageId, quem: v.quem, valor: v.valor });
+      console.log('  🛒 ' + nome(conta) + ': ' + (v.quem || 'cliente') + ' — R$ ' + v.valor.toFixed(2).replace('.', ',') + ' · ' + v.produtoNome.slice(0, 28));
+    }
+    conta.ultimaOk = Date.now();
+    conta.falhas = 0;
+    if (!conta.jaLeu) { conta.jaLeu = true; console.log('  ✅ ' + nome(conta) + ': lendo as vendas da LIVE a cada ' + (RITMO / 1000) + 's!'); }
+  } catch (e) {
+    conta.falhas = (conta.falhas || 0) + 1;
+    if (conta.falhas >= 3) { conta.urlAtividade = null; conta.falhas = 0; abrirLive(conta).catch(() => {}); }
+  }
+}
+
+async function vigiarAtividade(conta) {
+  conta.urlAtividade = null; conta.ultimaOk = 0; conta.ultimaCarga = 0; conta.recarregando = false; conta.falhas = 0; conta.jaLeu = false;
+  // captura a URL exata da chamada de atividade (com os parâmetros certos)
+  conta.page.on('response', (resp) => { if (/user_activity_history/i.test(resp.url())) conta.urlAtividade = resp.url(); });
+  console.log('  ' + nome(conta) + ': vigiando as vendas da LIVE (feed de atividade)...');
+  await abrirLive(conta);
+  conta.relogios = [
+    setInterval(() => { lerAtividade(conta).catch(() => {}); }, RITMO),
+    setInterval(() => {
+      const agora = Date.now();
+      if (conta.recarregando) return;
+      if (!conta.urlAtividade && agora - conta.ultimaCarga > 15000) abrirLive(conta).catch(() => {});
+      else if (conta.urlAtividade && agora - conta.ultimaOk > 60000) { conta.urlAtividade = null; abrirLive(conta).catch(() => {}); }
+      else if (agora - conta.ultimaCarga > 5 * 60000) abrirLive(conta).catch(() => {});
+    }, 5000),
+  ];
+}
+
+// desliga uma conta por completo (relógios + navegador), para trocar de loja
+async function parar(conta) {
+  (conta.relogios || []).forEach(clearInterval);
+  conta.relogios = [];
+  conta.alvo = null;
+  if (conta.page) {
+    try { await conta.page.context().close(); } catch (e) {}
+    conta.page = null;
+  }
+}
+
+// ---------- seguir a loja escolhida no painel ----------
+// O painel manda a loja para o conector quando você troca no seletor 🏪.
+// Aqui a gente pergunta de tempos em tempos e, se mudou, troca os logins.
+function lojaDoPainel() {
+  return new Promise((ok) => {
+    const u = new URL(CONECTOR + '/lojas');
+    const lib = u.protocol === 'https:' ? https : http;
+    const req = lib.get({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, timeout: 8000, headers: comToken() }, (res) => {
+      let corpo = '';
+      res.on('data', (d) => { corpo += d; if (corpo.length > 1e6) req.destroy(); });
+      res.on('end', () => {
+        try {
+          const b = JSON.parse(corpo);
+          ok(L.limpaNome(b.selecionada || b.atual || ''));
+        } catch (e) { ok(''); }
+      });
+    });
+    req.on('error', () => ok(''));
+    req.on('timeout', () => { req.destroy(); ok(''); });
+  });
+}
+
+let lojaAtiva = LOJA;
+let trocando = false;
+
+async function trocarPara(browser, nova) {
+  if (trocando || !nova || nova === lojaAtiva) return;
+  trocando = true;
+  try {
+    console.log('\n  🏪 O painel trocou para a loja "' + nova + '" — trocando os logins...');
+    for (const c of CONTAS) await parar(c);
+    lojaAtiva = nova;
+    CONTAS = contasDaLoja(nova);
+    await Promise.all(CONTAS.map((conta) => vigiar(browser, conta)));
+    console.log('  🏪 Agora vigiando os pedidos da loja "' + nova + '".\n');
+  } catch (e) {
+    console.log('  (nao consegui trocar de loja: ' + String(e).slice(0, 80) + ')');
+  }
+  trocando = false;
 }
 
 async function principal() {
   console.log('\n  DuoLive · Robô de vendas (TikTok + Shopee), leitura a cada ' + (RITMO / 1000) + 's.');
   console.log('  Conta os pedidos feitos a partir de agora (até 10 min atrás).');
+  console.log('  Loja: ' + lojaAtiva + ' (troca sozinho quando você trocar no painel)');
   console.log('  Mandando as vendas para: ' + CONECTOR + '\n');
 
-  let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (e) { try { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
-    catch (e2) { console.log('  Instale o Google Chrome e tente de novo.'); process.exit(1); } }
+  const browser = await abreNavegador(true);
 
   await Promise.all(CONTAS.map((conta) => vigiar(browser, conta)));
+
+  // segue o seletor 🏪 do painel
+  setInterval(() => {
+    lojaDoPainel().then((l) => trocarPara(browser, l)).catch(() => {});
+  }, 5000);
 
   // guarda uma amostra do que foi capturado (se algo não aparecer, me mande esse arquivo)
   setInterval(() => {
     try { fs.writeFileSync(ARQ_DESCOBERTA, JSON.stringify({ comPedidos: amostras, outras: amostrasOutras }, null, 1)); } catch (e) {}
-  }, 60000);
+    try { fs.writeFileSync(path.join(__dirname, 'descoberta-ws.json'), JSON.stringify(framesWS, null, 1)); } catch (e) {}
+  }, 10000);
 }
 
 if (require.main === module) principal();
 // exporta o leitor para testes (não liga o robô quando importado)
-module.exports = { parsePedido: parsePedido, garimpa: garimpa, achaValor: achaValor };
+module.exports = { parsePedido: parsePedido, garimpa: garimpa, achaValor: achaValor, CONTAS: CONTAS };

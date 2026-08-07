@@ -16,21 +16,22 @@
 // Sem --loja, vale para a loja "principal". Cada loja guarda a sua sessão
 // (sessao-console-bellini.json), então uma não apaga a outra.
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
+const fs = require('fs');
 const path = require('path');
 const L = require('./lojas.js');
 
 const LOJA = L.lojaPedida();
 const ARQ = path.join(__dirname, 'sessao-console-' + LOJA + '.json');
+// Gerenciador de LIVE: e' AQUI que os pedidos da live aparecem em tempo real
+// (o "Console de pedidos"), e tambem a Oferta Relampago.
+// Cuidado ao testar: DESLOGADO este endereco redireciona para a pagina de
+// propaganda americana (business.tiktokshop.com/us/...) — o que nao quer dizer
+// que esteja errado. Logado, ele abre o console de verdade.
 const ALVO = 'https://shop.tiktok.com/streamer/live/product/dashboard';
 
 (async () => {
-  let browser;
-  try { browser = await chromium.launch({ headless: false, channel: 'chrome' }); }
-  catch (e) {
-    try { browser = await chromium.launch({ headless: false, channel: 'msedge' }); }
-    catch (e2) { console.log('Instale o Google Chrome e tente de novo.'); process.exit(1); }
-  }
+  const browser = await abreNavegador(false);
   const ctx = await browser.newContext({ locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
   await page.goto(ALVO).catch(() => {});
@@ -48,17 +49,20 @@ const ALVO = 'https://shop.tiktok.com/streamer/live/product/dashboard';
 
   await ctx.storageState({ path: ARQ });
 
-  // confere se a sessao vale mesmo (o console responde de verdade?)
+  // Confere se o login pegou mesmo: a sessao tem que ter cookie de conta nos
+  // dominios do console. (Nao dependemos de uma API especifica, que muda de
+  // endereco de tempos em tempos.)
   let ok = false;
   try {
-    const r = await page.request.get('https://shop.tiktok.com/api/v1/streamer_desktop/account_info/get', { timeout: 15000 });
-    const t = await r.text();
-    ok = t && t.length > 20 && !/not.?login|unauthorized/i.test(t);
+    const estado = JSON.parse(fs.readFileSync(ARQ, 'utf8'));
+    const cookies = (estado && estado.cookies) || [];
+    ok = cookies.some((c) => /tiktokshop\.com|tiktok\.com/.test(c.domain || '')
+      && /sessionid|sid_tt|sid_guard|passport_auth/i.test(c.name || ''));
   } catch (e) {}
 
   console.log('  Sessao guardada em ' + ARQ);
-  if (ok) console.log('  ✅ O console respondeu — o login valeu!');
-  else console.log('  ⚠️  O console nao respondeu ainda. Se a lista de produtos nao tinha aparecido,'
+  if (ok) console.log('  ✅ Login do console guardado!');
+  else console.log('  ⚠️  Nao vi o login nesta sessao. Se a lista de produtos nao tinha aparecido,'
     + '\n     rode de novo e espere ela carregar antes de apertar Enter.');
   console.log('  Agora rode:  npm run robo-oferta');
   await browser.close();

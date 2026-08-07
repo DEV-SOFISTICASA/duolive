@@ -13,7 +13,7 @@
 // Fica rodando e atualiza sozinho a cada 10 min (DUOLIVE_PRODUTOS_MIN muda isso).
 // Rode com  DUOLIVE_UMA_VEZ=1  para ler uma vez e sair.
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -270,10 +270,7 @@ async function volta(browser) {
 async function principal() {
   console.log('\n  DuoLive · Robô de produtos (só leitura). Lendo o catálogo das suas lojas...');
   console.log('  Mandando para: ' + CONECTOR + '\n');
-  let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (e) { try { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
-    catch (e2) { console.log('  Instale o Google Chrome e tente de novo.'); process.exit(1); } }
+  const browser = await abreNavegador(true);
 
   await volta(browser);
   if (UMA_VEZ) { await browser.close(); console.log('\n  Pronto.'); process.exit(0); }

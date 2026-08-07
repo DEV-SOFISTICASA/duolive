@@ -7,7 +7,7 @@
 // Como usar:  npm run login-tiktok -- --loja bellini
 // (sem --loja vale para a loja "principal"; cada loja guarda a sua sessão)
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const path = require('path');
 const L = require('./lojas.js');
 
@@ -15,15 +15,13 @@ const LOJA = L.lojaPedida();
 const ARQ = path.join(__dirname, 'sessao-tiktok-' + LOJA + '.json');
 
 (async () => {
-  let browser;
-  try { browser = await chromium.launch({ headless: false, channel: 'chrome' }); }
-  catch (e) {
-    try { browser = await chromium.launch({ headless: false, channel: 'msedge' }); }
-    catch (e2) { console.log('Instale o Google Chrome e tente de novo.'); process.exit(1); }
-  }
+  const browser = await abreNavegador(false);
   const ctx = await browser.newContext({ locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
-  await page.goto('https://seller.tiktokglobalshop.com');
+  // Seller Center BRASILEIRO, direto no formulario de login. (O global,
+  // seller.tiktokglobalshop.com, e' outra conta: quem vende no Brasil nao acha
+  // a loja dele la'. E a raiz do site cai numa pagina de propaganda, sem login.)
+  await page.goto('https://seller-br.tiktok.com/account/login');
 
   console.log('');
   console.log('  Loja: ' + LOJA);

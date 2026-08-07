@@ -18,5 +18,28 @@ conector/*.png
 # Configuracao pessoal (URL do seu conector no Render)
 conector/conector.txt
 
+# Chave de assinatura do chat do TikTok (eulerstream.com) - NUNCA enviar
+conector/chave-tiktok.txt
+
+# Senha do painel - NUNCA enviar
+conector/senha-painel.txt
+
+# Ferramenta do tunel (binario grande) e o link temporario gerado em runtime
+conector/cloudflared.exe
+conector/link-atual.txt
+
+# Dados REAIS capturados da live (nomes de compradores etc.) - PII, nunca enviar
+conector/testes/dados/
+
+# Chamadas capturadas do Chrome (contem cabecalhos da sua sessao) - NUNCA enviar
+conector/chamada-*.json
+
+# Cofre das sessoes: endereco do repositorio privado, copia local do cofre
+# e as sessoes antigas que o "baixar" guarda por seguranca.
+conector/cofre.txt
+conector/.cofre-nuvem/
+conector/sessoes.cofre
+conector/*.anterior
+
 # Configuracao local do Claude Code
 .claude/

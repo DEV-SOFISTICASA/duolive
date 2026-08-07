@@ -12,7 +12,7 @@
 //
 // (SB_KEY e' a mesma chave que o LiveDash usa no GitHub — a service role.)
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -157,10 +157,7 @@ async function coletarLoja(browser, loja, storageState, descoberta) {
 (async () => {
   console.log('\n  DuoLive · Robô do console de lives (Compass) — TODAS as lojas');
   console.log('  Mandando para: ' + CONECTOR + '\n');
-  let browser;
-  try { browser = await chromium.launch({ headless: true, channel: 'chrome' }); }
-  catch (e) { try { browser = await chromium.launch({ headless: true, channel: 'msedge' }); }
-    catch (e2) { console.log('Instale o Google Chrome e tente de novo.'); process.exit(1); } }
+  const browser = await abreNavegador(true);
 
   async function volta() {
     const lojas = await lerLojas();

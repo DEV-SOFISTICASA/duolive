@@ -7,7 +7,7 @@
 // Como usar:  npm run login-shopee -- --loja bellini
 // (sem --loja vale para a loja "principal"; cada loja guarda a sua sessão)
 
-const { chromium } = require('playwright-core');
+const { abreNavegador } = require('./navegador.js');
 const path = require('path');
 const L = require('./lojas.js');
 
@@ -15,19 +15,12 @@ const LOJA = L.lojaPedida();
 const ARQ = path.join(__dirname, 'sessao-shopee-' + LOJA + '.json');
 
 (async () => {
-  let browser;
-  try {
-    browser = await chromium.launch({ headless: false, channel: 'chrome' });
-  } catch (e) {
-    try { browser = await chromium.launch({ headless: false, channel: 'msedge' }); }
-    catch (e2) {
-      console.log('Nao achei o Chrome nem o Edge instalados. Instale o Google Chrome e tente de novo.');
-      process.exit(1);
-    }
-  }
+  const browser = await abreNavegador(false);
   const ctx = await browser.newContext({ locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
-  await page.goto('https://creator.shopee.com.br');
+  // Central do Vendedor: e' a conta que ve os PEDIDOS (o que o robo de vendas le).
+  // creator.shopee.com.br manda para o login de COMPRADOR, que nao serve aqui.
+  await page.goto('https://seller.shopee.com.br/account/signin');
 
   console.log('');
   console.log('  Loja: ' + LOJA);

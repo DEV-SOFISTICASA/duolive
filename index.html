@@ -143,11 +143,42 @@
   var lojaSel='';             // loja ativa
   function mapaTT(){ try{ return JSON.parse(localStorage.getItem('ld-loja-tt'))||{}; }catch(e){ return {}; } }
   function setTT(loja,tt){ var m=mapaTT(); if(tt) m[loja]=tt; else delete m[loja]; try{ localStorage.setItem('ld-loja-tt', JSON.stringify(m)); }catch(e){} }
+  /* a conta da Shopee tem usuario PROPRIO: quase nunca e' o mesmo @ do TikTok,
+     entao cada loja guarda os dois nomes separados. */
+  function mapaSH(){ try{ return JSON.parse(localStorage.getItem('ld-loja-shopee'))||{}; }catch(e){ return {}; } }
+  function setSH(loja,u){ var m=mapaSH(); if(u) m[loja]=u; else delete m[loja]; try{ localStorage.setItem('ld-loja-shopee', JSON.stringify(m)); }catch(e){} }
   function lojasExtra(){ try{ return JSON.parse(localStorage.getItem('ld-lojas-extra'))||[]; }catch(e){ return []; } }
 
   function postConta(tt){
     // manda o @ (chat) e a loja (numeros do console) juntos
     try{ fetch(URL_MC+'/conta',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({tiktok:tt||'',loja:(typeof lojaSel!=='undefined'?lojaSel:'')})}).catch(function(){}); }catch(e){}
+  }
+  /* guarda as DUAS contas da loja no conector (elas aparecem no painel de Ofertas) */
+  function postLoja(loja){
+    try{ fetch(URL_MC+'/minha-loja',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({loja:loja,nome:loja,tiktok:mapaTT()[loja]||'',shopee:mapaSH()[loja]||''})}).catch(function(){}); }catch(e){}
+  }
+  /* tira a loja da lista. Os logins guardados no PC NAO sao apagados. */
+  function apagarLoja(loja){
+    if(!confirm('Tirar a loja "'+loja+'" da lista?\n\nOs logins guardados no seu PC continuam salvos.')) return;
+    var ex=lojasExtra().filter(function(n){ return n!==loja; });
+    try{ localStorage.setItem('ld-lojas-extra', JSON.stringify(ex)); }catch(e){}
+    setTT(loja,''); setSH(loja,'');
+    if(lojaSel===loja){ lojaSel=''; try{ localStorage.removeItem('ld-loja-sel'); }catch(e){} }
+    lojas=lojas.filter(function(n){ return n!==loja; });
+    try{ fetch(URL_MC+'/apagar-loja',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({loja:loja})}).catch(function(){}); }catch(e){}
+    renderLojas();
+  }
+  /* pergunta os dois usuarios da loja. Cancelar NAO apaga o que ja estava salvo. */
+  function editarContas(loja){
+    var tt=prompt('@ do TikTok da loja "'+loja+'"\n(a conta que faz a live — sem o @)', mapaTT()[loja]||'');
+    if(tt!==null) setTT(loja, tt.trim().replace(/^@/,''));
+    var sh=prompt('Usuário da Shopee da loja "'+loja+'"\n(pode ser diferente do TikTok — deixe em branco se não souber)', mapaSH()[loja]||'');
+    if(sh!==null) setSH(loja, sh.trim().replace(/^@/,''));
+    postLoja(loja);
+    if(loja===lojaSel) postConta(mapaTT()[loja]||'');
+    renderLojas();
   }
   function fechaMenu(){ document.getElementById('menuLojas').classList.remove('aberto'); }
   function selecionar(loja, automatico){
@@ -156,32 +187,46 @@
     try{ localStorage.setItem('ld-loja-sel', loja); }catch(e){}
     var tt=mapaTT()[loja]||'';
     if(!tt && !automatico){
-      tt=(prompt('Qual é o @ do TikTok da loja "'+loja+'"? (a conta que faz a live)','')||'').trim().replace(/^@/,'');
-      if(tt) setTT(loja,tt);
+      var r=prompt('Qual é o @ do TikTok da loja "'+loja+'"? (a conta que faz a live)','');
+      if(r!==null){ tt=r.trim().replace(/^@/,''); if(tt) setTT(loja,tt); }
     }
     postConta(tt);
+    postLoja(loja);
     var af=document.querySelector('.esq .caixa iframe');
     if(af) af.setAttribute('src','analytics.html?api='+encodeURIComponent(URL_MC)+'&loja='+encodeURIComponent(loja));
     fechaMenu();
     renderLojas();
   }
   function renderLojas(){
-    var m=mapaTT();
+    var m=mapaTT(), s=mapaSH();
+    // como as duas contas aparecem juntas: 🎵@tiktok · 🧡usuario-da-shopee
+    function rotulo(loja){
+      var p=[];
+      if(m[loja]) p.push('🎵@'+m[loja]);
+      if(s[loja]) p.push('🧡'+s[loja]);
+      return p.length?p.join(' · '):'sem contas';
+    }
     // botao mostra a loja atual
     document.getElementById('lojaNome').textContent = lojaSel || 'escolher…';
-    document.getElementById('lojaTT').textContent = (lojaSel && m[lojaSel]) ? ('@'+m[lojaSel]) : '';
+    document.getElementById('lojaTT').textContent = lojaSel ? rotulo(lojaSel) : '';
     // menu com todas as lojas
     var menu=document.getElementById('menuLojas'); menu.innerHTML='';
     lojas.forEach(function(loja){
       var d=document.createElement('div'); d.className='item'+(loja===lojaSel?' on':'');
       var vivo=(typeof lojasLive!=='undefined' && lojasLive.indexOf(loja)>=0);
-      d.innerHTML=(vivo?'<span title="ao vivo" style="color:#f43f5e">●</span> ':'')+'<span class="nome"></span>'+(m[loja]?'<span class="tt">@'+m[loja]+'</span>':'<span class="tt">sem @</span>')+'<span class="ed" title="Editar @ do TikTok">✎</span>';
+      d.innerHTML=(vivo?'<span title="ao vivo" style="color:#f43f5e">●</span> ':'')+'<span class="nome"></span><span class="tt"></span><span class="ed" title="Editar as contas do TikTok e da Shopee">✎</span><span class="ed del" title="Tirar esta loja da lista">🗑</span>';
       d.querySelector('.nome').textContent=loja;
+      d.querySelector('.tt').textContent=rotulo(loja);
       d.onclick=function(ev){
+        if(ev.target.classList.contains('del')){
+          ev.stopPropagation();
+          apagarLoja(loja);
+          return;
+        }
         if(ev.target.classList.contains('ed')){
           ev.stopPropagation();
-          var novo=(prompt('@ do TikTok da loja "'+loja+'":', m[loja]||'')||'').trim().replace(/^@/,'');
-          setTT(loja,novo); if(loja===lojaSel) postConta(novo); renderLojas(); return;
+          editarContas(loja);
+          return;
         }
         selecionar(loja);
       };

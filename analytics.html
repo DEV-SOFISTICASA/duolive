@@ -8,6 +8,10 @@
   :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:14px}
+  /* dentro do painel esta pagina fica num quadro; a barra de rolagem dele so
+     polui a tela. Some com a barra — a rolagem pela rodinha do mouse continua. */
+  html{scrollbar-width:none;-ms-overflow-style:none}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{width:0;height:0;display:none}
   h1{font-size:15px}
   .sub{font-size:11px;color:var(--text-3);margin:2px 0 12px}
   .filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
@@ -87,11 +91,14 @@
     <small id="liMeta"></small>
   </div>
 
+  <!-- as 4 primeiras caixinhas vem do console de lives (robo Compass). Enquanto
+       ele nao coletou nada elas ficam com "–", entao somem durante a live: um
+       "Vendas —" no meio da transmissao parece venda zerada e confunde. -->
   <div class="tiles" id="tiles" style="display:none">
-    <div class="tile"><small>💰 Vendas (GMV)</small><b id="tGmv">–</b></div>
-    <div class="tile"><small>📦 Pedidos</small><b id="tPed">–</b></div>
-    <div class="tile"><small>👀 Pessoas que assistiram</small><b id="tViews">–</b></div>
-    <div class="tile"><small id="tHorasLbl">⏱️ Tempo de live</small><b id="tHoras">–</b></div>
+    <div class="tile doConsole"><small>💰 Vendas (GMV)</small><b id="tGmv">–</b></div>
+    <div class="tile doConsole"><small>📦 Pedidos</small><b id="tPed">–</b></div>
+    <div class="tile doConsole"><small>👀 Pessoas que assistiram</small><b id="tViews">–</b></div>
+    <div class="tile doConsole"><small id="tHorasLbl">⏱️ Tempo de live</small><b id="tHoras">–</b></div>
     <div class="tile" id="tileSho" style="display:none;border-color:rgba(255,92,53,.4)"><small>🧡 Shopee — vendas anotadas</small><b id="tSho">–</b></div>
     <div class="tile" id="tileTik" style="display:none"><small>🎵 TikTok — vendas anotadas</small><b id="tTik">–</b></div>
   </div>
@@ -129,6 +136,7 @@
   // loja escolhida no seletor do painel chega por ?loja=
   var lojaInicial='(todas)'; try{ var lq=new URLSearchParams(location.search).get('loja'); if(lq) lojaInicial=lq; }catch(e){}
   var lojas=[], lojaSel=lojaInicial, dias=30, modo='aovivo', todasLives=[];
+  var liveNoAr=false;  // a live esta acontecendo agora? (pergunta ao conector)
 
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function inteiro(n){ return (n||0).toLocaleString('pt-BR'); }
@@ -201,12 +209,23 @@
     var lives=daLoja().sort(function(a,b){ return new Date(b.started_at)-new Date(a.started_at); });
     $('tabelaBox').style.display='none';
     if(!lives.length){
-      // sem lives do TikTok ainda — mas as caixinhas da Shopee continuam aparecendo
-      $('vazio').style.display='block'; $('liveInfo').style.display='none';
+      // Ainda nao ha numeros do console de lives.
+      // COM A LIVE NO AR: nao mostra nada disso — a mensagem de "nenhuma live" e
+      // as caixinhas com "–" so atrapalham quem esta transmitindo. As vendas
+      // anotadas (Shopee/TikTok) continuam aparecendo, essas sao de verdade.
+      // COM A LIVE PARADA: mostra, para voce saber que ainda nao coletaram nada.
+      var some = liveNoAr ? 'none' : '';
+      $('vazio').style.display = liveNoAr ? 'none' : 'block';
+      $('liveInfo').style.display='none';
       $('tGmv').textContent='–'; $('tPed').textContent='–'; $('tViews').textContent='–'; $('tHoras').textContent='–';
+      var caixas=document.querySelectorAll('#tiles .doConsole');
+      for(var i=0;i<caixas.length;i++) caixas[i].style.display=some;
       $('tiles').style.display='';
       return;
     }
+    // ha numeros de verdade: as caixinhas do console voltam
+    var todas=document.querySelectorAll('#tiles .doConsole');
+    for(var j=0;j<todas.length;j++) todas[j].style.display='';
     $('vazio').style.display='none';
     var l=lives[0];
     var fim=new Date(l.finished_at||l.started_at).getTime();
@@ -283,6 +302,14 @@
   carregar();
   setInterval(carregar, 5*60*1000); // atualiza sozinho a cada 5 minutos
 
+  // Anota se a live esta no ar e redesenha quando isso muda. Quem chama e' a
+  // pegaAoVivo() la' de baixo, que ja consulta o conector a cada 4 segundos.
+  function marcaLive(noAr){
+    if(liveNoAr===noAr) return;
+    liveNoAr=noAr;
+    render(); // as caixinhas vazias do console somem (ou voltam)
+  }
+
   // vendas anotadas no Multichat (Shopee e TikTok) — chegam pelo conector no seu PC
   function pegaAnotadas(){
     fetch(apiBase()+'/vendas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
@@ -324,7 +351,8 @@
   function real2(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function pegaAoVivo(){
     fetch(apiBase()+'/ao-vivo',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
-      if(!d || !d.aoVivo){ $('aoVivoBox').style.display='none'; av.inicio=0; return; }
+      if(!d || !d.aoVivo){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; return; }
+      marcaLive(true);
       $('aoVivoBox').style.display='';
       $('avConta').textContent = d.usuario ? ('@'+d.usuario) : '';
       $('avVis').textContent = inteiro(d.espectadores);
@@ -336,7 +364,7 @@
       $('avVendasTik').textContent = real2(tik);
       $('avVendasSho').textContent = real2(sho);
       av.inicio = d.inicio||0;
-    }).catch(function(){ $('aoVivoBox').style.display='none'; av.inicio=0; });
+    }).catch(function(){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; });
     fetch(apiBase()+'/oferta',{cache:'no-store'}).then(function(r){return r.json();}).then(function(o){
       av.oferta = (o&&o.nome)?o:null;
       var box=$('avOferta');
