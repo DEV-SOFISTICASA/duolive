@@ -14,6 +14,8 @@
   .eu b{color:var(--text)}
   .sair{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer}
   .sair:hover{border-color:var(--accent);color:var(--text)}
+  .voltar{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:5px 12px;font-size:12px;text-decoration:none;white-space:nowrap}
+  .voltar:hover{border-color:var(--accent);color:var(--text)}
   .sub{font-size:11.5px;color:var(--text-3);margin-bottom:14px}
   .filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
   .chip{font-size:12px;padding:5px 14px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none;background:var(--card)}
@@ -45,6 +47,7 @@
 </head>
 <body>
   <div class="topo">
+    <a href="/painel" class="voltar">← Painel</a>
     <h1>📈 Histórico de vendas</h1>
     <div class="eu" id="eu" style="display:none">👤 <b id="euNome"></b> <button class="sair" onclick="location.href='/sair'">Sair</button></div>
   </div>
