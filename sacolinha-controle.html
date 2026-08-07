@@ -106,7 +106,12 @@
     <div id="atualLista"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="liveAviso" style="display:none;border-color:rgba(244,63,94,.45)">
+    <b style="color:#f43f5e;font-size:12.5px">🔴 Live no ar</b>
+    <div style="font-size:11.5px;color:var(--text-2);margin-top:4px">As ofertas fixas acima estão <b>rodando</b>. Para <b>editar ou cadastrar</b>, é só encerrar a live.</div>
+  </div>
+
+  <div class="card" id="cadCard">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <b style="font-size:12.5px">Cadastrar produto</b>
       <div class="platsel" id="cadPlat"><span data-p="shopee" class="on">🧡 Shopee</span><span data-p="tiktok">🎵 TikTok</span></div>
@@ -536,7 +541,8 @@
   }
 
   // ======== Ofertas fixas (conjunto + estampa) — salvas no Supabase; só o ADM edita ========
-  var fixEhAdm=false, fixEditando=false;
+  var fixEhAdm=false, fixEditando=false, liveAoVivo=false;
+  function podeEditarFix(){ return fixEhAdm && !liveAoVivo; } // com a live no ar: só leitura
   function brlNum(s){ s=String(s==null?'':s).replace(/[^\d.,]/g,''); if(!s) return null; if(s.indexOf(',')>=0&&s.indexOf('.')>=0) s=s.replace(/\./g,''); s=s.replace(',','.'); var n=parseFloat(s); return isNaN(n)?null:n; }
   function pctOff(de,por){ de=+de; por=+por; if(de>0&&por>0&&por<de) return '−'+Math.round(100*(1-por/de))+'%'; return ''; }
   function slug(s){ return String(s).normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]','g'),'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40); }
@@ -559,8 +565,8 @@
         if(!d||!d.ok) return;
         fixEhAdm=!!d.ehAdm;
         $('fixCard').style.display='';
-        $('fixAdd').style.display=fixEhAdm?'':'none';
-        $('fixQuem').textContent=fixEhAdm?'você é o ADM · edita os valores':'só o ADM edita';
+        $('fixAdd').style.display=podeEditarFix()?'':'none';
+        $('fixQuem').textContent=liveAoVivo?'🔴 live no ar · edição travada':(fixEhAdm?'você é o ADM · edita os valores':'só o ADM edita');
         if(!fixEditando) renderFixas(d.descontos||[]);
       }).catch(function(){ /* conector offline: mantém o card escondido */ });
   }
@@ -601,7 +607,7 @@
     var nm=document.createElement('div'); nm.className='nm'; nm.textContent=c.nome||'(produto)'; cnt.appendChild(nm);
     var lin=document.createElement('div'); lin.className='lin';
     if(c.valor_normal!=null){ var s=document.createElement('s'); s.textContent='R$ '+brl(c.valor_normal); lin.appendChild(s); }
-    if(fixEhAdm){
+    if(podeEditarFix()){
       var lb=document.createElement('span'); lb.className='de'; lb.textContent='por R$'; lin.appendChild(lb);
       lin.appendChild(campoPreco(c.valor_desconto, function(v,ok){
         salvaFix({produto_id:gp.id, sku:null, nome:c.nome, imagem:c.imagem, valor_normal:c.valor_normal, valor_desconto:v}, function(){ c.valor_desconto=v; ok(); atualizaPct(lin,c.valor_normal,v); });
@@ -612,14 +618,14 @@
     var pct=document.createElement('span'); pct.className='pct'; pct.dataset.pct='1'; pct.textContent=pctOff(c.valor_normal,c.valor_desconto); lin.appendChild(pct);
     cnt.appendChild(lin);
     var nEst=gp.estampas.length;
-    if(nEst || fixEhAdm){
+    if(nEst || podeEditarFix()){
       var exp=document.createElement('button'); exp.className='exp'; exp.textContent='▸ estampas'+(nEst?(' ('+nEst+')'):'');
       var estBox=document.createElement('div'); estBox.className='estBox'; estBox.style.display='none';
       exp.onclick=function(){ var ab=estBox.style.display==='none'; estBox.style.display=ab?'':'none'; exp.textContent=(ab?'▾':'▸')+' estampas'+(nEst?(' ('+nEst+')'):''); if(ab) montaEstampas(estBox,gp,c); };
       cnt.appendChild(exp); cnt.appendChild(estBox);
     }
     d.appendChild(cnt);
-    if(fixEhAdm){
+    if(podeEditarFix()){
       var x=document.createElement('button'); x.className='x'; x.title='Tirar da oferta'; x.textContent='✕';
       x.onclick=function(){ if(!confirm('Tirar "'+(c.nome||'este produto')+'" das ofertas fixas?')) return; removeFix({produto_id:gp.id,sku:null}).then(carregaFixas); };
       d.appendChild(x);
@@ -631,7 +637,7 @@
     gp.estampas.forEach(function(es){
       var row=document.createElement('div'); row.className='est';
       var en=document.createElement('div'); en.className='en'; en.textContent=es.variacao_nome||es.sku; row.appendChild(en);
-      if(fixEhAdm){
+      if(podeEditarFix()){
         var lb=document.createElement('span'); lb.className='de'; lb.textContent='R$'; row.appendChild(lb);
         row.appendChild(campoPreco(es.valor_desconto, function(v,ok){
           salvaFix({produto_id:gp.id, sku:es.sku, nome:conj.nome, imagem:conj.imagem, valor_normal:conj.valor_normal, variacao_nome:es.variacao_nome, valor_desconto:v}, function(){ es.valor_desconto=v; ok(); });
@@ -644,7 +650,7 @@
       }
       box.appendChild(row);
     });
-    if(fixEhAdm){
+    if(podeEditarFix()){
       var add=document.createElement('button'); add.className='exp'; add.textContent='+ estampa';
       add.onclick=function(){
         var nome=(prompt('Nome da estampa (ex.: Folhas, Dubai):','')||'').trim();
@@ -661,9 +667,9 @@
     var el=$('fixLista'); el.innerHTML='';
     var grupos=agrupaFixas(descontos);
     if(!grupos.length){
-      el.innerHTML='<div class="vazio">'+(fixEhAdm
+      el.innerHTML='<div class="vazio">'+(podeEditarFix()
         ? 'Nenhuma oferta fixa ainda. Toque em <b>+ Adicionar produto</b> — o desconto que você puser fica salvo até mudar.'
-        : 'Sem ofertas fixas ainda. O ADM define os descontos aqui.')+'</div>';
+        : (liveAoVivo ? 'Nenhuma oferta fixa nesta live.' : 'Sem ofertas fixas ainda. O ADM define os descontos aqui.'))+'</div>';
       return;
     }
     grupos.forEach(function(gp){ el.appendChild(linhaConjunto(gp)); });
@@ -710,6 +716,20 @@
   if($('btnFixManual')) $('btnFixManual').onclick=addManual;
   carregaFixas();
   setInterval(function(){ if(!fixEditando) carregaFixas(); }, 12000);
+
+  // com a live NO AR: some a caixa de EDIÇÃO; fica só a lista de ofertas fixas (read-only).
+  // A edição/cadastro só volta quando a live é encerrada.
+  function atualizaModoLive(){
+    if($('cadCard')) $('cadCard').style.display = liveAoVivo ? 'none' : '';
+    if($('liveAviso')) $('liveAviso').style.display = liveAoVivo ? '' : 'none';
+  }
+  function pegaAoVivoFix(){
+    fetch(apiBase()+'/ao-vivo',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      var v=!!(d&&d.aoVivo);
+      if(v!==liveAoVivo){ liveAoVivo=v; if(v) fixEditando=false; atualizaModoLive(); carregaFixas(); }
+    }).catch(function(){});
+  }
+  atualizaModoLive(); pegaAoVivoFix(); setInterval(pegaAoVivoFix, 8000);
 
   renderLista(); renderAtual();
   setInterval(renderAtual,500);

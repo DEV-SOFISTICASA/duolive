@@ -92,6 +92,14 @@
   </div>
 <script>
 (function(){
+  // F5 / reiniciar a página = sair (na nuvem, cada abertura pede login de novo).
+  // No PC local (127.0.0.1 / rede interna) não desloga, pra não atrapalhar você.
+  try{
+    var _nav=(performance.getEntriesByType&&performance.getEntriesByType('navigation')[0]);
+    var _recarregou=_nav?(_nav.type==='reload'):(performance.navigation&&performance.navigation.type===1);
+    var _naNuvem=!/^(localhost$|127\.|0\.0\.0\.0|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
+    if(_recarregou && _naNuvem){ location.replace('/sair'); return; }
+  }catch(e){}
   // Endereco do conector: se o painel foi aberto PELO conector (PC ou Render),
   // usa o proprio endereco da pagina — tudo junto numa URL so'. Abriu como
   // arquivo? Usa o PC (127.0.0.1). Da' para trocar pelo ⚙ ou pela URL: ?api=...

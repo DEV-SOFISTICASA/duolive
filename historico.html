@@ -77,6 +77,13 @@
 
 <script>
 (function(){
+  // F5 / reiniciar a página = sair (na nuvem, cada abertura pede login de novo)
+  try{
+    var _nav=(performance.getEntriesByType&&performance.getEntriesByType('navigation')[0]);
+    var _recarregou=_nav?(_nav.type==='reload'):(performance.navigation&&performance.navigation.type===1);
+    var _naNuvem=!/^(localhost$|127\.|0\.0\.0\.0|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
+    if(_recarregou && _naNuvem){ location.replace('/sair'); return; }
+  }catch(e){}
   var $=function(id){return document.getElementById(id)};
   var dias=7, ehAdm=false, papel=null, minhaSigla=null;
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
