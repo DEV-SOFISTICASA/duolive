@@ -30,3 +30,7 @@ services:
         sync: false          # chave do eulerstream.com (chat do TikTok)
       - key: DUOLIVE_TIKTOK_USER
         sync: false          # o @ da conta do TikTok, sem o @ (opcional)
+      - key: SUPABASE_URL
+        sync: false          # https://XXXX.supabase.co (do projeto duolive)
+      - key: SUPABASE_KEY
+        sync: false          # a chave SECRETA (service_role) do Supabase

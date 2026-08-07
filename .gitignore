@@ -43,3 +43,6 @@ conector/*.anterior
 
 # Configuracao local do Claude Code
 .claude/
+
+# Chave secreta do Supabase - NUNCA enviar
+conector/chave-supabase.txt

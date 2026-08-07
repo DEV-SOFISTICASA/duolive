@@ -19,6 +19,8 @@ const path = require('path');
 const L = require('./lojas.js');
 const COOKIES = require('./cookies.js');
 const AUTH = require('./auth.js');
+const SB = require('./supabase.js');
+const CONTAS = require('./contas.js');
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
@@ -99,23 +101,41 @@ const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos'
 // Rotas liberadas sem login (a própria tela de senha e o que ela precisa).
 const ROTAS_LIVRES = ['/login', '/entrar', '/favicon.ico'];
 
-function paginaLogin(erro) {
-  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
-    + '<meta name="viewport" content="width=device-width,initial-scale=1"><title>DuoLive · Entrar</title>'
-    + '<style>:root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--accent:#ff5c35}'
-    + '*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--text);'
-    + 'font:14px -apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;min-height:100vh;'
-    + 'align-items:center;justify-content:center}form{background:var(--card);border:1px solid var(--line);'
-    + 'border-radius:14px;padding:28px;width:320px;max-width:92vw}h1{font-size:20px;margin-bottom:4px}'
-    + 'p{color:#a3a3ad;font-size:12.5px;margin-bottom:18px}input{width:100%;background:var(--bg);'
-    + 'border:1px solid var(--line);border-radius:9px;color:var(--text);padding:11px 13px;font-size:14px;outline:none}'
-    + 'input:focus{border-color:var(--accent)}button{width:100%;margin-top:12px;padding:11px;border:0;'
-    + 'border-radius:9px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer}'
-    + '.erro{color:#f87171;font-size:12.5px;margin-top:10px}</style></head><body>'
-    + '<form method="POST" action="/entrar"><h1>🎥 DuoLive</h1><p>Digite a senha para entrar no painel.</p>'
-    + '<input type="password" name="senha" placeholder="Senha" autofocus>'
-    + '<button type="submit">Entrar</button>'
-    + (erro ? '<div class="erro">' + erro + '</div>' : '') + '</form></body></html>';
+function paginaLogin() {
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>DuoLive · Entrar</title>
+<style>:root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--accent:#ff5c35;--ok:#4ade80}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--text);font:14px -apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}
+form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:340px;max-width:92vw}
+h1{font-size:20px;margin-bottom:4px}p{color:#a3a3ad;font-size:12.5px;margin-bottom:8px}
+label{display:block;font-size:11px;color:#737373;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.4px}
+select,input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:11px 13px;font-size:14px;outline:none}
+select:focus,input:focus{border-color:var(--accent)}
+button{width:100%;margin-top:16px;padding:11px;border:0;border-radius:9px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.erro{color:#f87171;font-size:12.5px;margin-top:10px}.aviso{color:var(--ok);font-size:12px;margin-top:8px}</style></head><body>
+<form id="f"><h1>🎥 DuoLive</h1><p>Escolha seu nome e entre.</p>
+<label>Nome</label><select id="quem"><option>carregando...</option></select>
+<label id="lbl">Senha</label>
+<input type="password" id="senha" placeholder="Senha" autocomplete="current-password">
+<button type="submit">Entrar</button>
+<div class="aviso" id="aviso"></div><div class="erro" id="erro"></div></form>
+<script>
+var pessoas=[];
+fetch('/usuarios-login').then(function(r){return r.json();}).then(function(l){
+  pessoas=l||[];var s=document.getElementById('quem');s.innerHTML='';
+  pessoas.forEach(function(u){var o=document.createElement('option');o.value=u.sigla;o.textContent=u.rotulo;s.appendChild(o);});
+  aviso();
+}).catch(function(){document.getElementById('erro').textContent='Não consegui carregar os nomes.';});
+function achou(){var v=document.getElementById('quem').value;return pessoas.filter(function(u){return u.sigla===v;})[0];}
+function aviso(){var u=achou(),a=document.getElementById('aviso'),l=document.getElementById('lbl'),s=document.getElementById('senha');
+  if(u&&u.primeiroAcesso){a.textContent='Primeiro acesso — a senha que digitar será a sua a partir de agora.';l.textContent='Crie sua senha';s.placeholder='Nova senha';}
+  else{a.textContent='';l.textContent='Senha';s.placeholder='Senha';}}
+document.getElementById('quem').onchange=aviso;
+document.getElementById('f').onsubmit=function(e){e.preventDefault();document.getElementById('erro').textContent='';
+  fetch('/entrar',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sigla:document.getElementById('quem').value,senha:document.getElementById('senha').value})})
+  .then(function(r){return r.json();}).then(function(v){if(v&&v.ok){location.href='/painel';}else{document.getElementById('erro').textContent=(v&&v.erro)||'Não consegui entrar.';}})
+  .catch(function(){document.getElementById('erro').textContent='Erro de conexão.';});};
+</script></body></html>`;
 }
 
 const server = http.createServer((req, res) => {
@@ -130,35 +150,54 @@ const server = http.createServer((req, res) => {
   // saúde: o Render bate aqui para saber se o serviço está no ar. Sempre 200, sem senha.
   if (caminhoLimpo === '/saude') { res.setHeader('content-type', 'text/plain'); res.end('ok'); return; }
 
-  // ---- porteiro: só quando há senha configurada (na nuvem). Local fica aberto. ----
-  if (AUTH.protegido()) {
-    // POST da tela de senha
+  // ---- porteiro: com o sistema de contas (Supabase) cada pessoa entra na sua.
+  //      Acesso LOCAL (robô, OBS) e o robô com token passam livres. ----
+  const usaContas = SB.ativo();
+  if (usaContas || AUTH.protegido()) {
+    // menu de nomes para a tela de login (livre)
+    if (caminhoLimpo === '/usuarios-login') {
+      res.setHeader('content-type', 'application/json');
+      if (!usaContas) { res.end('[]'); return; }
+      CONTAS.listaParaLogin()
+        .then((l) => res.end(JSON.stringify(l.map((u) => ({ sigla: u.sigla, rotulo: u.rotulo, primeiroAcesso: u.primeiroAcesso })))))
+        .catch(() => { res.statusCode = 500; res.end('[]'); });
+      return;
+    }
+    // login: {sigla, senha} (novo, por conta). Sem contas, cai na senha única antiga.
     if (caminhoLimpo === '/entrar' && req.method === 'POST') {
       let corpo = '';
-      req.on('data', (d) => { corpo += d; if (corpo.length > 2048) req.destroy(); });
+      req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
       req.on('end', () => {
-        const senha = decodeURIComponent(String((corpo.match(/senha=([^&]*)/) || [])[1] || '').replace(/\+/g, ' '));
-        if (AUTH.senhaConfere(senha)) {
-          res.setHeader('Set-Cookie', AUTH.cookieSet());
-          res.statusCode = 302; res.setHeader('Location', '/painel'); res.end();
+        res.setHeader('content-type', 'application/json');
+        if (usaContas) {
+          let b = {}; try { b = JSON.parse(corpo); } catch (e) {}
+          CONTAS.entrar(b.sigla, b.senha).then((r) => {
+            if (r.ok) {
+              res.setHeader('Set-Cookie', AUTH.COOKIE + '=' + encodeURIComponent(CONTAS.criaToken(r.usuario)) + '; Path=/; Max-Age=' + (30 * 86400) + '; HttpOnly; SameSite=Lax');
+              res.end(JSON.stringify({ ok: true, primeiroAcesso: !!r.primeiroAcesso }));
+            } else { res.statusCode = 200; res.end(JSON.stringify({ ok: false, erro: r.erro })); }
+          }).catch(() => { res.statusCode = 500; res.end('{"ok":false,"erro":"erro no servidor"}'); });
         } else {
-          res.statusCode = 401; res.setHeader('content-type', 'text/html; charset=utf-8');
-          res.end(paginaLogin('Senha incorreta.'));
+          const senha = decodeURIComponent(String((corpo.match(/senha=([^&]*)/) || [])[1] || '').replace(/\+/g, ' '));
+          if (AUTH.senhaConfere(senha)) { res.setHeader('Set-Cookie', AUTH.cookieSet()); res.statusCode = 302; res.setHeader('Location', '/painel'); res.end(); }
+          else { res.statusCode = 401; res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(paginaLogin()); }
         }
       });
       return;
     }
-    if (caminhoLimpo === '/login') {
-      res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(paginaLogin('')); return;
-    }
+    if (caminhoLimpo === '/login') { res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(paginaLogin()); return; }
     if (caminhoLimpo === '/sair') {
-      res.setHeader('Set-Cookie', AUTH.cookieSet(0));
+      res.setHeader('Set-Cookie', AUTH.COOKIE + '=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
       res.statusCode = 302; res.setHeader('Location', '/login'); res.end(); return;
     }
-    // Quem pode passar: rota livre, OU o robô (token de máquina), OU navegador logado
-    // (cookie), OU acesso local. Senão, manda para o login.
-    const livre = ROTAS_LIVRES.includes(caminhoLimpo);
-    if (!livre && !AUTH.temTokenValido(req) && !AUTH.autenticado(req)) {
+
+    // quem está logado (sessão de conta); guarda no req para as rotas saberem o papel
+    req.usuario = usaContas ? CONTAS.leToken(AUTH.cookieDoPedido(req)) : null;
+    const livre = ['/login', '/usuarios-login', '/entrar', '/sair', '/favicon.ico'].includes(caminhoLimpo);
+    const local = !AUTH.veioDeFora(req);           // acesso do próprio PC (robô, OBS)
+    const eRobo = AUTH.temTokenValido(req);         // robô mandando dados para a nuvem
+    const logado = usaContas ? !!req.usuario : AUTH.autenticado(req);
+    if (!livre && !local && !eRobo && !logado) {
       const querPagina = (req.headers.accept || '').includes('text/html');
       if (querPagina) { res.statusCode = 302; res.setHeader('Location', '/login'); res.end(); }
       else { res.statusCode = 401; res.setHeader('content-type', 'application/json'); res.end('{"erro":"nao autenticado"}'); }
