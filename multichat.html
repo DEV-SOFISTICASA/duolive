@@ -242,6 +242,11 @@
   })();
   var compraTimer=null;
   function mostraCompra(quem, texto, plat){
+    // dentro do painel (iframe): quem mostra é a TELA INTEIRA (a página pai)
+    if(window.parent && window.parent!==window){
+      try{ window.parent.postMessage({tipo:'ld-compra', quem:quem, texto:texto, plat:plat}, '*'); }catch(e){}
+      return;
+    }
     var ov=document.getElementById('compraOv'); if(!ov) return;
     var m=String(texto||'').match(/R\$\s*[\d.,]+/);
     ov.querySelector('.valorV').textContent=m?m[0]:'';
