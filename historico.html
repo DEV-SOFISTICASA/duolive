@@ -138,7 +138,7 @@
       if(visao==='loja'){
         // trata a LOJA como se fosse a "sigla" -> o gráfico/cartões já funcionam, por loja
         var LC={monaco:{nome:'Monaco',cor:'#ff5c35'},bellini:{nome:'Bellini',cor:'#f472b6'},fast:{nome:'Fast',cor:'#38bdf8'},mania:{nome:'Mania',cor:'#4ade80'}};
-        vendas=vendas.map(function(v){ return {valor:v.valor,sigla:v.loja||'(sem loja)',produto:v.produto,ts:v.ts}; });
+        vendas=vendas.map(function(v){ return {valor:v.valor,sigla:v.loja||'(sem loja)',produto:v.produto,ts:v.ts,qtd:v.qtd}; });
         cores={}; vendas.forEach(function(v){ if(!cores[v.sigla]) cores[v.sigla]=LC[v.sigla]||{nome:v.sigla.charAt(0).toUpperCase()+v.sigla.slice(1),cor:'#8b8b95'}; });
       }
       render(vendas, cores);
@@ -149,18 +149,21 @@
     // LIVE 10K é evento TEMPORÁRIO: aparece nos períodos recentes (Hoje/7/Mês),
     // mas NÃO entra no "Total" (que é o acumulado permanente).
     if(periodo==='total'){ vendas=vendas.filter(function(v){ return v.sigla!=='LIVE 10K' && v.produto!=='LIVE 10K'; }); } // LIVE 10K dividido em TS/AL fica marcado por produto
-    var total=0, qtd=vendas.length;
+    var total=0, qtd=0;
     // por pessoa (sigla)
     var porSig={};
     // por live (agrupa pelo ts = início da live), e dentro dela por sigla
     var porLive={};
     vendas.forEach(function(v){
       var val=+v.valor||0; total+=val;
+      // venda = PEDIDO: no espelho do LiveDash cada linha é uma LIVE e traz
+      // qtd = nº de pedidos dela; no banco próprio cada linha é 1 pedido (qtd=1)
+      var n=(+v.qtd>=0 && v.qtd!=null)?+v.qtd:1; qtd+=n;
       var sig=v.sigla||'';
-      if(!porSig[sig]) porSig[sig]={sig:sig,total:0,qtd:0}; porSig[sig].total+=val; porSig[sig].qtd++;
+      if(!porSig[sig]) porSig[sig]={sig:sig,total:0,qtd:0}; porSig[sig].total+=val; porSig[sig].qtd+=n;
       var k=v.ts||'?';
       if(!porLive[k]) porLive[k]={ts:new Date(v.ts).getTime(),total:0,qtd:0,porSig:{}};
-      porLive[k].total+=val; porLive[k].qtd++;
+      porLive[k].total+=val; porLive[k].qtd+=n;
       porLive[k].porSig[sig]=(porLive[k].porSig[sig]||0)+val;
     });
     var lives=Object.keys(porLive).map(function(k){return porLive[k];}).sort(function(a,b){return a.ts-b.ts;});

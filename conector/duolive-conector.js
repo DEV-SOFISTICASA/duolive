@@ -291,11 +291,13 @@ const server = http.createServer((req, res) => {
     const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(u);
     const soSigla = (u && u.papel === 'vendedora' && u.sigla) ? u.sigla : null;
     (async () => {
-      let vendas = null, fonte = 'livedash';
+      let vendas = null, coresLD = null, fonte = 'livedash';
       if (LD.ativo()) {
         try {
           const siglas = SB.ativo() ? await siglasConhecidas() : [];
-          vendas = (await LD.comoVendas(siglas)).filter((v) => v.ts >= corte && (!soSigla || v.sigla === soSigla));
+          const esp = await LD.espelho(siglas);
+          coresLD = esp.cores;
+          vendas = esp.vendas.filter((v) => v.ts >= corte && (!soSigla || v.sigla === soSigla));
         } catch (e) { console.log('  (espelho LiveDash falhou: ' + ((e && e.message) || e) + ' — usando o banco proprio)'); vendas = null; }
       }
       if (!vendas) { // reserva: nosso banco proprio
@@ -305,7 +307,9 @@ const server = http.createServer((req, res) => {
         if (soSigla) filtro += '&sigla=eq.' + encodeURIComponent(soSigla);
         vendas = (await SB.seleciona('vendas', filtro)) || [];
       }
-      const cores = {};
+      // cores: as do LiveDash (pessoas extras: Luana, Isa, Gravadas...) por baixo,
+      // as do NOSSO cadastro (usuarios) por cima — os hex que o ADM escolheu ganham.
+      const cores = Object.assign({}, coresLD || {});
       if (SB.ativo()) {
         try { (await SB.seleciona('usuarios', 'select=sigla,nome,cor')).forEach((x) => { cores[x.sigla] = { nome: x.nome, cor: x.cor }; }); } catch (e) {}
       }

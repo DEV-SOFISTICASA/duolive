@@ -321,7 +321,7 @@
     fetch(apiBase()+'/vendas-historico?desde='+encodeURIComponent(meia.toISOString()),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){
         if(!d||!d.ok||!Array.isArray(d.vendas)){ box.style.display='none'; return; }
-        var por={}; d.vendas.forEach(function(v){ var s=v.sigla||'—'; if(!por[s])por[s]={n:0,t:0}; por[s].n++; por[s].t+=(+v.valor||0); });
+        var por={}; d.vendas.forEach(function(v){ var s=v.sigla||'—'; if(!por[s])por[s]={n:0,t:0}; por[s].n+=((+v.qtd>=0&&v.qtd!=null)?+v.qtd:1); por[s].t+=(+v.valor||0); });
         var sigs=Object.keys(por).sort(function(a,b){return por[b].t-por[a].t;});
         var titulo=d.ehAdm?'📊 Hoje — renda por vendedora':'📊 Meu total de hoje';
         var h='<div style="font-size:12px;color:var(--text-2);margin-bottom:4px">'+titulo+'</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
