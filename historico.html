@@ -87,7 +87,7 @@
   var $=function(id){return document.getElementById(id)};
   var dias=7, ehAdm=false, papel=null, minhaSigla=null;
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function corDe(cores,sig){ return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
+  function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
   function nomeDe(cores,sig){ if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
   function quando(ms){ var d=new Date(ms); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
 
@@ -110,7 +110,7 @@
       ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla;
       $('sub').innerHTML = (papel==='vendedora')
         ? 'Você vê só as <b>suas</b> vendas. Cada barra é uma <b>live</b> (pelo horário que começou).'
-        : 'Cada barra é uma <b>live</b> (pelo horário que ela começou). A cor mostra <b>quem vendeu</b>.';
+        : 'Cada barra é uma <b>vendedora</b> — o total dela no período (Hoje / 7 / 30 dias).';
       render(d.vendas||[], d.cores||{});
     }).catch(function(){ $('erro').style.display='block'; });
   }
@@ -152,9 +152,10 @@
       pe.appendChild(d);
     });
 
-    // gráfico de barras (uma por live), empilhado por sigla
+    // ===== gráfico =====
     var barras=$('barras'); barras.innerHTML='';
-    if(!lives.length){
+    var semDados = ehAdm ? !pess.length : !lives.length;
+    if(semDados){
       barras.style.display='none'; $('legenda').style.display='none';
       $('vazio').style.display='';
       $('vazio').innerHTML = (papel==='vendedora')
@@ -162,13 +163,34 @@
         : 'Nenhuma venda registrada neste período ainda.<br>Assim que o robô pegar a primeira venda de uma live, ela aparece aqui.';
       return;
     }
-    barras.style.display=''; $('legenda').style.display='flex'; $('vazio').style.display='none';
+    barras.style.display=''; $('vazio').style.display='none';
+
+    if(ehAdm){
+      // ADM: uma barra POR VENDEDORA (total no período — Hoje / 7 dias / 30 dias)
+      $('grafTit').textContent='Total por vendedora no período';
+      $('legenda').style.display='none';
+      var maxP=Math.max.apply(null, pess.map(function(p){return p.total;}))||1;
+      pess.forEach(function(p){
+        var cor=corDe(cores,p.sig);
+        var altura=Math.max(3, Math.round(p.total/maxP*190));
+        var col=document.createElement('div'); col.className='col';
+        col.innerHTML='<div class="val">'+real(p.total).replace('R$ ','')+'</div>'
+          +'<div class="stack" style="height:'+altura+'px"><div class="seg" style="height:'+altura+'px;background:'+cor+'"></div></div>'
+          +'<div class="hora">'+(p.sig||'sem vend.')+'</div>';
+        col.title=nomeDe(cores,p.sig)+' · '+real(p.total)+' · '+p.qtd+' venda(s)';
+        barras.appendChild(col);
+      });
+      return;
+    }
+
+    // vendedora: uma barra POR LIVE (empilhada por sigla)
+    $('grafTit').textContent='Vendas por live';
+    $('legenda').style.display='flex';
     var maxT=Math.max.apply(null, lives.map(function(l){return l.total;}))||1;
     lives.forEach(function(l){
       var col=document.createElement('div'); col.className='col';
       var altura=Math.max(3, Math.round(l.total/maxT*190)); // px da coluna cheia
       var stack='';
-      // segmentos por sigla dentro da live
       Object.keys(l.porSig).sort(function(a,b){return l.porSig[b]-l.porSig[a];}).forEach(function(sig){
         var h=Math.round(l.porSig[sig]/l.total*altura);
         stack+='<div class="seg" style="height:'+h+'px;background:'+corDe(cores,sig)+'"></div>';
@@ -179,8 +201,6 @@
       col.title=quando(l.ts)+' · '+real(l.total)+' · '+l.qtd+' venda(s)';
       barras.appendChild(col);
     });
-
-    // legenda (só as siglas que aparecem)
     var leg=$('legenda'); leg.innerHTML='';
     pess.forEach(function(p){
       var s=document.createElement('span');
