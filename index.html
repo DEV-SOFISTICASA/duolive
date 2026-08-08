@@ -5,16 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DuoLive · Painel completo</title>
 <script>
-  // modo claro/escuro: aplica a escolha salva ANTES de renderizar (sem flash) + liga o botao 🌗
+  // modo claro/escuro: aplica ANTES de renderizar (sem flash), nos iframes SEM
+  // recarregar (NAO desloga mais) e lembra a escolha POR USUARIO.
   try{ if(localStorage.getItem('ldTema')==='claro') document.documentElement.setAttribute('data-tema','claro'); }catch(e){}
-  document.addEventListener('DOMContentLoaded',function(){
-    var b=document.getElementById('btnTema'); if(!b) return;
-    b.onclick=function(){
-      var claro = document.documentElement.getAttribute('data-tema')!=='claro';
-      try{ localStorage.setItem('ldTema', claro?'claro':'escuro'); }catch(e){}
-      location.reload(); // recarrega pra os iframes (multichat/analytics/ofertas) reaplicarem o tema
-    };
-  });
+  function aplicaTema(t){
+    var set=function(doc){ if(!doc) return; if(t==='claro') doc.documentElement.setAttribute('data-tema','claro'); else doc.documentElement.removeAttribute('data-tema'); };
+    set(document);
+    document.querySelectorAll('iframe').forEach(function(f){ try{ set(f.contentDocument); }catch(e){} });
+  }
+  // quando o painel descobre quem logou (no /eu), aplica o tema salvo DAQUELA pessoa
+  function temaDoUsuario(sigla){
+    window.__sigla = sigla || '';
+    try{ var t=localStorage.getItem('tema_'+sigla); if(t){ localStorage.setItem('ldTema',t); aplicaTema(t); } }catch(e){}
+  }
+  function alternaTema(){
+    var t = (document.documentElement.getAttribute('data-tema')==='claro') ? 'escuro' : 'claro';
+    try{ localStorage.setItem('ldTema', t); if(window.__sigla) localStorage.setItem('tema_'+window.__sigla, t); }catch(e){}
+    aplicaTema(t); // aplica direto, SEM location.reload() -> nao dispara o F5-logout
+  }
 </script>
 <style>
   :root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35}
@@ -78,7 +86,7 @@
       <span class="seta">▼</span>
     </button>
     <div id="menuLojas"></div>
-    <button id="btnTema" title="Alternar claro/escuro" style="margin-left:auto;background:var(--card);border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:14px;line-height:1">🌗</button>
+    <button id="btnTema" onclick="alternaTema()" title="Alternar claro/escuro" style="margin-left:auto;background:var(--card);border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:14px;line-height:1">🌗</button>
     <span id="euBar" style="margin-left:10px;display:none;align-items:center;gap:9px;font-size:12px;color:var(--text-2)">
       <a href="/historico" target="_blank" style="color:var(--text-2);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px">📈 Histórico</a>
       <span>👤 <b id="euBarNome" style="color:var(--text)"></b></span>
@@ -328,6 +336,7 @@
     if(u&&u.nome){
       var b=document.getElementById('euBarNome'); if(b) b.textContent=u.nome+(u.papel==='adm'?' · ADM':'');
       var e=document.getElementById('euBar'); if(e) e.style.display='flex';
+      if(u.sigla) temaDoUsuario(u.sigla); // aplica o tema salvo DAQUELA pessoa (ex.: Alessandra = claro)
     }
   }).catch(function(){});
 
