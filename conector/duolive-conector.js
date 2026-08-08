@@ -866,7 +866,7 @@ const SIGN_KEY = chaveDoTiktok();
 // mostra so' o comecinho: confirma que leu a chave certa sem expor ela no log
 if (SIGN_KEY) console.log('  (chave de assinatura do TikTok carregada: ' + SIGN_KEY.slice(0, 10) + '...)');
 else console.log('  (sem chave de assinatura — se der erro de "sign", pegue uma gratis em eulerstream.com)');
-const opcoes = {};
+const opcoes = { fetchRoomInfoOnConnect: true }; // traz o roomInfo (com o título) no connect
 if (SIGN_KEY) opcoes.signApiKey = SIGN_KEY;
 
 let conexao = null;
@@ -875,6 +875,52 @@ let geracao = 0; // muda a cada troca de conta; timers antigos de reconexao sao 
 function nomeDe(d) {
   return (d && ((d.user && (d.user.uniqueId || d.user.nickname)) || d.uniqueId || d.nickname)) || '';
 }
+
+// ---------- leitura da SIGLA pelo TÍTULO da live (atribuição automática) ----------
+// Pega o título da live, procura as siglas conhecidas como PALAVRA ISOLADA (pra
+// "AL" não bater em "NATAL") e marca a sigla ativa — aí as vendas saem no nome dela.
+let _siglas = null, _siglasTs = 0;
+async function siglasConhecidas() {
+  if (_siglas && Date.now() - _siglasTs < 300000) return _siglas;
+  try {
+    const us = await SB.seleciona('usuarios', 'select=sigla&papel=eq.vendedora');
+    _siglas = (us || []).map((u) => String(u.sigla || '').trim()).filter(Boolean);
+    _siglasTs = Date.now();
+  } catch (e) {}
+  return _siglas || [];
+}
+function achaTitulo(o, prof) {
+  if (!o || typeof o !== 'object' || (prof || 0) > 5) return '';
+  if (typeof o.title === 'string' && o.title.trim()) return o.title.trim();
+  for (const v of Object.values(o)) { if (v && typeof v === 'object') { const t = achaTitulo(v, (prof || 0) + 1); if (t) return t; } }
+  return '';
+}
+function siglasNoTitulo(titulo, siglas) {
+  const T = ' ' + String(titulo || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+  const achadas = [];
+  siglas.forEach((sig) => { const s = String(sig).toUpperCase(); if (T.indexOf(' ' + s + ' ') >= 0) achadas.push(sig); });
+  return achadas;
+}
+async function atualizaSiglaDoTitulo() {
+  if (!conexao) return;
+  try {
+    let info = null;
+    try { info = await conexao.fetchRoomInfo(); } catch (e) { info = conexao.roomInfo; }
+    const titulo = achaTitulo(info);
+    if (!titulo) return;
+    const achadas = siglasNoTitulo(titulo, await siglasConhecidas());
+    if (achadas.length === 1) {
+      siglaAtiva = achadas[0]; siglaAtivaTs = Date.now();
+      console.log('  🏷️  Título: "' + titulo.slice(0, 60) + '" → sigla ' + achadas[0]);
+    } else if (achadas.length > 1) {
+      console.log('  🏷️  Título: "' + titulo.slice(0, 60) + '" → dupla/grupo (' + achadas.join('+') + '), atribuição de grupo a definir');
+    } else {
+      console.log('  🏷️  Título: "' + titulo.slice(0, 60) + '" (nenhuma sigla reconhecida)');
+    }
+  } catch (e) {}
+}
+// re-lê o título de vez em quando (a live pode mudar de nome / o robô só ligou depois)
+setInterval(() => { if (aoVivo) atualizaSiglaDoTitulo(); }, 120000);
 
 function criarConexao() {
   conexao = new TikTokLiveConnection(usuario, opcoes);
@@ -929,6 +975,7 @@ function conectar() {
     if (!liveEstado.inicio) liveEstado.inicio = Date.now(); // marca o comeco da live
     console.log('  Conectado na live de @' + usuario + (estado && estado.roomId ? ' (sala ' + estado.roomId + ')' : ''));
     emitir({ tipo: 'status', conectado: true, usuario: usuario, inicio: liveEstado.inicio });
+    setTimeout(() => { if (g === geracao) atualizaSiglaDoTitulo(); }, 3000); // lê a sigla do título da live
   }).catch((err) => {
     if (g !== geracao) return;
     aoVivo = false;
