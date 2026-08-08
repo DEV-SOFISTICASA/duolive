@@ -27,6 +27,7 @@ const L = require('./lojas.js');
 const ATIVIDADE = require('./atividade-live.js');
 
 const LOJA = L.lojaPedida();
+const FIXAR = process.env.DUOLIVE_FIXAR === '1'; // fixa NESSA loja e NAO segue o painel (p/ 1 robo por loja ao mesmo tempo)
 
 // Para onde mandar as vendas: 1º a variável DUOLIVE_CONECTOR; 2º o arquivo
 // conector.txt (1ª linha = URL do Render; 2ª linha = o token, opcional); 3º o local.
@@ -149,7 +150,7 @@ function comToken(extra) {
 
 // ---------- envio para o conector ----------
 function manda(plataforma, p) {
-  const dados = JSON.stringify({ orderId: p.orderId, quem: p.quem, valor: p.valor, plataforma: plataforma });
+  const dados = JSON.stringify({ orderId: p.orderId, quem: p.quem, valor: p.valor, plataforma: plataforma, loja: lojaAtiva });
   const u = new URL(CONECTOR + '/venda-auto');
   const lib = u.protocol === 'https:' ? https : http;
   const req = lib.request({
@@ -640,10 +641,15 @@ async function principal() {
 
   await Promise.all(CONTAS.map((conta) => vigiar(browser, conta)));
 
-  // segue o seletor 🏪 do painel
-  setInterval(() => {
-    lojaDoPainel().then((l) => trocarPara(browser, l)).catch(() => {});
-  }, 5000);
+  // segue o seletor 🏪 do painel — a menos que esteja FIXADO (DUOLIVE_FIXAR=1),
+  // pra rodar VARIOS robos, um por loja, ao mesmo tempo.
+  if (!FIXAR) {
+    setInterval(() => {
+      lojaDoPainel().then((l) => trocarPara(browser, l)).catch(() => {});
+    }, 5000);
+  } else {
+    console.log('  🔒 FIXADO na loja "' + lojaAtiva + '" (nao segue o painel).\n');
+  }
 
   // guarda uma amostra do que foi capturado (se algo não aparecer, me mande esse arquivo)
   setInterval(() => {

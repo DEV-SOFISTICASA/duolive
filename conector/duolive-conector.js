@@ -61,7 +61,11 @@ function inicioDaLiveAtual() {
 // grava a venda no historico (Supabase). Nao trava o fluxo se der erro/estiver off.
 function gravaVendaHistorico(v) {
   if (!SB.ativo()) return;
-  const sigla = (siglaAtiva && (Date.now() - siglaAtivaTs < 12 * 3600000)) ? siglaAtiva : null;
+  // 2 lojas ao mesmo tempo: a sigla do titulo (siglaAtiva) vale so' pra loja do
+  // CHAT (lojaAtual). Venda de OUTRA loja fica SEM sigla (reconcilia depois pelo
+  // titulo) — melhor sem sigla do que com a sigla errada da outra loja.
+  const mesmaLoja = !v.loja || !lojaAtual || v.loja === lojaAtual;
+  const sigla = (mesmaLoja && siglaAtiva && (Date.now() - siglaAtivaTs < 12 * 3600000)) ? siglaAtiva : null;
   const ts = new Date(inicioDaLiveAtual()).toISOString();
   const linha = {
     order_id: String(v.orderId || v.id || ('m' + Date.now() + Math.round(Math.random() * 1e6))),
@@ -350,7 +354,7 @@ const server = http.createServer((req, res) => {
           const plataforma = v.plataforma === 'tiktok' ? 'tiktok' : 'shopee';
           const valor = +v.valor || 0;
           const quem = String(v.quem || '').slice(0, 60).trim();
-          const venda = { valor: valor, plataforma: plataforma, quem: quem, ts: Date.now(), auto: true, orderId: id, produto: v.produto || '', loja: lojaAtual || '' };
+          const venda = { valor: valor, plataforma: plataforma, quem: quem, ts: Date.now(), auto: true, orderId: id, produto: v.produto || '', loja: (v.loja ? L.limpaNome(v.loja) : lojaAtual) || '' };
           vendasAuto.push(venda);
           gravaVendaHistorico(venda); // salva no historico (Supabase), com a sigla e o inicio da live
           if (plataforma === 'shopee') liveShopeeAtual();
