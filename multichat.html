@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DuoLive · Multichat da live</title>
+<script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
 <style>
   :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--azul:#38bdf8;--rosa:#f472b6}
+  :root[data-tema=claro]{--bg:#f4f4f6;--card:#ffffff;--card-2:#eef0f3;--line:#e4e4ea;--text:#1a1a20;--text-2:#5c5c68;--text-3:#8b8b95}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;display:flex;flex-direction:column}
@@ -219,6 +221,7 @@
     else if(ev.tipo==='presente') add('presente','🎁',ev.quem,'mandou '+(ev.qtd>1?ev.qtd+'× ':'')+(ev.presente||'presente'),ev.ts,p);
     else if(ev.tipo==='entrada') add('entrada','👋',ev.quem,'entrou na live',ev.ts,p);
     else if(ev.tipo==='share') add('share','🔁',ev.quem,'compartilhou a live',ev.ts,p);
+    else if(ev.tipo==='curtiu') add('curtiu','❤️',ev.quem,'curtiu a live',ev.ts,p);
     else if(ev.tipo==='venda'){ add('venda','🛒',ev.quem||'Venda',ev.texto||'',ev.ts,p); mostraCompra(ev.quem, ev.texto, p); }
   }
 

@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DuoLive · Números da live</title>
+<script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
 <style>
   :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e}
+  :root[data-tema=claro]{--bg:#f4f4f6;--card:#ffffff;--card-2:#eef0f3;--line:#e4e4ea;--text:#1a1a20;--text-2:#5c5c68;--text-3:#8b8b95}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:14px}
   /* dentro do painel esta pagina fica num quadro; a barra de rolagem dele so
@@ -99,8 +101,7 @@
     <div class="tile doConsole"><small>📦 Pedidos</small><b id="tPed">–</b></div>
     <div class="tile doConsole"><small>👀 Pessoas que assistiram</small><b id="tViews">–</b></div>
     <div class="tile doConsole"><small id="tHorasLbl">⏱️ Tempo de live</small><b id="tHoras">–</b></div>
-    <div class="tile" id="tileSho" style="display:none;border-color:rgba(255,92,53,.4)"><small>🧡 Shopee — vendas anotadas</small><b id="tSho">–</b></div>
-    <div class="tile" id="tileTik" style="display:none"><small>🎵 TikTok — vendas anotadas</small><b id="tTik">–</b></div>
+    <div id="hojeBox" style="display:none;grid-column:1/-1"></div>
   </div>
 
   <div id="shoTit" style="display:none;font-size:12px;color:var(--text-2);margin:4px 0 6px">🧡 <b>Lives da Shopee</b></div>
@@ -310,24 +311,31 @@
     render(); // as caixinhas vazias do console somem (ou voltam)
   }
 
-  // vendas anotadas no Multichat (Shopee e TikTok) — chegam pelo conector no seu PC
-  function pegaAnotadas(){
-    fetch(apiBase()+'/vendas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
-      if(modo!=='aovivo'||!Array.isArray(v)){ esconde(); return; }
-      var sho={n:0,t:0}, tik={n:0,t:0};
-      v.forEach(function(x){
-        var d=(x.plataforma==='tiktok')?tik:sho;
-        d.n++; d.t+=x.valor||0;
-      });
-      $('tSho').textContent=real(sho.t); $('tileSho').style.display='';
-      $('tileSho').querySelector('small').textContent='🧡 Shopee — '+sho.n+' venda(s) anotada(s)';
-      $('tTik').textContent=real(tik.t); $('tileTik').style.display='';
-      $('tileTik').querySelector('small').textContent='🎵 TikTok — '+tik.n+' venda(s) anotada(s)';
-    }).catch(esconde);
-    function esconde(){ $('tileSho').style.display='none'; $('tileTik').style.display='none'; }
+  // mini-histórico do DIA (banco LIMPO via /vendas-historico): a vendedora vê o
+  // total DELA hoje; o ADM vê a renda de hoje de TODAS as vendedoras. Substitui as
+  // "vendas anotadas", que liam a memória suja do conector (/vendas).
+  function pegaHoje(){
+    var box=$('hojeBox'); if(!box) return;
+    if(modo!=='aovivo'){ box.style.display='none'; return; }
+    var meia=new Date(); meia.setHours(0,0,0,0);
+    fetch(apiBase()+'/vendas-historico?desde='+encodeURIComponent(meia.toISOString()),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!d||!d.ok||!Array.isArray(d.vendas)){ box.style.display='none'; return; }
+        var por={}; d.vendas.forEach(function(v){ var s=v.sigla||'—'; if(!por[s])por[s]={n:0,t:0}; por[s].n++; por[s].t+=(+v.valor||0); });
+        var sigs=Object.keys(por).sort(function(a,b){return por[b].t-por[a].t;});
+        var titulo=d.ehAdm?'📊 Hoje — renda por vendedora':'📊 Meu total de hoje';
+        var h='<div style="font-size:12px;color:var(--text-2);margin-bottom:4px">'+titulo+'</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
+        if(!sigs.length) h+='<div style="color:var(--text-2);font-size:13px">Sem vendas hoje ainda.</div>';
+        sigs.forEach(function(s){
+          var cor=(s==='LIVE 10K')?'#f59e0b':((d.cores&&d.cores[s]&&d.cores[s].cor)||'#6b7280');
+          var nome=(d.cores&&d.cores[s]&&d.cores[s].nome)||s;
+          h+='<div class="tile" style="border-color:'+cor+';min-width:135px"><small><span style="color:'+cor+'">●</span> '+nome+' ('+s+')</small><b>'+real(por[s].t)+'</b><div style="font-size:11px;color:var(--text-2);font-weight:600">'+por[s].n+' venda(s)</div></div>';
+        });
+        h+='</div>'; box.innerHTML=h; box.style.display='';
+      }).catch(function(){ box.style.display='none'; });
   }
-  pegaAnotadas();
-  setInterval(pegaAnotadas, 10*1000); // a cada 10s, enquanto o conector estiver ligado
+  pegaHoje();
+  setInterval(pegaHoje, 15*1000);
 
   // registro das lives da Shopee (chat + vendas), guardado pelo conector no seu PC
   function pegaShopee(){
