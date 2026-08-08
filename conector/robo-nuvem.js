@@ -57,6 +57,25 @@ console.log('\n  DuoLive · Robô de vendas NA NUVEM');
 console.log('  Mandando as vendas para: ' + (process.env.DUOLIVE_CONECTOR || '(defina DUOLIVE_CONECTOR)'));
 restauraSessoes();
 
+// AUTOTESTE na largada: o painel existe? o crachá é aceito? Sem isso, uma
+// variável errada faz as vendas serem recusadas em silêncio (bug de 2026-08-07:
+// o web service estava com DUOLIVE_CONECTOR no lugar de DUOLIVE_TOKEN).
+(async function testaConector() {
+  const url = (process.env.DUOLIVE_CONECTOR || '').replace(/\/+$/, '');
+  if (!/^https?:\/\//.test(url)) {
+    console.log('  🚨 DUOLIVE_CONECTOR não parece um endereço (' + (url ? url.slice(0, 28) + '…' : 'vazio') + ').');
+    console.log('     Deveria ser a URL do painel, ex.: https://duolive-conector-jipn.onrender.com');
+    return;
+  }
+  try {
+    const r = await fetch(url + '/ao-vivo', { headers: { 'x-duolive-token': process.env.DUOLIVE_TOKEN || '' } });
+    if (r.status === 200) console.log('  ✅ Painel encontrado e crachá (DUOLIVE_TOKEN) ACEITO — as vendas vão entrar.');
+    else console.log('  🚨 O painel RECUSOU o crachá (HTTP ' + r.status + ') — as vendas NÃO vão entrar! O DUOLIVE_TOKEN daqui tem que ser IGUAL ao do web service.');
+  } catch (e) {
+    console.log('  🚨 Não consegui falar com o painel em ' + url + ' (' + ((e && e.message) || e) + ') — confira o DUOLIVE_CONECTOR.');
+  }
+})();
+
 // começa já na loja certa (a que tem login do Gerenciador de LIVE), sem esperar
 // o painel abrir. Se você trocar a loja no painel, ele acompanha na hora.
 if (!process.env.DUOLIVE_LOJA) {

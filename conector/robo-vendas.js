@@ -157,6 +157,12 @@ function manda(plataforma, p) {
     hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'POST',
     headers: comToken({ 'content-type': 'application/json', 'content-length': Buffer.byteLength(dados) }),
   });
+  // se o painel RECUSAR (ex.: DUOLIVE_TOKEN errado), avisa ALTO — sem isso a
+  // venda some em silêncio (foi o que escondeu o problema de 2026-08-07)
+  req.on('response', (r) => {
+    if (r.statusCode !== 200) console.log('  🚨 O painel recusou a venda #' + p.orderId + ' (HTTP ' + r.statusCode + ') — confira o DUOLIVE_TOKEN!');
+    r.resume();
+  });
   req.on('error', () => console.log('  (nao consegui falar com o conector em ' + CONECTOR + ')'));
   req.end(dados);
   console.log('  🛒 ' + plataforma + ': ' + (p.quem || 'pedido') + (p.valor ? ' — R$ ' + p.valor.toFixed(2).replace('.', ',') : '') + ' (#' + p.orderId + ')');
