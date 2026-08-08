@@ -61,6 +61,10 @@
     <span class="chip" data-p="mes">Mês</span>
     <span class="chip" data-p="total">Total</span>
   </div>
+  <div class="filtros" id="visoes" style="margin-top:2px">
+    <span class="chip on" data-v="vend">👤 Vendedoras</span>
+    <span class="chip" data-v="loja">🏪 Lojas</span>
+  </div>
 
   <div class="cards">
     <div class="card"><small>💰 Total no período</small><b id="cTotal" style="color:var(--ok)">R$ 0,00</b></div>
@@ -88,7 +92,7 @@
     if(_recarregou && _naNuvem){ location.replace('/sair'); return; }
   }catch(e){}
   var $=function(id){return document.getElementById(id)};
-  var periodo='hoje', ehAdm=false, papel=null, minhaSigla=null;
+  var periodo='hoje', visao='vend', ehAdm=false, papel=null, minhaSigla=null;
   // início do período pedido (em horário local, pra o mês fechar certo no fuso do Brasil)
   function desdeDe(p){
     var d=new Date();
@@ -113,16 +117,31 @@
     document.querySelectorAll('#filtros .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
     carregar();
   });
+  $('visoes').addEventListener('click',function(e){
+    var c=e.target.closest('.chip'); if(!c) return;
+    visao=c.dataset.v;
+    document.querySelectorAll('#visoes .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
+    carregar();
+  });
 
   function carregar(){
     fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
       if(!d||!d.ok){ $('erro').style.display='block'; return; }
       $('erro').style.display='none';
       ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla;
-      $('sub').innerHTML = (papel==='vendedora')
-        ? 'Você vê só as <b>suas</b> vendas. Cada barra é uma <b>live</b> (pelo horário que começou).'
-        : 'Cada barra é uma <b>vendedora</b> — o total dela no período (Hoje · 7 dias · Mês · Total).';
-      render(d.vendas||[], d.cores||{});
+      $('sub').innerHTML = (visao==='loja')
+        ? 'Cada barra/cartão é uma <b>loja</b> — o total de vendas dela no período.'
+        : (papel==='vendedora')
+          ? 'Você vê só as <b>suas</b> vendas. Cada barra é uma <b>live</b> (pelo horário que começou).'
+          : 'Cada barra é uma <b>vendedora</b> — o total dela no período (Hoje · 7 dias · Mês · Total).';
+      var vendas=d.vendas||[], cores=d.cores||{};
+      if(visao==='loja'){
+        // trata a LOJA como se fosse a "sigla" -> o gráfico/cartões já funcionam, por loja
+        var LC={monaco:{nome:'Monaco',cor:'#ff5c35'},bellini:{nome:'Bellini',cor:'#f472b6'},fast:{nome:'Fast',cor:'#38bdf8'},mania:{nome:'Mania',cor:'#4ade80'}};
+        vendas=vendas.map(function(v){ return {valor:v.valor,sigla:v.loja||'(sem loja)',produto:v.produto,ts:v.ts}; });
+        cores={}; vendas.forEach(function(v){ if(!cores[v.sigla]) cores[v.sigla]=LC[v.sigla]||{nome:v.sigla.charAt(0).toUpperCase()+v.sigla.slice(1),cor:'#8b8b95'}; });
+      }
+      render(vendas, cores);
     }).catch(function(){ $('erro').style.display='block'; });
   }
 
