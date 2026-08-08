@@ -39,6 +39,11 @@ const EXCECOES = {
   '7671442687194598165': { ov: 'tc' },
 };
 
+// Pessoas APAGADAS do histórico a pedido do usuário (2026-08-08): as lives
+// atribuídas a elas não aparecem nem contam. Numa dupla, só a parte dela some.
+// Luana (id do LiveDash: p_1785537102138_6823).
+const APAGADAS = { 'p_1785537102138_6823': true };
+
 function config() {
   let url = process.env.LIVEDASH_URL || '';
   let key = process.env.LIVEDASH_KEY || '';
@@ -173,7 +178,7 @@ async function espelho(siglasNossas) {
   const d = await dados();
   const porId = {}; d.resp.forEach((p) => { porId[p.id] = p; });
   const cores = {}; cores[GRAVADA] = { nome: 'Gravadas', cor: '#9aa0aa' };
-  d.resp.forEach((p) => { cores[siglaDe(p, siglasNossas)] = { nome: p.nome, cor: p.cor || '#8b8b95' }; });
+  d.resp.forEach((p) => { if (!APAGADAS[p.id]) cores[siglaDe(p, siglasNossas)] = { nome: p.nome, cor: p.cor || '#8b8b95' }; });
 
   const vendas = [];
   resolveTodas(d).forEach((x) => {
@@ -182,14 +187,18 @@ async function espelho(siglasNossas) {
     const exc = EXCECOES[l.room_id];
     const produto = (exc && exc.produto) || l.titulo || 'LIVE';
     const base = { quem: null, produto: produto, plataforma: 'tiktok', loja: x.loja, ts: l.ts };
-    const siglas = x.pids.map((pid) => (pid === '__sem__' || !porId[pid]) ? GRAVADA : siglaDe(porId[pid], siglasNossas));
-    const n = siglas.length;
+    const siglas = x.pids.map((pid) => ({
+      apagada: !!APAGADAS[pid],
+      sigla: (pid === '__sem__' || !porId[pid]) ? GRAVADA : siglaDe(porId[pid], siglasNossas),
+    }));
+    const n = siglas.length; // a divisão usa TODOS (a parte de quem foi apagada só não é emitida)
     const parteG = Math.floor((l.gmv / n) * 100) / 100;
     const parteQ = Math.floor(l.pedidos / n);
     siglas.forEach((s, i) => {
+      if (s.apagada) return;
       const fim = i === n - 1;
       vendas.push(Object.assign({
-        sigla: s,
+        sigla: s.sigla,
         valor: fim ? +(l.gmv - parteG * (n - 1)).toFixed(2) : parteG,
         qtd: fim ? (l.pedidos - parteQ * (n - 1)) : parteQ,
       }, base));
