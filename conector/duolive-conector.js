@@ -350,7 +350,7 @@ const server = http.createServer((req, res) => {
           const plataforma = v.plataforma === 'tiktok' ? 'tiktok' : 'shopee';
           const valor = +v.valor || 0;
           const quem = String(v.quem || '').slice(0, 60).trim();
-          const venda = { valor: valor, plataforma: plataforma, quem: quem, ts: Date.now(), auto: true, orderId: id, produto: v.produto || '' };
+          const venda = { valor: valor, plataforma: plataforma, quem: quem, ts: Date.now(), auto: true, orderId: id, produto: v.produto || '', loja: lojaAtual || '' };
           vendasAuto.push(venda);
           gravaVendaHistorico(venda); // salva no historico (Supabase), com a sigla e o inicio da live
           if (plataforma === 'shopee') liveShopeeAtual();
@@ -410,8 +410,16 @@ const server = http.createServer((req, res) => {
   // painel AO VIVO: numeros em tempo real da conta ativa
   // (vendas separadas por app; pedidos e curtidas somados)
   if (req.url.startsWith('/ao-vivo')) {
-    const todas = vendasAnotadas.concat(vendasAuto);
-    const desde = liveEstado.inicio || 0;
+    // so' as vendas da loja ativa (cada venda automatica vem marcada com a loja)
+    const todas = vendasAnotadas.concat(vendasAuto).filter((v) => !v.loja || v.loja === lojaAtual);
+    // corte = inicio da live; mas NUNCA esconde uma venda ja capturada desta loja: o
+    // robo costuma mandar venda ANTES do chat conectar, entao puxa o corte pra tras
+    // ate a venda mais antiga recente (<6h) desta loja.
+    let desde = liveEstado.inicio || 0;
+    if (desde) {
+      const limite = Date.now() - 6 * 3600000;
+      for (const v of todas) { const t = v.ts || 0; if (t >= limite && t < desde) desde = t; }
+    }
     const daLive = todas.filter((v) => !desde || (v.ts || 0) >= desde);
     const tik = { n: 0, t: 0 }, sho = { n: 0, t: 0 };
     daLive.forEach((v) => {
@@ -949,6 +957,8 @@ function criarConexao() {
     const bruto = d && (d.totalLikeCount != null ? d.totalLikeCount : d.total);
     const t = parseInt(bruto, 10);
     if (!isNaN(t)) { liveEstado.likes = t; emitir({ tipo: 'contadores', likes: t }); }
+    const quem = nomeDe(d);            // quem curtiu -> aparece no multichat
+    if (quem) emitir({ tipo: 'curtiu', quem: quem });
   });
   conexao.on(WebcastEvent.STREAM_END, () => {
     const g = geracao; aoVivo = false; liveEstado.inicio = 0;

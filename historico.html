@@ -54,8 +54,8 @@
   <div class="sub" id="sub">Cada barra é uma <b>live</b> (pelo horário que ela começou). A cor mostra <b>quem vendeu</b>.</div>
 
   <div class="filtros" id="filtros">
-    <span class="chip" data-p="hoje">Hoje</span>
-    <span class="chip on" data-p="7">7 dias</span>
+    <span class="chip on" data-p="hoje">Hoje</span>
+    <span class="chip" data-p="7">7 dias</span>
     <span class="chip" data-p="mes">Mês</span>
     <span class="chip" data-p="total">Total</span>
   </div>
@@ -86,7 +86,7 @@
     if(_recarregou && _naNuvem){ location.replace('/sair'); return; }
   }catch(e){}
   var $=function(id){return document.getElementById(id)};
-  var periodo='7', ehAdm=false, papel=null, minhaSigla=null;
+  var periodo='hoje', ehAdm=false, papel=null, minhaSigla=null;
   // início do período pedido (em horário local, pra o mês fechar certo no fuso do Brasil)
   function desdeDe(p){
     var d=new Date();
