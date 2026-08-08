@@ -46,3 +46,6 @@ conector/*.anterior
 
 # Chave secreta do Supabase - NUNCA enviar
 conector/chave-supabase.txt
+
+# Chave secreta do Supabase do LiveDash (projeto antigo) - NUNCA enviar
+conector/chave-livedash.txt

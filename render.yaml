@@ -34,6 +34,10 @@ services:
         sync: false          # https://XXXX.supabase.co (do projeto duolive)
       - key: SUPABASE_KEY
         sync: false          # a chave SECRETA (service_role) do Supabase
+      - key: LIVEDASH_URL
+        sync: false          # Supabase ANTIGO do LiveDash (o histórico é espelho de lá)
+      - key: LIVEDASH_KEY
+        sync: false          # service_role do projeto antigo (mesma do worker livedash-robo)
 
   # ----------------------------------------------------------------------------
   # Robô de vendas 24h NA NUVEM: um navegador de verdade (Chromium) num contêiner,

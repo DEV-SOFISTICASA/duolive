@@ -21,6 +21,7 @@ const COOKIES = require('./cookies.js');
 const AUTH = require('./auth.js');
 const SB = require('./supabase.js');
 const CONTAS = require('./contas.js');
+const LD = require('./livedash.js');   // espelho do LiveDash (fonte do histórico)
 const OFERTAS = require('./ofertas.js');
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
@@ -57,6 +58,19 @@ function inicioDaLiveAtual() {
   }
   ultimaVendaTs = agora;
   return liveAtualInicio;
+}
+// siglas conhecidas (cache 5 min, do Supabase) — usadas pelo leitor de título E
+// pelo espelho do LiveDash. Fica AQUI EM CIMA porque o modo teste dá `return`
+// antes da parte do TikTok, e as rotas precisam disto nos dois modos.
+let _siglas = null, _siglasTs = 0;
+async function siglasConhecidas() {
+  if (_siglas && Date.now() - _siglasTs < 300000) return _siglas;
+  try {
+    const us = await SB.seleciona('usuarios', 'select=sigla&papel=eq.vendedora');
+    _siglas = (us || []).map((u) => String(u.sigla || '').trim()).filter(Boolean);
+    _siglasTs = Date.now();
+  } catch (e) {}
+  return _siglas || [];
 }
 // grava a venda no historico (Supabase). Nao trava o fluxo se der erro/estiver off.
 function gravaVendaHistorico(v) {
@@ -259,11 +273,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // historico de vendas (Supabase) para a pagina /historico. Vendedora ve so' as
-  // dela; ADM (ou acesso local do PC) ve todas. O navegador agrupa por live.
+  // historico de vendas para a pagina /historico — ESPELHO do LiveDash: reflete
+  // o que o LiveDash coletou (cada live = uma barra, valor = GMV, sigla pelo
+  // titulo). Se o LiveDash estiver fora/nao configurado, cai no nosso banco
+  // (Supabase `vendas`) como reserva. Permissoes iguais nas duas fontes:
+  // vendedora ve so' as dela; ADM (ou acesso local do PC) ve todas.
   if (req.url.split('?')[0] === '/vendas-historico') {
     res.setHeader('content-type', 'application/json');
-    if (!SB.ativo()) { res.end('{"ok":false,"erro":"supabase off"}'); return; }
     const qs = new URLSearchParams((req.url.split('?')[1] || ''));
     // 'desde' (data ISO) manda: usado por Mês (1º do mês) e Total (desde sempre).
     // Sem ele, cai no 'dias' (janela rolante) para Hoje/7 dias.
@@ -273,15 +289,28 @@ const server = http.createServer((req, res) => {
     else { const dias = Math.min(400, Math.max(1, +qs.get('dias') || 7)); corte = new Date(Date.now() - dias * 86400000).toISOString(); }
     const u = req.usuario || null;
     const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(u);
-    let filtro = 'ts=gte.' + corte + '&select=sigla,quem,produto,valor,plataforma,loja,ts&order=ts.desc&limit=5000';
-    if (u && u.papel === 'vendedora' && u.sigla) filtro += '&sigla=eq.' + encodeURIComponent(u.sigla);
-    Promise.all([
-      SB.seleciona('vendas', filtro),
-      SB.seleciona('usuarios', 'select=sigla,nome,cor'),
-    ]).then((r) => {
-      const cores = {}; (r[1] || []).forEach((x) => { cores[x.sigla] = { nome: x.nome, cor: x.cor }; });
-      res.end(JSON.stringify({ ok: true, ehAdm: ehAdm, minhaSigla: u ? u.sigla : null, papel: u ? u.papel : null, vendas: r[0] || [], cores: cores }));
-    }).catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
+    const soSigla = (u && u.papel === 'vendedora' && u.sigla) ? u.sigla : null;
+    (async () => {
+      let vendas = null, fonte = 'livedash';
+      if (LD.ativo()) {
+        try {
+          const siglas = SB.ativo() ? await siglasConhecidas() : [];
+          vendas = (await LD.comoVendas(siglas)).filter((v) => v.ts >= corte && (!soSigla || v.sigla === soSigla));
+        } catch (e) { console.log('  (espelho LiveDash falhou: ' + ((e && e.message) || e) + ' — usando o banco proprio)'); vendas = null; }
+      }
+      if (!vendas) { // reserva: nosso banco proprio
+        if (!SB.ativo()) { res.end('{"ok":false,"erro":"livedash e supabase off"}'); return; }
+        fonte = 'banco';
+        let filtro = 'ts=gte.' + corte + '&select=sigla,quem,produto,valor,plataforma,loja,ts&order=ts.desc&limit=5000';
+        if (soSigla) filtro += '&sigla=eq.' + encodeURIComponent(soSigla);
+        vendas = (await SB.seleciona('vendas', filtro)) || [];
+      }
+      const cores = {};
+      if (SB.ativo()) {
+        try { (await SB.seleciona('usuarios', 'select=sigla,nome,cor')).forEach((x) => { cores[x.sigla] = { nome: x.nome, cor: x.cor }; }); } catch (e) {}
+      }
+      res.end(JSON.stringify({ ok: true, ehAdm: ehAdm, minhaSigla: u ? u.sigla : null, papel: u ? u.papel : null, vendas: vendas, cores: cores, fonte: fonte }));
+    })().catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
     return;
   }
 
@@ -891,16 +920,6 @@ function nomeDe(d) {
 // ---------- leitura da SIGLA pelo TÍTULO da live (atribuição automática) ----------
 // Pega o título da live, procura as siglas conhecidas como PALAVRA ISOLADA (pra
 // "AL" não bater em "NATAL") e marca a sigla ativa — aí as vendas saem no nome dela.
-let _siglas = null, _siglasTs = 0;
-async function siglasConhecidas() {
-  if (_siglas && Date.now() - _siglasTs < 300000) return _siglas;
-  try {
-    const us = await SB.seleciona('usuarios', 'select=sigla&papel=eq.vendedora');
-    _siglas = (us || []).map((u) => String(u.sigla || '').trim()).filter(Boolean);
-    _siglasTs = Date.now();
-  } catch (e) {}
-  return _siglas || [];
-}
 function achaTitulo(o, prof) {
   if (!o || typeof o !== 'object' || (prof || 0) > 5) return '';
   if (typeof o.title === 'string' && o.title.trim()) return o.title.trim();
