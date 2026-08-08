@@ -125,6 +125,9 @@
   }
 
   function render(vendas, cores){
+    // LIVE 10K é evento TEMPORÁRIO: aparece nos períodos recentes (Hoje/7/Mês),
+    // mas NÃO entra no "Total" (que é o acumulado permanente).
+    if(periodo==='total'){ vendas=vendas.filter(function(v){ return v.sigla!=='LIVE 10K'; }); }
     var total=0, qtd=vendas.length;
     // por pessoa (sigla)
     var porSig={};
