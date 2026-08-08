@@ -54,9 +54,10 @@
   <div class="sub" id="sub">Cada barra é uma <b>live</b> (pelo horário que ela começou). A cor mostra <b>quem vendeu</b>.</div>
 
   <div class="filtros" id="filtros">
-    <span class="chip" data-d="1">Hoje</span>
-    <span class="chip on" data-d="7">7 dias</span>
-    <span class="chip" data-d="30">30 dias</span>
+    <span class="chip" data-p="hoje">Hoje</span>
+    <span class="chip on" data-p="7">7 dias</span>
+    <span class="chip" data-p="mes">Mês</span>
+    <span class="chip" data-p="total">Total</span>
   </div>
 
   <div class="cards">
@@ -85,7 +86,15 @@
     if(_recarregou && _naNuvem){ location.replace('/sair'); return; }
   }catch(e){}
   var $=function(id){return document.getElementById(id)};
-  var dias=7, ehAdm=false, papel=null, minhaSigla=null;
+  var periodo='7', ehAdm=false, papel=null, minhaSigla=null;
+  // início do período pedido (em horário local, pra o mês fechar certo no fuso do Brasil)
+  function desdeDe(p){
+    var d=new Date();
+    if(p==='hoje'){ d.setHours(0,0,0,0); return d; }
+    if(p==='mes'){ return new Date(d.getFullYear(), d.getMonth(), 1); }   // 1º dia do mês atual
+    if(p==='total'){ return new Date(2000,0,1); }                          // tudo, desde sempre
+    d.setDate(d.getDate()-7); return d;                                    // 7 dias
+  }
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
   function nomeDe(cores,sig){ if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
@@ -98,29 +107,24 @@
 
   $('filtros').addEventListener('click',function(e){
     var c=e.target.closest('.chip'); if(!c) return;
-    dias=+c.dataset.d;
+    periodo=c.dataset.p;
     document.querySelectorAll('#filtros .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
     carregar();
   });
 
   function carregar(){
-    fetch('/vendas-historico?dias='+dias,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
       if(!d||!d.ok){ $('erro').style.display='block'; return; }
       $('erro').style.display='none';
       ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla;
       $('sub').innerHTML = (papel==='vendedora')
         ? 'Você vê só as <b>suas</b> vendas. Cada barra é uma <b>live</b> (pelo horário que começou).'
-        : 'Cada barra é uma <b>vendedora</b> — o total dela no período (Hoje / 7 / 30 dias).';
+        : 'Cada barra é uma <b>vendedora</b> — o total dela no período (Hoje · 7 dias · Mês · Total).';
       render(d.vendas||[], d.cores||{});
     }).catch(function(){ $('erro').style.display='block'; });
   }
 
   function render(vendas, cores){
-    // filtro "Hoje" = só a partir da meia-noite de hoje
-    if(dias===1){
-      var m=new Date(); m.setHours(0,0,0,0); var t0=m.getTime();
-      vendas=vendas.filter(function(v){ return new Date(v.ts).getTime()>=t0; });
-    }
     var total=0, qtd=vendas.length;
     // por pessoa (sigla)
     var porSig={};

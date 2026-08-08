@@ -261,8 +261,12 @@ const server = http.createServer((req, res) => {
     res.setHeader('content-type', 'application/json');
     if (!SB.ativo()) { res.end('{"ok":false,"erro":"supabase off"}'); return; }
     const qs = new URLSearchParams((req.url.split('?')[1] || ''));
-    const dias = Math.min(90, Math.max(1, +qs.get('dias') || 7));
-    const corte = new Date(Date.now() - dias * 86400000).toISOString();
+    // 'desde' (data ISO) manda: usado por Mês (1º do mês) e Total (desde sempre).
+    // Sem ele, cai no 'dias' (janela rolante) para Hoje/7 dias.
+    let corte;
+    const desdeP = qs.get('desde');
+    if (desdeP && !isNaN(Date.parse(desdeP))) corte = new Date(desdeP).toISOString();
+    else { const dias = Math.min(400, Math.max(1, +qs.get('dias') || 7)); corte = new Date(Date.now() - dias * 86400000).toISOString(); }
     const u = req.usuario || null;
     const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(u);
     let filtro = 'ts=gte.' + corte + '&select=sigla,quem,produto,valor,plataforma,loja,ts&order=ts.desc&limit=5000';
