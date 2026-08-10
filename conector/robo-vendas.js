@@ -604,6 +604,64 @@ async function vigiarAtividade(conta) {
   ];
 }
 
+// ---------- sessoes SEMPRE FRESCAS (cura do "some venda depois de horas") ----------
+// A sessao do Console envelhece em ~1-2h e o feed comeca a OSCILAR (procurando/lendo)
+// -> perde venda. A cada REFRESH_MIN o robo puxa as sessoes frescas do LiveDash,
+// reescreve os sessao-console-*.json e REABRE as abas. O corte de 20 min recupera
+// as vendas do intervalo do reabrir, entao nada se perde. Desliga com DUOLIVE_REFRESH_MIN=0.
+const REFRESH_MIN = Math.max(0, +(process.env.DUOLIVE_REFRESH_MIN || 20));
+function configLiveDash() {
+  let url = process.env.LIVEDASH_URL || '';
+  let key = process.env.LIVEDASH_KEY || '';
+  if (!url || !key) {
+    try {
+      const linhas = fs.readFileSync(path.join(__dirname, 'chave-livedash.txt'), 'utf8')
+        .split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+      url = url || linhas[0] || ''; key = key || linhas[1] || '';
+    } catch (e) {}
+  }
+  return { url: url.replace(/\/+$/, ''), key: key };
+}
+async function refrescaSessoes(lojas) {
+  const c = configLiveDash();
+  if (!c.url || !c.key) return 0; // sem LiveDash: nao faz nada (mantem o que tem)
+  const NOME = { 'mania-d-casa': 'mania' };
+  const alvo = new Set(lojas.map((l) => L.limpaNome(l)));
+  try {
+    const r = await fetch(c.url + '/rest/v1/tts_sessions?select=loja,storage_state,ativo&ativo=eq.true', {
+      headers: { apikey: c.key, Authorization: 'Bearer ' + c.key },
+    });
+    if (r.status >= 300) return 0;
+    const rows = await r.json();
+    let n = 0;
+    for (const row of rows) {
+      const loja = NOME[String(row.loja).toLowerCase()] || String(row.loja).toLowerCase();
+      if (!alvo.has(loja)) continue;
+      const st = row.storage_state;
+      const cookies = (st && st.cookies) || [];
+      if (!cookies.some((k) => /^(sessionid|sid_guard)$/i.test(k.name))) continue; // sem login: pula
+      fs.writeFileSync(L.arquivoSessao('console', loja), JSON.stringify(st));
+      n++;
+    }
+    return n;
+  } catch (e) { return 0; }
+}
+async function pararConta(conta) {
+  try { (conta.relogios || []).forEach(clearInterval); } catch (e) {}
+  conta.relogios = [];
+  if (conta.page) { try { await conta.page.context().close(); } catch (e) {} conta.page = null; }
+}
+async function cicloRefresh(browser) {
+  const lojas = Array.from(new Set(CONTAS.map((c) => c.loja).filter(Boolean)));
+  if (!lojas.length) return;
+  const n = await refrescaSessoes(lojas);
+  if (!n) return;
+  console.log('\n  🔄 Sessoes renovadas do LiveDash (' + n + ' loja(s)) — reabrindo as abas para nao envelhecer...');
+  for (const conta of CONTAS) await pararConta(conta);
+  await Promise.all(CONTAS.map((conta) => vigiar(browser, conta)));
+  console.log('  🔄 Abas reabertas com sessao fresca.\n');
+}
+
 async function principal() {
   console.log('\n  DuoLive · Robô de vendas (TikTok + Shopee), leitura a cada ' + (RITMO / 1000) + 's.');
   console.log('  Conta os pedidos feitos a partir de agora (até 10 min atrás).');
@@ -622,6 +680,14 @@ async function principal() {
     try { fs.writeFileSync(ARQ_DESCOBERTA, JSON.stringify({ comPedidos: amostras, outras: amostrasOutras }, null, 1)); } catch (e) {}
     try { fs.writeFileSync(path.join(__dirname, 'descoberta-ws.json'), JSON.stringify(framesWS, null, 1)); } catch (e) {}
   }, 10000);
+
+  // 🔄 mantem as sessoes SEMPRE FRESCAS (senao o feed oscila e some venda depois de horas)
+  if (REFRESH_MIN > 0 && configLiveDash().key) {
+    console.log('  🔄 Auto-refresh das sessoes LIGADO: renova do LiveDash a cada ' + REFRESH_MIN + ' min.\n');
+    setInterval(() => { cicloRefresh(browser).catch(() => {}); }, REFRESH_MIN * 60000);
+  } else if (REFRESH_MIN > 0) {
+    console.log('  (auto-refresh nao ligou: falta LIVEDASH_URL/LIVEDASH_KEY ou chave-livedash.txt)\n');
+  }
 }
 
 if (require.main === module) principal();
