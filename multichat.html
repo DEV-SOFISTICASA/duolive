@@ -171,7 +171,7 @@
     }).catch(function(){ doConector=null; somaVendas(); });
   }
   puxaDoConector();
-  setInterval(puxaDoConector, 5000);
+  setInterval(puxaDoConector, 2000); // confirma o total a cada 2s (o contador ja' subiu na hora da venda)
   function gravaVendas(){
     try{ localStorage.setItem(K_VENDAS,JSON.stringify(vendas)); }catch(e){}
     somaVendas();
@@ -227,7 +227,11 @@
     else if(ev.tipo==='entrada') add('entrada','👋',ev.quem,'entrou na live',ev.ts,p);
     else if(ev.tipo==='share') add('share','🔁',ev.quem,'compartilhou a live',ev.ts,p);
     else if(ev.tipo==='curtiu') add('curtiu','❤️',ev.quem,'curtiu a live',ev.ts,p);
-    else if(ev.tipo==='venda'){ add('venda','🛒',ev.quem||'Venda',ev.texto||'',ev.ts,p); mostraCompra(ev.quem, ev.texto, p); }
+    else if(ev.tipo==='venda'){ add('venda','🛒',ev.quem||'Venda',ev.texto||'',ev.ts,p); mostraCompra(ev.quem, ev.texto, p);
+      // conta na HORA: o numero "Vendas da live" sobe junto com a venda, sem
+      // esperar o refresh de /ao-vivo (o proximo refresh so' confirma o total).
+      if(doConector){ doConector.pedidos=(doConector.pedidos||0)+1; var vv=+ev.valor||0; if(p==='shopee') doConector.sho=(doConector.sho||0)+vv; else doConector.tik=(doConector.tik||0)+vv; somaVendas(); }
+    }
   }
 
   // ---- splash "COMPRA!" na tela a cada venda (~4s) — some sozinho ----

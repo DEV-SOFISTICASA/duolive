@@ -430,7 +430,7 @@ const server = http.createServer((req, res) => {
           if (plataforma === 'shopee') liveShopeeAtual();
           // aparece no Multichat na hora, com quem comprou e o valor (carimbada
           // com a loja: cada painel mostra so' as vendas da loja dele)
-          emitir(comLoja(venda.loja, { tipo: 'venda', quem: quem || 'Venda', texto: 'comprou' + (valor ? ' · R$ ' + valor.toFixed(2).replace('.', ',') : ''), plataforma: plataforma }));
+          emitir(comLoja(venda.loja, { tipo: 'venda', quem: quem || 'Venda', valor: valor, texto: 'comprou' + (valor ? ' · R$ ' + valor.toFixed(2).replace('.', ',') : ''), plataforma: plataforma }));
         }
       } catch (e) {}
       res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
