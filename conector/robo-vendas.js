@@ -26,8 +26,12 @@ const { URL } = require('url');
 const L = require('./lojas.js');
 const ATIVIDADE = require('./atividade-live.js');
 
-const LOJA = L.lojaPedida();
-const FIXAR = process.env.DUOLIVE_FIXAR === '1'; // fixa NESSA loja e NAO segue o painel (p/ 1 robo por loja ao mesmo tempo)
+const FIXAR = process.env.DUOLIVE_FIXAR === '1'; // junto com --loja/DUOLIVE_LOJA: vigia SO' aquela loja
+// Padrao NOVO (pedido do usuario, 10/08): vigiar TODAS as lojas com login AO MESMO
+// TEMPO — cada venda sai carimbada com a loja dela e so' aparece no painel dela.
+// Pedir uma loja na mao (--loja X, DUOLIVE_LOJA ou DUOLIVE_FIXAR=1) limita a ela.
+const SO_UMA = process.argv.indexOf('--loja') >= 0 || !!process.env.DUOLIVE_LOJA || FIXAR;
+const LOJA = SO_UMA ? L.lojaPedida() : '';
 
 // Para onde mandar as vendas: 1º a variável DUOLIVE_CONECTOR; 2º o arquivo
 // conector.txt (1ª linha = URL do Render; 2ª linha = o token, opcional); 3º o local.
@@ -120,11 +124,24 @@ function contasDaLoja(loja) {
   );
   return lista;
 }
-let CONTAS = contasDaLoja(LOJA);
+// monta as contas de TODAS as lojas com login (ou de UMA, quando pedida na mao).
+// Cada conta guarda a SUA loja — e' esse carimbo que vai junto com a venda.
+function contasDeTodas() {
+  if (SO_UMA) { const cs = contasDaLoja(LOJA); cs.forEach((c) => { c.loja = LOJA; }); return cs; }
+  const todas = [];
+  let nomes = [];
+  try { nomes = L.resumoDasLojas().map((r) => r.loja); } catch (e) {}
+  nomes.forEach((lj) => contasDaLoja(lj).forEach((c) => { c.loja = lj; if (fs.existsSync(c.sessao)) todas.push(c); }));
+  if (todas.length) return todas;
+  // nenhum login por loja: cai no jeito antigo (conta unica, sem nome de loja)
+  const cs = contasDaLoja(L.lojaPedida()); cs.forEach((c) => { c.loja = L.lojaPedida(); });
+  return cs;
+}
+let CONTAS = contasDeTodas();
 
 // como a conta aparece nas mensagens (ha' DUAS do tiktok: o gerenciador de live
-// e o seller center), e onde refazer o login dela
-const nome = (c) => c.apelido || c.plataforma;
+// e o seller center), e onde refazer o login dela — sempre com a loja na frente
+const nome = (c) => (c.loja ? '[' + c.loja + '] ' : '') + (c.apelido || c.plataforma);
 const ondeLogar = (c) => c.chave || c.plataforma;
 
 const jaVistos = new Set(); // plataforma+orderId
@@ -149,8 +166,10 @@ function comToken(extra) {
 }
 
 // ---------- envio para o conector ----------
-function manda(plataforma, p) {
-  const dados = JSON.stringify({ orderId: p.orderId, quem: p.quem, valor: p.valor, plataforma: plataforma, loja: lojaAtiva });
+// a venda leva o carimbo da LOJA da conta que a viu: no painel ela so' aparece
+// na loja onde aconteceu (venda da monaco NUNCA aparece na fast).
+function manda(plataforma, p, loja) {
+  const dados = JSON.stringify({ orderId: p.orderId, quem: p.quem, valor: p.valor, plataforma: plataforma, loja: loja || '' });
   const u = new URL(CONECTOR + '/venda-auto');
   const lib = u.protocol === 'https:' ? https : http;
   const req = lib.request({
@@ -289,7 +308,7 @@ function processa(conta, achados, fonte) {
     if (!p.valor && !p.quem && !p.criado) return;                 // id pelado: só registra
     if (p.criado) { if (p.criado < INICIO - TOLERANCIA) return; } // com data: só o que é de agora
     else if (estreia || !idMaior(p.orderId, marcoAntes)) return;  // sem data: só acima da marca d'água
-    manda(conta.plataforma, p);
+    manda(conta.plataforma, p, conta.loja);
   });
 }
 
@@ -555,7 +574,7 @@ async function lerAtividade(conta) {
       jaVistos.add(chave);
       // vendas antigas (fora da janela) só são marcadas como vistas, não disparam
       if (v.ts && v.ts < INICIO - TOLERANCIA) continue;
-      manda('tiktok', { orderId: v.messageId, quem: v.quem, valor: v.valor });
+      manda('tiktok', { orderId: v.messageId, quem: v.quem, valor: v.valor }, conta.loja);
       console.log('  🛒 ' + nome(conta) + ': ' + (v.quem || 'cliente') + ' — R$ ' + v.valor.toFixed(2).replace('.', ',') + ' · ' + v.produtoNome.slice(0, 28));
     }
     conta.ultimaOk = Date.now();
@@ -585,77 +604,18 @@ async function vigiarAtividade(conta) {
   ];
 }
 
-// desliga uma conta por completo (relógios + navegador), para trocar de loja
-async function parar(conta) {
-  (conta.relogios || []).forEach(clearInterval);
-  conta.relogios = [];
-  conta.alvo = null;
-  if (conta.page) {
-    try { await conta.page.context().close(); } catch (e) {}
-    conta.page = null;
-  }
-}
-
-// ---------- seguir a loja escolhida no painel ----------
-// O painel manda a loja para o conector quando você troca no seletor 🏪.
-// Aqui a gente pergunta de tempos em tempos e, se mudou, troca os logins.
-function lojaDoPainel() {
-  return new Promise((ok) => {
-    const u = new URL(CONECTOR + '/lojas');
-    const lib = u.protocol === 'https:' ? https : http;
-    const req = lib.get({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, timeout: 8000, headers: comToken() }, (res) => {
-      let corpo = '';
-      res.on('data', (d) => { corpo += d; if (corpo.length > 1e6) req.destroy(); });
-      res.on('end', () => {
-        try {
-          const b = JSON.parse(corpo);
-          ok(L.limpaNome(b.selecionada || b.atual || ''));
-        } catch (e) { ok(''); }
-      });
-    });
-    req.on('error', () => ok(''));
-    req.on('timeout', () => { req.destroy(); ok(''); });
-  });
-}
-
-let lojaAtiva = LOJA;
-let trocando = false;
-
-async function trocarPara(browser, nova) {
-  if (trocando || !nova || nova === lojaAtiva) return;
-  trocando = true;
-  try {
-    console.log('\n  🏪 O painel trocou para a loja "' + nova + '" — trocando os logins...');
-    for (const c of CONTAS) await parar(c);
-    lojaAtiva = nova;
-    CONTAS = contasDaLoja(nova);
-    await Promise.all(CONTAS.map((conta) => vigiar(browser, conta)));
-    console.log('  🏪 Agora vigiando os pedidos da loja "' + nova + '".\n');
-  } catch (e) {
-    console.log('  (nao consegui trocar de loja: ' + String(e).slice(0, 80) + ')');
-  }
-  trocando = false;
-}
-
 async function principal() {
   console.log('\n  DuoLive · Robô de vendas (TikTok + Shopee), leitura a cada ' + (RITMO / 1000) + 's.');
   console.log('  Conta os pedidos feitos a partir de agora (até 10 min atrás).');
-  console.log('  Loja: ' + lojaAtiva + ' (troca sozinho quando você trocar no painel)');
+  const vigiadas = Array.from(new Set(CONTAS.map((c) => c.loja).filter(Boolean)));
+  if (SO_UMA) console.log('  🔒 Vigiando APENAS a loja "' + LOJA + '" (pedida na mao).');
+  else console.log('  🏪 Vigiando TODAS as lojas com login AO MESMO TEMPO: ' + (vigiadas.join(', ') || '(nenhuma — faca os logins)') + '.');
+  console.log('  Cada venda aparece SO na loja onde aconteceu.');
   console.log('  Mandando as vendas para: ' + CONECTOR + '\n');
 
   const browser = await abreNavegador(true);
 
   await Promise.all(CONTAS.map((conta) => vigiar(browser, conta)));
-
-  // segue o seletor 🏪 do painel — a menos que esteja FIXADO (DUOLIVE_FIXAR=1),
-  // pra rodar VARIOS robos, um por loja, ao mesmo tempo.
-  if (!FIXAR) {
-    setInterval(() => {
-      lojaDoPainel().then((l) => trocarPara(browser, l)).catch(() => {});
-    }, 5000);
-  } else {
-    console.log('  🔒 FIXADO na loja "' + lojaAtiva + '" (nao segue o painel).\n');
-  }
 
   // guarda uma amostra do que foi capturado (se algo não aparecer, me mande esse arquivo)
   setInterval(() => {

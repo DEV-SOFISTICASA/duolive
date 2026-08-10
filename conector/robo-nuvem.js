@@ -17,13 +17,6 @@ const path = require('path');
 const C = require('./cofre.js');
 const L = require('./lojas.js');
 
-// qual loja começar a vigiar: a primeira que tiver login do Gerenciador de LIVE.
-// (depois o robô segue sozinho o que você escolher no seletor 🏪 do painel)
-function lojaComConsole() {
-  try { const r = L.resumoDasLojas().find((x) => x.console); return r ? r.loja : ''; }
-  catch (e) { return ''; }
-}
-
 // devolve os sessao-*.json a partir do cofre; retorna quantos logins voltaram
 function restauraSessoes() {
   const candidatos = [
@@ -76,13 +69,9 @@ restauraSessoes();
   }
 })();
 
-// começa já na loja certa (a que tem login do Gerenciador de LIVE), sem esperar
-// o painel abrir. Se você trocar a loja no painel, ele acompanha na hora.
-if (!process.env.DUOLIVE_LOJA) {
-  const l = lojaComConsole();
-  if (l) { process.env.DUOLIVE_LOJA = l; console.log('  🏪 Começando pela loja "' + l + '".'); }
-  else console.log('  (nenhum login do Gerenciador de LIVE no cofre — escolha a loja no painel)');
-}
-
-// liga o robô (ele segue sozinho a loja escolhida no painel)
+// liga o robô: ele vigia TODAS as lojas cujo login estiver no cofre, AO MESMO
+// TEMPO — cada venda sai carimbada com a loja dela e so' aparece no painel dela.
+// (DUOLIVE_LOJA continua valendo para limitar a UMA loja, se um dia precisar.)
+const quantas = (() => { try { return L.resumoDasLojas().filter((x) => x.console || x.tiktok || x.shopee).map((x) => x.loja); } catch (e) { return []; } })();
+console.log('  🏪 Lojas com login no cofre: ' + (quantas.join(', ') || '(nenhuma!)'));
 require('./robo-vendas.js').principal();
