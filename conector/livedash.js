@@ -39,10 +39,11 @@ const EXCECOES = {
   '7671442687194598165': { ov: 'tc' },
 };
 
-// Pessoas APAGADAS do histórico a pedido do usuário (2026-08-08): as lives
-// atribuídas a elas não aparecem nem contam. Numa dupla, só a parte dela some.
-// Luana (id do LiveDash: p_1785537102138_6823).
-const APAGADAS = { 'p_1785537102138_6823': true };
+// Pessoas APAGADAS do histórico a pedido do usuário: as lives atribuídas a elas
+// não aparecem nem contam. Numa dupla, só a parte dela some.
+//   Luana (p_1785537102138_6823) — 2026-08-08
+//   Isa   (p_1782764934419_8473) — 2026-08-10
+const APAGADAS = { 'p_1785537102138_6823': true, 'p_1782764934419_8473': true };
 
 function config() {
   let url = process.env.LIVEDASH_URL || '';
