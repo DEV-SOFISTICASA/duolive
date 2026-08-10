@@ -28,9 +28,10 @@ const OFERTAS = require('./ofertas.js');
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
 const NA_NUVEM = !!process.env.PORT; // Render define PORT
 const TESTE = process.env.DUOLIVE_TESTE === '1';
-// usuario do TikTok: por argumento (local) ou por variavel de ambiente (nuvem).
-// e' 'let' porque o seletor de lojas no painel troca a conta em tempo real.
-let usuario = (process.argv[2] || process.env.DUOLIVE_TIKTOK_USER || '').replace(/^@/, '');
+// usuario do TikTok: so' quando passado na mao (npm start -- @conta). Na nuvem
+// ninguem entra sozinho em conta nenhuma — o painel escolhe a loja (pedido do
+// usuario, 10/08). e' 'let' porque o seletor de lojas troca a conta em tempo real.
+let usuario = (process.argv[2] || '').replace(/^@/, '');
 
 // ---------- servidor: multichat + vendas anotadas + WebSocket ----------
 let vendasAnotadas = [];        // manuais (o multichat manda a lista)
@@ -44,7 +45,7 @@ let liveAtualInicio = 0;        // horario que a live atual comecou
 let ultimaVendaTs = 0;          // ultima venda vista (para detectar quando comeca outra live)
 
 // estado AO VIVO da conta ativa (vem da conexao do chat do TikTok)
-let liveEstado = { espectadores: 0, likes: 0, inicio: 0 };
+let liveEstado = { espectadores: 0, likes: 0, inicio: 0, roomId: '' };
 // numeros oficiais do console de lives (Compass) por loja, lidos por cookies como no LiveDash
 const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
 let lojaAtual = '';        // qual loja o painel esta mostrando
@@ -102,6 +103,23 @@ function achaLoja(nome) {
   if (!lojas[n]) lojas[n] = { nome: n, contas: { tiktok: '', shopee: '' }, produtos: { tiktok: [], shopee: [] }, ts: {} };
   return lojas[n];
 }
+// Reserva do AO VIVO: quando o robo de vendas esta' calado e o console tambem,
+// os pedidos/GMV da live atual vem do LiveDash (o worker antigo segue coletando
+// 24/7). Casa pela SALA (room_id): o chat sabe em qual sala esta', e o LiveDash
+// guarda o room_id de cada live — so' usa se for exatamente A MESMA live. Sem
+// sala conhecida, nao chuta (mostrar a live errada e' pior que mostrar zero).
+async function liveAtualDoLiveDash(loja) {
+  try {
+    const sala = String(liveEstado.roomId || '');
+    if (!sala) return null;
+    const d = await LD.dados();
+    const lives = d.porLoja[String(loja || '').toLowerCase()] || [];
+    const l = lives.find((x) => String(x.room_id) === sala);
+    if (!l) return null; // o LiveDash ainda nao registrou esta live
+    return { gmv: +l.gmv || 0, pedidos: +l.pedidos || 0 };
+  } catch (e) { return null; }
+}
+
 // qual loja o painel esta mostrando (lojaAtual) — cai na primeira se nao escolheram.
 // Nao cria loja nenhuma aqui: senao aparece uma loja vazia na lista.
 const LOJA_VAZIA = { nome: '', contas: { tiktok: '', shopee: '' }, produtos: { tiktok: [], shopee: [] }, ts: {} };
@@ -466,22 +484,30 @@ const server = http.createServer((req, res) => {
     // numeros do console (Compass) da loja atual, se recentes (<15min): sao os oficiais do TikTok
     const c = compassPorLoja[lojaAtual] || null;
     const compassFresco = !!(c && c.ts && (Date.now() - c.ts < 15 * 60000));
-    const totalTiktok = compassFresco ? c.gmv : tik.t;
-    const pedidosTiktok = compassFresco ? c.orders : tik.n;
-    // espectadores: o do chat; se 0 e o Compass tem views, mostra as views do console
-    const espectadores = liveEstado.espectadores || (compassFresco ? c.views : 0);
-    res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({
-      usuario: usuario, aoVivo: aoVivo,
-      espectadores: espectadores, likes: liveEstado.likes,
-      inicio: liveEstado.inicio,
-      totalTiktok: totalTiktok, totalShopee: sho.t,
-      pedidosTiktok: pedidosTiktok, pedidosShopee: sho.n,
-      pedidos: pedidosTiktok + sho.n,
-      total: totalTiktok + sho.t,
-      vendas: pedidosTiktok + sho.n, // compatibilidade com versoes antigas do painel
-      fonte: compassFresco ? 'console' : 'chat',
-    }));
+    (async () => {
+      let totalTiktok = compassFresco ? c.gmv : tik.t;
+      let pedidosTiktok = compassFresco ? c.orders : tik.n;
+      let fonte = compassFresco ? 'console' : 'chat';
+      // robo calado e console mudo? a live atual vem do LiveDash (que segue coletando)
+      if (!compassFresco && !tik.n && lojaAtual && LD.ativo()) {
+        const lv = await liveAtualDoLiveDash(lojaAtual);
+        if (lv && (lv.pedidos || lv.gmv)) { totalTiktok = lv.gmv; pedidosTiktok = lv.pedidos; fonte = 'livedash'; }
+      }
+      // espectadores: o do chat; se 0 e o Compass tem views, mostra as views do console
+      const espectadores = liveEstado.espectadores || (compassFresco ? c.views : 0);
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({
+        usuario: usuario, aoVivo: aoVivo,
+        espectadores: espectadores, likes: liveEstado.likes,
+        inicio: liveEstado.inicio,
+        totalTiktok: totalTiktok, totalShopee: sho.t,
+        pedidosTiktok: pedidosTiktok, pedidosShopee: sho.n,
+        pedidos: pedidosTiktok + sho.n,
+        total: totalTiktok + sho.t,
+        vendas: pedidosTiktok + sho.n, // compatibilidade com versoes antigas do painel
+        fonte: fonte,
+      }));
+    })().catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String((e && e.message) || e) })); });
     return;
   }
 
@@ -1010,6 +1036,7 @@ function conectar() {
     if (g !== geracao) return; // trocaram de conta enquanto conectava
     aoVivo = true;
     if (!liveEstado.inicio) liveEstado.inicio = Date.now(); // marca o comeco da live
+    liveEstado.roomId = String((estado && estado.roomId) || ''); // a sala casa a live com o LiveDash
     console.log('  Conectado na live de @' + usuario + (estado && estado.roomId ? ' (sala ' + estado.roomId + ')' : ''));
     emitir({ tipo: 'status', conectado: true, usuario: usuario, inicio: liveEstado.inicio });
     setTimeout(() => { if (g === geracao) atualizaSiglaDoTitulo(); }, 3000); // lê a sigla do título da live
@@ -1034,7 +1061,7 @@ function ligarConta(novo) {
   novo = String(novo || '').replace(/^@/, '').trim();
   geracao++; // invalida timers/pendencias da conta anterior
   aoVivo = false;
-  liveEstado = { espectadores: 0, likes: 0, inicio: 0 }; // zera os contadores ao trocar de loja
+  liveEstado = { espectadores: 0, likes: 0, inicio: 0, roomId: '' }; // zera os contadores ao trocar de loja
   if (conexao) { try { conexao.disconnect(); } catch (e) {} conexao = null; }
   usuario = novo;
   if (!usuario) { emitir({ tipo: 'status', conectado: false, usuario: '' }); return; }
