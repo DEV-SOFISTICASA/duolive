@@ -44,18 +44,31 @@ let siglaAtivaTs = 0;           // quando foi marcada (expira sozinha)
 let liveAtualInicio = 0;        // horario que a live atual comecou
 let ultimaVendaTs = 0;          // ultima venda vista (para detectar quando comeca outra live)
 
-// estado AO VIVO da conta ativa (vem da conexao do chat do TikTok)
-let liveEstado = { espectadores: 0, likes: 0, inicio: 0, roomId: '' };
+// ---------- VARIAS lojas AO MESMO TEMPO: um chat POR loja ----------
+// Cada loja aberta no painel tem a SUA conexao (chats[loja]) — abrir a Fast nao
+// mexe na Monaco. Os eventos saem carimbados com a loja e cada painel mostra so'
+// o que e' da loja dele (pedido do usuario, 10/08). A conta local antiga
+// (npm start -- @conta) vive na chave '' e os eventos dela saem SEM carimbo.
+const chats = {}; // loja -> { usuario, conexao, geracao, aoVivo, liveEstado, sigla, siglaTs }
+function chatDe(loja) {
+  const k = String(loja || '');
+  if (!chats[k]) chats[k] = { usuario: '', conexao: null, geracao: 0, aoVivo: false, liveEstado: { espectadores: 0, likes: 0, inicio: 0, roomId: '' }, sigla: '', siglaTs: 0 };
+  return chats[k];
+}
+// carimba a loja no evento (a chave '' nao carimba — evento "de todos")
+function comLoja(k, ev) { if (k) ev.loja = k; return ev; }
 // numeros oficiais do console de lives (Compass) por loja, lidos por cookies como no LiveDash
 const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
-let lojaAtual = '';        // qual loja o painel esta mostrando
+let lojaAtual = '';        // ultima loja escolhida (reserva p/ chamadas antigas sem ?loja)
 
 // horario da LIVE atual (o grafico usa isto): a 1a venda, ou a volta depois de
-// +40 min parado, abre uma live nova. Se o chat estiver conectado, usa o inicio dele.
-function inicioDaLiveAtual() {
+// +40 min parado, abre uma live nova. Se o chat da loja estiver conectado, usa o inicio dele.
+function inicioDaLiveAtual(loja) {
   const agora = Date.now();
+  const c = chats[String(loja || '')];
+  if (c && c.liveEstado.inicio) { ultimaVendaTs = agora; return c.liveEstado.inicio; }
   if (!liveAtualInicio || (ultimaVendaTs && agora - ultimaVendaTs > 40 * 60000)) {
-    liveAtualInicio = liveEstado.inicio || agora;
+    liveAtualInicio = agora;
   }
   ultimaVendaTs = agora;
   return liveAtualInicio;
@@ -76,17 +89,23 @@ async function siglasConhecidas() {
 // grava a venda no historico (Supabase). Nao trava o fluxo se der erro/estiver off.
 function gravaVendaHistorico(v) {
   if (!SB.ativo()) return;
-  // 2 lojas ao mesmo tempo: a sigla do titulo (siglaAtiva) vale so' pra loja do
-  // CHAT (lojaAtual). Venda de OUTRA loja fica SEM sigla (reconcilia depois pelo
-  // titulo) — melhor sem sigla do que com a sigla errada da outra loja.
-  const mesmaLoja = !v.loja || !lojaAtual || v.loja === lojaAtual;
-  const sigla = (mesmaLoja && siglaAtiva && (Date.now() - siglaAtivaTs < 12 * 3600000)) ? siglaAtiva : null;
-  const ts = new Date(inicioDaLiveAtual()).toISOString();
+  // sigla POR LOJA: o titulo da live de CADA loja marca a vendedora dela — a
+  // venda da Fast sai no nome de quem esta' na Fast, mesmo com a Monaco aberta.
+  // Sem sigla no titulo, cai na sigla do login (fluxo antigo) so' se a venda for
+  // da loja do painel — melhor sem sigla do que com a sigla errada.
+  const lj = v.loja || '';
+  const c = lj ? chats[lj] : null;
+  let sigla = (c && c.sigla && (Date.now() - c.siglaTs < 12 * 3600000)) ? c.sigla : null;
+  if (!sigla) {
+    const mesmaLoja = !lj || !lojaAtual || lj === lojaAtual;
+    sigla = (mesmaLoja && siglaAtiva && (Date.now() - siglaAtivaTs < 12 * 3600000)) ? siglaAtiva : null;
+  }
+  const ts = new Date(inicioDaLiveAtual(lj)).toISOString();
   const linha = {
     order_id: String(v.orderId || v.id || ('m' + Date.now() + Math.round(Math.random() * 1e6))),
     sigla: sigla, quem: v.quem || null, produto: v.produto || null,
     valor: (+v.valor || 0) || null, plataforma: v.plataforma || 'tiktok',
-    loja: lojaAtual || null, ts: ts,
+    loja: (lj || lojaAtual) || null, ts: ts,
   };
   SB.upsert('vendas', [linha], 'order_id').catch(() => {}); // upsert = nao conta 2x
 }
@@ -108,9 +127,9 @@ function achaLoja(nome) {
 // 24/7). Casa pela SALA (room_id): o chat sabe em qual sala esta', e o LiveDash
 // guarda o room_id de cada live — so' usa se for exatamente A MESMA live. Sem
 // sala conhecida, nao chuta (mostrar a live errada e' pior que mostrar zero).
-async function liveAtualDoLiveDash(loja) {
+async function liveAtualDoLiveDash(loja, sala) {
   try {
-    const sala = String(liveEstado.roomId || '');
+    sala = String(sala || '');
     if (!sala) return null;
     const d = await LD.dados();
     const lives = d.porLoja[String(loja || '').toLowerCase()] || [];
@@ -409,8 +428,9 @@ const server = http.createServer((req, res) => {
           vendasAuto.push(venda);
           gravaVendaHistorico(venda); // salva no historico (Supabase), com a sigla e o inicio da live
           if (plataforma === 'shopee') liveShopeeAtual();
-          // aparece no Multichat na hora, com quem comprou e o valor
-          emitir({ tipo: 'venda', quem: quem || 'Venda', texto: 'comprou' + (valor ? ' · R$ ' + valor.toFixed(2).replace('.', ',') : ''), plataforma: plataforma });
+          // aparece no Multichat na hora, com quem comprou e o valor (carimbada
+          // com a loja: cada painel mostra so' as vendas da loja dele)
+          emitir(comLoja(venda.loja, { tipo: 'venda', quem: quem || 'Venda', texto: 'comprou' + (valor ? ' · R$ ' + valor.toFixed(2).replace('.', ',') : ''), plataforma: plataforma }));
         }
       } catch (e) {}
       res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
@@ -424,13 +444,22 @@ const server = http.createServer((req, res) => {
       let corpo = '';
       req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
       req.on('end', () => {
-        try { const b = JSON.parse(corpo); if (b.loja != null) lojaAtual = b.loja ? L.limpaNome(b.loja) : ''; ligarConta(b.tiktok || b.conta || ''); } catch (e) {}
+        try {
+          const b = JSON.parse(corpo);
+          const lj = b.loja != null ? L.limpaNome(b.loja || '') : '';
+          if (b.loja != null && lj) lojaAtual = lj; // reserva p/ chamadas antigas sem ?loja
+          // liga o chat DESTA loja sem mexer nas outras (4 lojas abertas ao mesmo tempo)
+          ligarConta(b.tiktok || b.conta || '', lj);
+        } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
       });
       return;
     }
+    const qsc = new URLSearchParams((req.url.split('?')[1] || ''));
+    const ljc = qsc.get('loja') != null ? L.limpaNome(qsc.get('loja') || '') : lojaAtual;
+    const stc = chatDe(ljc);
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ usuario: usuario, aoVivo: aoVivo }));
+    res.end(JSON.stringify({ usuario: stc.usuario, aoVivo: stc.aoVivo, loja: ljc || undefined }));
     return;
   }
 
@@ -465,12 +494,16 @@ const server = http.createServer((req, res) => {
   // painel AO VIVO: numeros em tempo real da conta ativa
   // (vendas separadas por app; pedidos e curtidas somados)
   if (req.url.startsWith('/ao-vivo')) {
-    // so' as vendas da loja ativa (cada venda automatica vem marcada com a loja)
-    const todas = vendasAnotadas.concat(vendasAuto).filter((v) => !v.loja || v.loja === lojaAtual);
+    // qual loja? o painel manda ?loja=; sem ela, cai na ultima escolhida (fluxo antigo)
+    const qsav = new URLSearchParams((req.url.split('?')[1] || ''));
+    const lj = qsav.get('loja') != null ? L.limpaNome(qsav.get('loja') || '') : lojaAtual;
+    const st = chatDe(lj);
+    // so' as vendas desta loja (cada venda automatica vem marcada com a loja)
+    const todas = vendasAnotadas.concat(vendasAuto).filter((v) => !v.loja || !lj || v.loja === lj);
     // corte = inicio da live; mas NUNCA esconde uma venda ja capturada desta loja: o
     // robo costuma mandar venda ANTES do chat conectar, entao puxa o corte pra tras
     // ate a venda mais antiga recente (<6h) desta loja.
-    let desde = liveEstado.inicio || 0;
+    let desde = st.liveEstado.inicio || 0;
     if (desde) {
       const limite = Date.now() - 6 * 3600000;
       for (const v of todas) { const t = v.ts || 0; if (t >= limite && t < desde) desde = t; }
@@ -481,25 +514,25 @@ const server = http.createServer((req, res) => {
       const d = v.plataforma === 'tiktok' ? tik : sho;
       d.n++; d.t += v.valor || 0;
     });
-    // numeros do console (Compass) da loja atual, se recentes (<15min): sao os oficiais do TikTok
-    const c = compassPorLoja[lojaAtual] || null;
+    // numeros do console (Compass) desta loja, se recentes (<15min): sao os oficiais do TikTok
+    const c = compassPorLoja[lj] || null;
     const compassFresco = !!(c && c.ts && (Date.now() - c.ts < 15 * 60000));
     (async () => {
       let totalTiktok = compassFresco ? c.gmv : tik.t;
       let pedidosTiktok = compassFresco ? c.orders : tik.n;
       let fonte = compassFresco ? 'console' : 'chat';
       // robo calado e console mudo? a live atual vem do LiveDash (que segue coletando)
-      if (!compassFresco && !tik.n && lojaAtual && LD.ativo()) {
-        const lv = await liveAtualDoLiveDash(lojaAtual);
+      if (!compassFresco && !tik.n && lj && LD.ativo()) {
+        const lv = await liveAtualDoLiveDash(lj, st.liveEstado.roomId);
         if (lv && (lv.pedidos || lv.gmv)) { totalTiktok = lv.gmv; pedidosTiktok = lv.pedidos; fonte = 'livedash'; }
       }
       // espectadores: o do chat; se 0 e o Compass tem views, mostra as views do console
-      const espectadores = liveEstado.espectadores || (compassFresco ? c.views : 0);
+      const espectadores = st.liveEstado.espectadores || (compassFresco ? c.views : 0);
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({
-        usuario: usuario, aoVivo: aoVivo,
-        espectadores: espectadores, likes: liveEstado.likes,
-        inicio: liveEstado.inicio,
+        usuario: st.usuario, aoVivo: st.aoVivo, loja: lj || undefined,
+        espectadores: espectadores, likes: st.liveEstado.likes,
+        inicio: st.liveEstado.inicio,
         totalTiktok: totalTiktok, totalShopee: sho.t,
         pedidosTiktok: pedidosTiktok, pedidosShopee: sho.n,
         pedidos: pedidosTiktok + sho.n,
@@ -870,11 +903,15 @@ const wss = new WebSocketServer({ server });
 const clientes = new Set();
 wss.on('connection', (ws) => {
   clientes.add(ws);
-  ws.send(JSON.stringify({ tipo: 'status', conectado: aoVivo, usuario: usuario || '(teste)' }));
+  // conta o estado de CADA loja ligada para o painel que acabou de abrir
+  const ks = Object.keys(chats);
+  if (!ks.length) ws.send(JSON.stringify({ tipo: 'status', conectado: false, usuario: '(teste)' }));
+  ks.forEach((k) => {
+    const c = chats[k];
+    ws.send(JSON.stringify(comLoja(k, { tipo: 'status', conectado: c.aoVivo, usuario: c.usuario || '(teste)', inicio: c.liveEstado.inicio, ts: Date.now() })));
+  });
   ws.on('close', () => clientes.delete(ws));
 });
-
-let aoVivo = false;
 function emitir(ev) {
   ev.ts = Date.now();
   if (ev.tipo !== 'status' && ev.tipo !== 'contadores' && !ev.plataforma) ev.plataforma = 'tiktok';
@@ -907,11 +944,12 @@ if (TESTE) {
     (n) => ({ tipo: 'venda', quem: n, texto: 'comprou · R$ 89,90 · Tapete Sala', plataforma: 'shopee' }),
   ];
   let v = 42, likes = 130;
-  aoVivo = true;
+  const ct = chatDe(''); ct.usuario = 'teste'; ct.aoVivo = true; ct.liveEstado.inicio = Date.now();
   setInterval(() => {
     const n = nomes[Math.floor(Math.random() * nomes.length)];
     emitir(eventos[Math.floor(Math.random() * eventos.length)](n));
     v += Math.floor(Math.random() * 5) - 1; likes += Math.floor(Math.random() * 9);
+    ct.liveEstado.espectadores = Math.max(1, v); ct.liveEstado.likes = likes;
     emitir({ tipo: 'contadores', espectadores: Math.max(1, v), likes: likes });
   }, 2000);
   return;
@@ -940,9 +978,6 @@ else console.log('  (sem chave de assinatura — se der erro de "sign", pegue um
 const opcoes = { fetchRoomInfoOnConnect: true }; // traz o roomInfo (com o título) no connect
 if (SIGN_KEY) opcoes.signApiKey = SIGN_KEY;
 
-let conexao = null;
-let geracao = 0; // muda a cada troca de conta; timers antigos de reconexao sao ignorados
-
 function nomeDe(d) {
   return (d && ((d.user && (d.user.uniqueId || d.user.nickname)) || d.uniqueId || d.nickname)) || '';
 }
@@ -962,116 +997,131 @@ function siglasNoTitulo(titulo, siglas) {
   siglas.forEach((sig) => { const s = String(sig).toUpperCase(); if (T.indexOf(' ' + s + ' ') >= 0) achadas.push(sig); });
   return achadas;
 }
-async function atualizaSiglaDoTitulo() {
-  if (!conexao) return;
+async function atualizaSiglaDoTitulo(k) {
+  const c = chats[String(k || '')];
+  if (!c || !c.conexao) return;
+  const rot = '[' + (k || 'local') + '] ';
   try {
     let info = null;
-    try { info = await conexao.fetchRoomInfo(); } catch (e) { info = conexao.roomInfo; }
+    try { info = await c.conexao.fetchRoomInfo(); } catch (e) { info = c.conexao.roomInfo; }
     const titulo = achaTitulo(info);
     if (!titulo) return;
     const achadas = siglasNoTitulo(titulo, await siglasConhecidas());
     if (achadas.length === 1) {
+      c.sigla = achadas[0]; c.siglaTs = Date.now();
+      // a global segue alimentando o fluxo antigo (vendas sem loja marcada)
       siglaAtiva = achadas[0]; siglaAtivaTs = Date.now();
-      console.log('  🏷️  Título: "' + titulo.slice(0, 60) + '" → sigla ' + achadas[0]);
+      console.log('  🏷️  ' + rot + 'Título: "' + titulo.slice(0, 60) + '" → sigla ' + achadas[0]);
     } else if (achadas.length > 1) {
-      console.log('  🏷️  Título: "' + titulo.slice(0, 60) + '" → dupla/grupo (' + achadas.join('+') + '), atribuição de grupo a definir');
+      console.log('  🏷️  ' + rot + 'Título: "' + titulo.slice(0, 60) + '" → dupla/grupo (' + achadas.join('+') + '), atribuição de grupo a definir');
     } else {
-      console.log('  🏷️  Título: "' + titulo.slice(0, 60) + '" (nenhuma sigla reconhecida)');
+      console.log('  🏷️  ' + rot + 'Título: "' + titulo.slice(0, 60) + '" (nenhuma sigla reconhecida)');
     }
   } catch (e) {}
 }
 // re-lê o título de vez em quando (a live pode mudar de nome / o robô só ligou depois)
-setInterval(() => { if (aoVivo) atualizaSiglaDoTitulo(); }, 120000);
+setInterval(() => { Object.keys(chats).forEach((k) => { if (chats[k].aoVivo) atualizaSiglaDoTitulo(k); }); }, 120000);
 
-function criarConexao() {
-  conexao = new TikTokLiveConnection(usuario, opcoes);
-  conexao.on(WebcastEvent.CHAT, (d) => emitir({ tipo: 'mensagem', quem: nomeDe(d), texto: (d && (d.content || d.comment)) || '' }));
-  conexao.on(WebcastEvent.MEMBER, (d) => emitir({ tipo: 'entrada', quem: nomeDe(d) }));
-  conexao.on(WebcastEvent.FOLLOW, (d) => emitir({ tipo: 'seguidor', quem: nomeDe(d) }));
-  conexao.on(WebcastEvent.SHARE, (d) => emitir({ tipo: 'share', quem: nomeDe(d) }));
-  conexao.on(WebcastEvent.SOCIAL, (d) => {
+function criarConexao(k) {
+  const c = chatDe(k);
+  const cx = c.conexao = new TikTokLiveConnection(c.usuario, opcoes);
+  cx.on(WebcastEvent.CHAT, (d) => emitir(comLoja(k, { tipo: 'mensagem', quem: nomeDe(d), texto: (d && (d.content || d.comment)) || '' })));
+  cx.on(WebcastEvent.MEMBER, (d) => emitir(comLoja(k, { tipo: 'entrada', quem: nomeDe(d) })));
+  cx.on(WebcastEvent.FOLLOW, (d) => emitir(comLoja(k, { tipo: 'seguidor', quem: nomeDe(d) })));
+  cx.on(WebcastEvent.SHARE, (d) => emitir(comLoja(k, { tipo: 'share', quem: nomeDe(d) })));
+  cx.on(WebcastEvent.SOCIAL, (d) => {
     const t = String((d && d.displayType) || '');
-    if (t.includes('follow')) emitir({ tipo: 'seguidor', quem: nomeDe(d) });
-    else if (t.includes('share')) emitir({ tipo: 'share', quem: nomeDe(d) });
+    if (t.includes('follow')) emitir(comLoja(k, { tipo: 'seguidor', quem: nomeDe(d) }));
+    else if (t.includes('share')) emitir(comLoja(k, { tipo: 'share', quem: nomeDe(d) }));
   });
-  conexao.on(WebcastEvent.GIFT, (d) => {
+  cx.on(WebcastEvent.GIFT, (d) => {
     if (d.giftType === 1 && !d.repeatEnd) return;
     const nome = (d.giftDetails && d.giftDetails.giftName) || d.giftName || (d.gift && d.gift.name) || 'presente';
-    emitir({ tipo: 'presente', quem: nomeDe(d), presente: nome, qtd: d.repeatCount || 1 });
+    emitir(comLoja(k, { tipo: 'presente', quem: nomeDe(d), presente: nome, qtd: d.repeatCount || 1 }));
   });
-  conexao.on(WebcastEvent.ROOM_USER, (d) => {
+  cx.on(WebcastEvent.ROOM_USER, (d) => {
     // na v2 o numero de espectadores vem em 'total' (ou 'totalUser'); 'viewerCount' era da v1
     const bruto = d && (d.viewerCount != null ? d.viewerCount : (d.total != null ? d.total : d.totalUser));
     const v = parseInt(bruto, 10);
-    if (!isNaN(v)) { liveEstado.espectadores = v; emitir({ tipo: 'contadores', espectadores: v }); }
+    if (!isNaN(v)) { c.liveEstado.espectadores = v; emitir(comLoja(k, { tipo: 'contadores', espectadores: v })); }
   });
-  conexao.on(WebcastEvent.LIKE, (d) => {
+  cx.on(WebcastEvent.LIKE, (d) => {
     // na v2 o total de curtidas vem em 'total'; 'totalLikeCount' era da v1
     const bruto = d && (d.totalLikeCount != null ? d.totalLikeCount : d.total);
     const t = parseInt(bruto, 10);
-    if (!isNaN(t)) { liveEstado.likes = t; emitir({ tipo: 'contadores', likes: t }); }
+    if (!isNaN(t)) { c.liveEstado.likes = t; emitir(comLoja(k, { tipo: 'contadores', likes: t })); }
     const quem = nomeDe(d);            // quem curtiu -> aparece no multichat
-    if (quem) emitir({ tipo: 'curtiu', quem: quem });
+    if (quem) emitir(comLoja(k, { tipo: 'curtiu', quem: quem }));
   });
-  conexao.on(WebcastEvent.STREAM_END, () => {
-    const g = geracao; aoVivo = false; liveEstado.inicio = 0;
-    console.log('  A live de @' + usuario + ' terminou. Aguardando a proxima...');
-    emitir({ tipo: 'status', conectado: false, usuario: usuario });
-    setTimeout(() => { if (g === geracao) conectar(); }, 60000);
+  cx.on(WebcastEvent.STREAM_END, () => {
+    const g = c.geracao; c.aoVivo = false; c.liveEstado.inicio = 0;
+    console.log('  [' + (k || 'local') + '] A live de @' + c.usuario + ' terminou. Aguardando a proxima...');
+    emitir(comLoja(k, { tipo: 'status', conectado: false, usuario: c.usuario }));
+    setTimeout(() => { if (g === c.geracao) conectar(k); }, 60000);
   });
-  conexao.on('disconnected', () => {
-    if (!aoVivo) return;
-    const g = geracao; aoVivo = false;
-    console.log('  Conexao caiu. Reconectando...');
-    emitir({ tipo: 'status', conectado: false, usuario: usuario });
-    setTimeout(() => { if (g === geracao) conectar(); }, 10000);
+  cx.on('disconnected', () => {
+    if (!c.aoVivo) return;
+    const g = c.geracao; c.aoVivo = false;
+    console.log('  [' + (k || 'local') + '] Conexao caiu. Reconectando...');
+    emitir(comLoja(k, { tipo: 'status', conectado: false, usuario: c.usuario }));
+    setTimeout(() => { if (g === c.geracao) conectar(k); }, 10000);
   });
-  conexao.on('error', () => { /* nao derruba o conector */ });
+  cx.on('error', () => { /* nao derruba o conector */ });
 }
 
-function conectar() {
-  if (!usuario || !conexao) return;
-  const g = geracao;
-  conexao.connect().then((estado) => {
-    if (g !== geracao) return; // trocaram de conta enquanto conectava
-    aoVivo = true;
-    if (!liveEstado.inicio) liveEstado.inicio = Date.now(); // marca o comeco da live
-    liveEstado.roomId = String((estado && estado.roomId) || ''); // a sala casa a live com o LiveDash
-    console.log('  Conectado na live de @' + usuario + (estado && estado.roomId ? ' (sala ' + estado.roomId + ')' : ''));
-    emitir({ tipo: 'status', conectado: true, usuario: usuario, inicio: liveEstado.inicio });
-    setTimeout(() => { if (g === geracao) atualizaSiglaDoTitulo(); }, 3000); // lê a sigla do título da live
+function conectar(k) {
+  const c = chatDe(k);
+  if (!c.usuario || !c.conexao) return;
+  const g = c.geracao;
+  const rot = '[' + (k || 'local') + '] ';
+  c.conexao.connect().then((estado) => {
+    if (g !== c.geracao) return; // trocaram a conta desta loja enquanto conectava
+    c.aoVivo = true;
+    if (!c.liveEstado.inicio) c.liveEstado.inicio = Date.now(); // marca o comeco da live
+    c.liveEstado.roomId = String((estado && estado.roomId) || ''); // a sala casa a live com o LiveDash
+    console.log('  ' + rot + 'Conectado na live de @' + c.usuario + (estado && estado.roomId ? ' (sala ' + estado.roomId + ')' : ''));
+    emitir(comLoja(k, { tipo: 'status', conectado: true, usuario: c.usuario, inicio: c.liveEstado.inicio }));
+    setTimeout(() => { if (g === c.geracao) atualizaSiglaDoTitulo(k); }, 3000); // lê a sigla do título da live
   }).catch((err) => {
-    if (g !== geracao) return;
-    aoVivo = false;
+    if (g !== c.geracao) return;
+    c.aoVivo = false;
     const txt = String((err && (err.message || err.name)) || err);
-    emitir({ tipo: 'status', conectado: false, usuario: usuario });
+    emitir(comLoja(k, { tipo: 'status', conectado: false, usuario: c.usuario }));
     if (/sign|euler|rate.?limit|429|401|403/i.test(txt)) {
-      if (/rate.?limit|429/i.test(txt)) console.log('  ATENCAO: limite da chave de assinatura (Euler Stream). Espere e tente de novo.');
-      else console.log('  ATENCAO: assinatura recusada. Confira a DUOLIVE_SIGN_KEY (eulerstream.com). Detalhe: ' + txt.slice(0, 90));
-      setTimeout(() => { if (g === geracao) conectar(); }, 60000);
+      if (/rate.?limit|429/i.test(txt)) console.log('  ATENCAO: ' + rot + 'limite da chave de assinatura (Euler Stream) — com 4 lojas abertas o plano gratis pode nao dar conta. Espere ou suba o plano.');
+      else console.log('  ATENCAO: ' + rot + 'assinatura recusada. Confira a DUOLIVE_SIGN_KEY (eulerstream.com). Detalhe: ' + txt.slice(0, 90));
+      setTimeout(() => { if (g === c.geracao) conectar(k); }, 60000);
     } else {
-      console.log('  Sem live no ar para @' + usuario + ' (' + txt.slice(0, 80) + '). Tento de novo em 30s...');
-      setTimeout(() => { if (g === geracao) conectar(); }, 30000);
+      console.log('  ' + rot + 'Sem live no ar para @' + c.usuario + ' (' + txt.slice(0, 80) + '). Tento de novo em 30s...');
+      setTimeout(() => { if (g === c.geracao) conectar(k); }, 30000);
     }
   });
 }
 
-// troca a conta ativa do TikTok (chamado pelo seletor de lojas no painel)
-function ligarConta(novo) {
+// liga (ou troca) o chat de UMA loja — sem mexer nas outras. Mandar conta vazia
+// desliga so' o chat daquela loja.
+function ligarConta(novo, loja) {
+  const k = String(loja || '');
+  const c = chatDe(k);
   novo = String(novo || '').replace(/^@/, '').trim();
-  geracao++; // invalida timers/pendencias da conta anterior
-  aoVivo = false;
-  liveEstado = { espectadores: 0, likes: 0, inicio: 0, roomId: '' }; // zera os contadores ao trocar de loja
-  if (conexao) { try { conexao.disconnect(); } catch (e) {} conexao = null; }
-  usuario = novo;
-  if (!usuario) { emitir({ tipo: 'status', conectado: false, usuario: '' }); return; }
-  console.log('  >> trocando para a live de @' + usuario);
-  emitir({ tipo: 'status', conectado: false, usuario: usuario });
-  criarConexao();
-  conectar();
+  // painel reabrindo a MESMA conta da loja: nao derruba nada, so' reconta o estado
+  if (novo && c.usuario === novo && c.conexao) {
+    emitir(comLoja(k, { tipo: 'status', conectado: c.aoVivo, usuario: c.usuario, inicio: c.liveEstado.inicio }));
+    return;
+  }
+  c.geracao++; // invalida timers/pendencias da conta anterior desta loja
+  c.aoVivo = false;
+  c.liveEstado = { espectadores: 0, likes: 0, inicio: 0, roomId: '' }; // zera os contadores ao trocar a conta
+  if (c.conexao) { try { c.conexao.disconnect(); } catch (e) {} c.conexao = null; }
+  c.usuario = novo;
+  if (!c.usuario) { emitir(comLoja(k, { tipo: 'status', conectado: false, usuario: '' })); return; }
+  console.log('  >> [' + (k || 'local') + '] ligando o chat de @' + c.usuario);
+  emitir(comLoja(k, { tipo: 'status', conectado: false, usuario: c.usuario }));
+  criarConexao(k);
+  conectar(k);
 }
 
-if (usuario) { criarConexao(); conectar(); }
+if (usuario) { const c0 = chatDe(''); c0.usuario = usuario; criarConexao(''); conectar(''); }
 else console.log('  Nenhuma conta ainda. Escolha uma loja no painel (ou use: npm start -- @conta).');
 
-module.exports = { ligarConta: ligarConta, contaAtual: () => usuario };
+module.exports = { ligarConta: ligarConta, contaAtual: () => (chatDe(lojaAtual).usuario || chatDe('').usuario) };

@@ -204,7 +204,12 @@
   somaVendas();
 
   // ---- eventos que chegam do conector (TikTok) ----
+  // este multichat pode ser de UMA loja (?loja=monaco na URL): com 4 lojas abertas
+  // ao mesmo tempo, cada evento vem carimbado e so' mostramos o que e' nosso.
+  var MINHA_LOJA='';
+  try{ MINHA_LOJA=String(new URLSearchParams(location.search).get('loja')||'').toLowerCase(); }catch(e){}
   function trata(ev){
+    if(MINHA_LOJA && ev.loja && String(ev.loja).toLowerCase()!==MINHA_LOJA) return;
     if(ev.tipo==='status'){
       $('st').className='st'+(ev.conectado?' on':'');
       $('quem').textContent=ev.conectado?('TikTok ao vivo · @'+ev.usuario):('TikTok sem live · @'+(ev.usuario||'?'));

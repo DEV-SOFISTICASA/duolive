@@ -144,7 +144,12 @@
       if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta(ttDe(lojaSel)); }catch(e){} }
     }
     fetch(URL_MC+'/', {mode:'no-cors', cache:'no-store'}).then(function(){
-      if(!ligado){ ligado=true; mc.src=URL_MC+'/'; aviso.style.display='none'; }
+      if(!ligado){ ligado=true; mc.src=URL_MC+'/'+((typeof lojaSel!=='undefined'&&lojaSel)?'?loja='+encodeURIComponent(lojaSel):''); aviso.style.display='none'; }
+      // o servidor reiniciou (deploy)? religa sozinho o chat da loja escolhida
+      if(typeof lojaSel!=='undefined' && lojaSel && ttDe(lojaSel)){
+        fetch(URL_MC+'/conta?loja='+encodeURIComponent(lojaSel),{cache:'no-store'}).then(function(r){return r.json();})
+          .then(function(c){ if(c && !c.usuario) postConta(ttDe(lojaSel)); }).catch(function(){});
+      }
     }).catch(function(){
       if(ligado||!mc.src){ ligado=false; mc.removeAttribute('src'); aviso.style.display='flex'; }
     });
@@ -222,6 +227,8 @@
     postLoja(loja);
     var af=document.querySelector('.esq .caixa iframe');
     if(af) af.setAttribute('src','analytics.html?api='+encodeURIComponent(URL_MC)+'&loja='+encodeURIComponent(loja));
+    // o multichat tambem e' POR loja: recarrega mostrando so' o chat desta loja
+    try{ if(ligado) mc.src=URL_MC+'/'+(loja?'?loja='+encodeURIComponent(loja):''); }catch(e){}
     fechaMenu();
     renderLojas();
   }

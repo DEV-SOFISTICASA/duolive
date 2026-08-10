@@ -358,7 +358,7 @@
   var av={inicio:0, oferta:null};
   function real2(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function pegaAoVivo(){
-    fetch(apiBase()+'/ao-vivo',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    fetch(apiBase()+'/ao-vivo'+((lojaSel&&lojaSel!=='(todas)')?'?loja='+encodeURIComponent(lojaSel):''),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
       if(!d || !d.aoVivo){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; return; }
       marcaLive(true);
       $('aoVivoBox').style.display='';
