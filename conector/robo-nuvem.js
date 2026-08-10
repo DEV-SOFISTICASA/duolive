@@ -41,6 +41,38 @@ function restauraSessoes() {
   return nomes.length;
 }
 
+// Sessões SEMPRE FRESCAS do LiveDash: o LiveDash mantém 24/7 as sessões do
+// Console de LIVE (tabela tts_sessions no Supabase antigo). Em vez de um cofre
+// que vence, o robô puxa de lá as sessões das MINHAS lojas a cada vez que liga.
+// Precisa de LIVEDASH_URL + LIVEDASH_KEY (as MESMAS do web service duolive).
+async function puxaSessoesDoLiveDash() {
+  const url = (process.env.LIVEDASH_URL || '').replace(/\/+$/, '');
+  const key = process.env.LIVEDASH_KEY || '';
+  if (!url || !key) { console.log('  (LIVEDASH_URL/KEY não configurados — pulei o LiveDash, uso o cofre)'); return 0; }
+  const NOME_LOJA = { 'mania-d-casa': 'mania' }; // normaliza (igual livedash.js)
+  let minhas = null;
+  try { const m = L.minhasLojas(); if (m.length) minhas = new Set(m); } catch (e) {}
+  try {
+    const r = await fetch(url + '/rest/v1/tts_sessions?select=loja,storage_state,ativo&ativo=eq.true', {
+      headers: { apikey: key, Authorization: 'Bearer ' + key },
+    });
+    if (r.status >= 300) { console.log('  ⚠️  LiveDash tts_sessions HTTP ' + r.status + ' — uso o cofre.'); return 0; }
+    const rows = await r.json();
+    let n = 0;
+    for (const row of rows) {
+      const loja = NOME_LOJA[String(row.loja).toLowerCase()] || String(row.loja).toLowerCase();
+      if (minhas && !minhas.has(loja)) continue; // só as MINHAS lojas (leve na nuvem)
+      const st = row.storage_state;
+      const cookies = (st && st.cookies) || [];
+      if (!cookies.some((c) => /^(sessionid|sid_guard)$/i.test(c.name))) continue; // sem login, pula
+      fs.writeFileSync(path.join(__dirname, 'sessao-console-' + loja + '.json'), JSON.stringify(st));
+      n++;
+    }
+    console.log('  🔓 ' + n + ' sessão(ões) do Console puxada(s) do LiveDash (sempre frescas).');
+    return n;
+  } catch (e) { console.log('  ⚠️  não consegui puxar do LiveDash (' + ((e && e.message) || e) + ') — uso o cofre.'); return 0; }
+}
+
 // o modo nuvem é sempre: só o Gerenciador de LIVE + Chromium do contêiner.
 // (definido ANTES de exigir o robô, que lê essas variáveis ao carregar)
 process.env.DUOLIVE_SO_CONSOLE = process.env.DUOLIVE_SO_CONSOLE || '1';
@@ -48,7 +80,7 @@ process.env.DUOLIVE_CHROMIUM_NUVEM = '1';
 
 console.log('\n  DuoLive · Robô de vendas NA NUVEM');
 console.log('  Mandando as vendas para: ' + (process.env.DUOLIVE_CONECTOR || '(defina DUOLIVE_CONECTOR)'));
-restauraSessoes();
+restauraSessoes(); // cofre (reserva); o LiveDash abaixo sobrescreve com sessões frescas
 
 // AUTOTESTE na largada: o painel existe? o crachá é aceito? Sem isso, uma
 // variável errada faz as vendas serem recusadas em silêncio (bug de 2026-08-07:
@@ -69,9 +101,12 @@ restauraSessoes();
   }
 })();
 
-// liga o robô: ele vigia TODAS as lojas cujo login estiver no cofre, AO MESMO
-// TEMPO — cada venda sai carimbada com a loja dela e so' aparece no painel dela.
-// (DUOLIVE_LOJA continua valendo para limitar a UMA loja, se um dia precisar.)
-const quantas = (() => { try { return L.resumoDasLojas().filter((x) => x.console || x.tiktok || x.shopee).map((x) => x.loja); } catch (e) { return []; } })();
-console.log('  🏪 Lojas com login no cofre: ' + (quantas.join(', ') || '(nenhuma!)'));
-require('./robo-vendas.js').principal();
+// liga o robô: puxa as sessões frescas do LiveDash e vigia TODAS as lojas com
+// login AO MESMO TEMPO — cada venda sai carimbada com a loja dela e so' aparece
+// no painel dela. (DUOLIVE_LOJA ainda limita a UMA loja, se um dia precisar.)
+(async () => {
+  await puxaSessoesDoLiveDash();
+  const quantas = (() => { try { return L.resumoDasLojas().filter((x) => x.console || x.tiktok || x.shopee).map((x) => x.loja); } catch (e) { return []; } })();
+  console.log('  🏪 Lojas com login: ' + (quantas.join(', ') || '(nenhuma!)'));
+  await require('./robo-vendas.js').principal();
+})().catch((e) => { console.log('  Deu erro ao ligar o robô: ' + ((e && e.message) || e)); process.exit(1); });
