@@ -50,8 +50,12 @@ async function puxaSessoesDoLiveDash() {
   const key = process.env.LIVEDASH_KEY || '';
   if (!url || !key) { console.log('  (LIVEDASH_URL/KEY não configurados — pulei o LiveDash, uso o cofre)'); return 0; }
   const NOME_LOJA = { 'mania-d-casa': 'mania' }; // normaliza (igual livedash.js)
-  let minhas = null;
-  try { const m = L.minhasLojas(); if (m.length) minhas = new Set(m); } catch (e) {}
+  // TRAVA DE SEGURANÇA: nunca vigiar as 14 lojas do LiveDash na nuvem (estoura a
+  // memória). Usa minhas-lojas.txt; se ele faltar no contêiner, cai nas 4 fixas.
+  const PADRAO = ['monaco', 'fast', 'bellini', 'mania'];
+  let minhas;
+  try { const m = L.minhasLojas(); minhas = new Set(m.length ? m : PADRAO); }
+  catch (e) { minhas = new Set(PADRAO); }
   try {
     const r = await fetch(url + '/rest/v1/tts_sessions?select=loja,storage_state,ativo&ativo=eq.true', {
       headers: { apikey: key, Authorization: 'Bearer ' + key },

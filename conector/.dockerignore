@@ -16,8 +16,9 @@ cofre.exemplo.txt
 conector.txt
 chave-*.txt
 senha-*.txt
-minhas-lojas.txt
 link-atual.txt
+# minhas-lojas.txt NAO entra aqui de proposito: nao e' segredo (so' nomes de
+# loja) e o robo da nuvem precisa dele para vigiar SO' as suas lojas, nao as 14.
 
 # ferramentas e dados locais que a nuvem não precisa
 cloudflared.exe
