@@ -207,13 +207,13 @@ button{width:100%;margin-top:16px;padding:11px;border:0;border-radius:9px;backgr
 <rect id="pescoco" x="-9" y="6" width="18" height="18" rx="6"/>
 <ellipse id="rostoF" cx="0" cy="-12" rx="18" ry="23"/>
 <path id="corpoF" d="M -35,92 C -37,52 -23,24 0,24 C 23,24 37,52 35,92 Z"/>
-<g id="lens"><path d="M0,-80 A80,80 0 0,0 0,80" fill="none" stroke="#FF6B4A" stroke-width="14" stroke-linecap="round"/><path d="M0,-80 A80,80 0 0,1 0,80" fill="none" stroke="#20C4B8" stroke-width="14" stroke-linecap="round"/><circle r="60" fill="none" stroke="#B9BCCB" stroke-width="2" opacity="0.5"/></g>
+<g id="lens"><path d="M0,-80 A80,80 0 0,0 0,80" fill="none" stroke="#FF6B4A" stroke-width="14" stroke-linecap="round"/><path d="M0,-80 A80,80 0 0,1 0,80" fill="none" stroke="#20C4B8" stroke-width="14" stroke-linecap="round"/><circle r="60" fill="none" stroke="#5A5C70" stroke-width="2" opacity="0.6"/></g>
 </defs>
-<rect x="0" y="0" width="200" height="200" rx="48" fill="#FFF3EA"/>
+<rect x="0" y="0" width="200" height="200" rx="48" fill="#17182B"/>
 <use href="#lens" transform="translate(100,100)"/>
 <use href="#cabeloF" transform="translate(78,102) scale(0.62)" fill="#D6453C"/><use href="#pescoco" transform="translate(78,102) scale(0.62)" fill="#E8C09A"/><use href="#rostoF" transform="translate(78,102) scale(0.62)" fill="#E8C09A"/><use href="#corpoF" transform="translate(78,102) scale(0.62)" fill="#3B9EA8"/>
-<use href="#cabeloF" transform="translate(122,98) scale(0.66)" fill="#BE8A24"/><use href="#pescoco" transform="translate(122,98) scale(0.66)" fill="#E8C09A"/><use href="#rostoF" transform="translate(122,98) scale(0.66)" fill="#E8C09A"/><use href="#corpoF" transform="translate(122,98) scale(0.66)" fill="#C85B8E"/>
-<circle cx="156" cy="44" r="12" fill="#FF2E55"/><circle cx="156" cy="44" r="12" fill="none" stroke="#FFF3EA" stroke-width="3"/>
+<use href="#cabeloF" transform="translate(122,98) scale(0.66)" fill="#CE9E38"/><use href="#pescoco" transform="translate(122,98) scale(0.66)" fill="#E8C09A"/><use href="#rostoF" transform="translate(122,98) scale(0.66)" fill="#E8C09A"/><use href="#corpoF" transform="translate(122,98) scale(0.66)" fill="#C85B8E"/>
+<circle cx="156" cy="44" r="12" fill="#FF2E55"/><circle cx="156" cy="44" r="12" fill="none" stroke="#17182B" stroke-width="3"/>
 </svg>
 <div style="font-size:13px;color:#a3a3ad;margin-top:10px">Seja bem-vinda ao</div>
 <div style="font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.05">Duo<span style="color:var(--accent)">Live</span></div>
