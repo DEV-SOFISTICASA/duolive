@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="DuoLive">
+  <title>DuoLive</title>
+  <desc>Duas mulheres de frente, uma ruiva e uma loira, dentro de uma lente de câmera com ponto de ao vivo.</desc>
+  <defs>
+    <path id="cabeloF" d="M -38,58 C -45,22 -44,-28 -22,-48 C -11,-58 11,-58 22,-48 C 44,-28 45,22 38,58 C 28,66 -28,66 -38,58 Z"/>
+    <rect id="pescoco" x="-9" y="6" width="18" height="18" rx="6"/>
+    <ellipse id="rostoF" cx="0" cy="-12" rx="18" ry="23"/>
+    <path id="corpoF" d="M -35,92 C -37,52 -23,24 0,24 C 23,24 37,52 35,92 Z"/>
+    <g id="lens">
+      <path d="M0,-80 A80,80 0 0,0 0,80" fill="none" stroke="#FF6B4A" stroke-width="14" stroke-linecap="round"/>
+      <path d="M0,-80 A80,80 0 0,1 0,80" fill="none" stroke="#20C4B8" stroke-width="14" stroke-linecap="round"/>
+      <circle r="60" fill="none" stroke="#B9BCCB" stroke-width="2" opacity="0.5"/>
+    </g>
+  </defs>
+  <rect x="0" y="0" width="200" height="200" rx="48" fill="#FFF3EA"/>
+  <use href="#lens" transform="translate(100,100)"/>
+  <use href="#cabeloF" transform="translate(78,102) scale(0.62)" fill="#D6453C"/>
+  <use href="#pescoco" transform="translate(78,102) scale(0.62)" fill="#E8C09A"/>
+  <use href="#rostoF" transform="translate(78,102) scale(0.62)" fill="#E8C09A"/>
+  <use href="#corpoF" transform="translate(78,102) scale(0.62)" fill="#3B9EA8"/>
+  <use href="#cabeloF" transform="translate(122,98) scale(0.66)" fill="#BE8A24"/>
+  <use href="#pescoco" transform="translate(122,98) scale(0.66)" fill="#E8C09A"/>
+  <use href="#rostoF" transform="translate(122,98) scale(0.66)" fill="#E8C09A"/>
+  <use href="#corpoF" transform="translate(122,98) scale(0.66)" fill="#C85B8E"/>
+  <circle cx="156" cy="44" r="12" fill="#FF2E55"/>
+  <circle cx="156" cy="44" r="12" fill="none" stroke="#FFF3EA" stroke-width="3"/>
+</svg>
