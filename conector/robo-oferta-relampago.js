@@ -23,7 +23,11 @@ const ARGS = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const LOJA = ARGS[0] || process.env.DUOLIVE_LOJA || 'monaco';
 const REAL = process.env.DUOLIVE_OFERTA_REAL === '1';
 const TESTE = process.argv.includes('--teste');
-const DUR = +(process.env.DUOLIVE_OFERTA_DUR || 900);      // duração da oferta (s) — 900 = 15 min
+const ROUND_MIN = +(process.env.DUOLIVE_OFERTA_RODADA || 10);    // nova rodada a cada X min
+const STAGGER_S = +(process.env.DUOLIVE_OFERTA_INTERVALO || 60); // segundos entre uma oferta e a próxima
+const DUR = +(process.env.DUOLIVE_OFERTA_DUR || ROUND_MIN * 60); // duração de cada oferta (s); padrão = 1 rodada
+const RODADAS = process.argv.includes('--rodadas');             // liga o agendador (senão, dispara uma vez só)
+const FORCA = process.argv.includes('--forca-sem-live');        // só testes: ignora a trava de "live no ar"
 const SESS = path.join(__dirname, 'sessao-console-' + LOJA + '.json');
 
 const slug = (s) => String(s).normalize('NFD').replace(/[^\x00-\x7F]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -34,11 +38,20 @@ function enderecoConector() {
   try { const t = fs.readFileSync(path.join(__dirname, 'conector.txt'), 'utf8').split('\n')[0].trim(); if (/^https?:/.test(t)) return t; } catch (e) {}
   return process.env.DUOLIVE_CONECTOR || 'https://duolive-conector-jipn.onrender.com';
 }
+function tokenConector() { try { const l = fs.readFileSync(path.join(__dirname, 'conector.txt'), 'utf8').split('\n').map((x) => x.trim()); return l[1] || process.env.DUOLIVE_TOKEN || ''; } catch (e) { return process.env.DUOLIVE_TOKEN || ''; } }
+const TOKEN = tokenConector();
 function pega(u) {
   return new Promise((ok) => {
     const url = new URL(u); const lib = url.protocol === 'https:' ? https : http;
-    lib.get(url, (r) => { let c = ''; r.on('data', (d) => { c += d; }); r.on('end', () => { try { ok(JSON.parse(c)); } catch (e) { ok(null); } }); }).on('error', () => ok(null));
+    const opt = TOKEN ? { headers: { 'x-duolive-token': TOKEN } } : {};
+    lib.get(url, opt, (r) => { let c = ''; r.on('data', (d) => { c += d; }); r.on('end', () => { try { ok(JSON.parse(c)); } catch (e) { ok(null); } }); }).on('error', () => ok(null));
   });
+}
+async function liveNoAr() {
+  if (FORCA) return true;
+  const base = enderecoConector().replace(/\/+$/, '');
+  const c = await pega(base + '/conta?loja=' + encodeURIComponent(LOJA));
+  return !!(c && c.aoVivo);
 }
 async function configDoPainel() {
   const base = enderecoConector().replace(/\/+$/, '');
@@ -115,6 +128,33 @@ async function encerrar(page, promotionId, produtoId) {
   return !!(r.json && r.json.code === 0);
 }
 
+// uma rodada: cria a oferta de cada produto (pulando os que já têm oferta ativa)
+async function rodada(page, authorId, produtos) {
+  let ativos = [];
+  try { ativos = (await listarAtivas(page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
+  for (let i = 0; i < produtos.length; i++) {
+    const p = produtos[i];
+    if (ativos.includes(String(p.produto_id))) { console.log('  ⏭️  ' + (p.nome || p.produto_id) + ': já tem oferta ativa — pulo'); continue; }
+    await criar(page, authorId, p);
+    if (i < produtos.length - 1) await page.waitForTimeout(STAGGER_S * 1000); // 1 min entre uma oferta e a próxima
+  }
+}
+
+// agendador: nova rodada a cada ROUND_MIN, só com a live no ar
+async function agendador(page, authorId, produtos) {
+  console.log('  🔁 AGENDADOR ligado — rodada a cada ' + ROUND_MIN + ' min · ' + STAGGER_S + 's entre ofertas · cada oferta dura ~' + Math.round(DUR / 60) + ' min');
+  console.log('  (fora da live ele fica esperando; Ctrl+C para parar)\n');
+  for (;;) {
+    let vivo = true;
+    try { vivo = await liveNoAr(); } catch (e) {}
+    if (!vivo) { process.stdout.write('.'); await page.waitForTimeout(30000); continue; }
+    console.log('\n  ▶️  ' + new Date().toLocaleTimeString('pt-BR') + ' — nova rodada (' + produtos.length + ' produto(s))');
+    try { await rodada(page, authorId, produtos); } catch (e) { console.log('  (erro na rodada: ' + String(e.message).slice(0, 70) + ')'); }
+    console.log('  ⏱️  próxima rodada em ' + ROUND_MIN + ' min.');
+    await page.waitForTimeout(ROUND_MIN * 60000);
+  }
+}
+
 // author_id: pegamos do próprio request que a página faz ao carregar
 function pegaAuthorId(page) {
   return new Promise((ok) => {
@@ -148,10 +188,14 @@ async function principal() {
   const authorId = await pAuthor;
   console.log(authorId ? '  author_id: ' + authorId + '\n' : '  ⚠️  não peguei o author_id (a criação real pode falhar)\n');
 
-  for (const p of produtos) { await criar(page, authorId, p); await page.waitForTimeout(1500); }
-
-  console.log('\n  pronto.' + (REAL ? '  (as ofertas expiram sozinhas em ~' + Math.round(DUR / 60) + ' min)' : ''));
-  await browser.close();
+  if (RODADAS) {
+    process.on('SIGINT', async () => { console.log('\n  encerrando o agendador...'); try { await browser.close(); } catch (e) {} process.exit(0); });
+    await agendador(page, authorId, produtos);
+  } else {
+    for (const p of produtos) { await criar(page, authorId, p); await page.waitForTimeout(1500); }
+    console.log('\n  pronto.' + (REAL ? '  (as ofertas expiram sozinhas em ~' + Math.round(DUR / 60) + ' min)' : ''));
+    await browser.close();
+  }
 }
 
 if (require.main === module) principal().catch((e) => { console.log('ERRO', e.message); process.exit(1); });
