@@ -187,6 +187,19 @@ function manda(plataforma, p, loja) {
   console.log('  🛒 ' + plataforma + ': ' + (p.quem || 'pedido') + (p.valor ? ' — R$ ' + p.valor.toFixed(2).replace('.', ',') : '') + ' (#' + p.orderId + ')');
 }
 
+// 🛍️ a SACOLINHA: manda quem esta' de olho num produto (interesse, sem valor)
+function mandaSacolinha(loja, it) {
+  const dados = JSON.stringify({ quem: it.quem, produto: it.produtoNome, produtoId: it.produtoId, loja: loja || '' });
+  const u = new URL(CONECTOR + '/sacolinha');
+  const lib = u.protocol === 'https:' ? https : http;
+  const req = lib.request({
+    hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'POST',
+    headers: comToken({ 'content-type': 'application/json', 'content-length': Buffer.byteLength(dados) }),
+  });
+  req.on('error', () => {});
+  req.end(dados);
+}
+
 // ---------- entendimento dos números ----------
 // aceita "89.90", "89,90", "1.234,56", "1,234.56", "R$ 89,90" e números puros
 function num(v) {
@@ -576,6 +589,15 @@ async function lerAtividade(conta) {
       if (v.ts && v.ts < INICIO - TOLERANCIA) continue;
       manda('tiktok', { orderId: v.messageId, quem: v.quem, valor: v.valor }, conta.loja);
       console.log('  🛒 ' + nome(conta) + ': ' + (v.quem || 'cliente') + ' — R$ ' + v.valor.toFixed(2).replace('.', ',') + ' · ' + v.produtoNome.slice(0, 28));
+    }
+    // 🛍️ sacolinha: quem esta' de olho nos produtos (cada pessoa+produto uma vez)
+    const interesses = ATIVIDADE.interessesDaAtividade(j);
+    for (const it of interesses) {
+      const chave = 'sac:' + it.quem + ':' + it.produtoId;
+      if (jaVistos.has(chave)) continue;
+      jaVistos.add(chave);
+      if (it.ts && it.ts < INICIO - TOLERANCIA) continue; // só interesse recente
+      mandaSacolinha(conta.loja, it);
     }
     conta.ultimaOk = Date.now();
     conta.falhas = 0;

@@ -183,7 +183,7 @@ function liveShopeeAtual() {
 
 // Rotas que o ROBÔ usa (mandam dados de máquina). Não têm cookie de navegador;
 // quando há senha na nuvem, elas se protegem pelo token (DUOLIVE_TOKEN).
-const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos', '/oferta-estado'];
+const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos', '/oferta-estado', '/sacolinha'];
 // Rotas liberadas sem login (a própria tela de senha e o que ela precisa).
 const ROTAS_LIVRES = ['/login', '/entrar', '/favicon.ico'];
 
@@ -424,6 +424,24 @@ const server = http.createServer((req, res) => {
           emitir({ tipo: 'mensagem', quem: quem, texto: texto, plataforma: 'shopee' });
           liveShopeeAtual().mensagens++;
         }
+      } catch (e) {}
+      res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
+    });
+    return;
+  }
+
+  // 🛍️ a SACOLINHA: quem esta' de olho num produto (o robo manda). Sai no multichat
+  // carimbado com a loja, como "Fulana esta' de olho em [produto]".
+  if (req.url.startsWith('/sacolinha') && req.method === 'POST') {
+    let corpo = '';
+    req.on('data', (d) => { corpo += d; if (corpo.length > 8192) req.destroy(); });
+    req.on('end', () => {
+      try {
+        const b = JSON.parse(corpo);
+        const quem = String(b.quem || '').slice(0, 60).trim();
+        const produto = String(b.produto || '').slice(0, 80).trim();
+        const lj = b.loja ? L.limpaNome(b.loja) : '';
+        if (quem) emitir(comLoja(lj, { tipo: 'sacolinha', quem: quem, produto: produto }));
       } catch (e) {}
       res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
     });

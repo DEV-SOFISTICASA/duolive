@@ -84,4 +84,28 @@ function vendasDaAtividade(json) {
   return vendas;
 }
 
-module.exports = { vendasDaAtividade, decodifica, paraReais };
+// ---------- a "SACOLINHA": quem esta' de olho nos produtos (interesse, sem valor)
+// Mesmo feed das vendas, mas os eventos de INTERESSE ficam sob .8 (nao .3) e NAO
+// tem valor. Estrutura confirmada (2026-08-10):
+//   .8.1.3 = quem (nome) · .8.4.1 = nome do produto · .8.4.4 = id do produto
+function interessesDaAtividade(json) {
+  const msgs = (json && json.data && json.data.messages) || [];
+  const out = [];
+  for (const m of msgs) {
+    const d = decodifica(m.oec_live_manager_message_body_raw);
+    if (!d) continue;
+    if (d.strs['.3.2.3.1']) continue;         // tem valor = e' VENDA, nao interesse
+    const quem = d.strs['.8.1.3'];
+    const produtoNome = d.strs['.8.4.1'];
+    if (!quem || !produtoNome) continue;       // precisa de quem + qual produto
+    out.push({
+      ts: +m.timestamp || 0,
+      quem: String(quem),
+      produtoNome: String(produtoNome),
+      produtoId: String(d.strs['.8.4.4'] || ''),
+    });
+  }
+  return out;
+}
+
+module.exports = { vendasDaAtividade, interessesDaAtividade, decodifica, paraReais };
