@@ -49,3 +49,9 @@ conector/chave-supabase.txt
 
 # Chave secreta do Supabase do LiveDash (projeto antigo) - NUNCA enviar
 conector/chave-livedash.txt
+previa-login-flores.html
+conector/flash-sale-capturado.json
+conector/detail-full.json
+conector/diagnostico-oferta.json
+conector/ensaio-oferta-relatorio.json
+flash-sale-capturado.json

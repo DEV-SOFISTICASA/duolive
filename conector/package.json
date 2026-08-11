@@ -17,6 +17,7 @@
     "produtos-console": "node robo-produtos-console.js",
     "observa-flash": "node observa-flash-sale.js",
     "robo-oferta": "node robo-oferta.js",
+    "oferta-relampago": "node robo-oferta-relampago.js",
     "robo-console": "node robo-console.js",
     "subir-sessoes": "node subir-sessoes.js",
     "baixar-sessoes": "node baixar-sessoes.js",

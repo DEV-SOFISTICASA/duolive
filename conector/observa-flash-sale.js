@@ -35,7 +35,7 @@ const interessa = (u) => /flash.?sale|promotion|activity|\bdeal\b|discount|sku|p
   page.on('request', (req) => {
     try {
       if (!interessa(req.url())) return;
-      const c = { quando: new Date().toISOString(), metodo: req.method(), url: req.url(), corpo: (req.postData() || '').slice(0, 6000), resposta: '' };
+      const c = { quando: new Date().toISOString(), metodo: req.method(), url: req.url(), corpo: (req.postData() || '').slice(0, 40000), resposta: '' };
       capturas.push(c); salva();
       console.log('\n>>> ' + c.metodo + '  ' + req.url().split('?')[0]);
       if (c.corpo) console.log('    corpo: ' + c.corpo.slice(0, 260));
@@ -46,7 +46,7 @@ const interessa = (u) => /flash.?sale|promotion|activity|\bdeal\b|discount|sku|p
       if (!interessa(res.url())) return;
       const t = await res.text().catch(() => '');
       const alvo = capturas.filter((c) => c.url === res.url()).pop();
-      if (alvo) { alvo.resposta = t.slice(0, 8000); salva(); }
+      if (alvo) { alvo.resposta = t.slice(0, 300000); salva(); }
       const marca = /sku|sale_prop|spec|cover|image/i.test(t) ? '   (tem sku/foto!)' : '';
       console.log('    <<< [' + res.status() + '] ' + t.length + 'b' + marca);
     } catch (e) {}
