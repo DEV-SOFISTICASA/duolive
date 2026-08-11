@@ -29,11 +29,17 @@ async function abreNavegador(invisivel) {
   // Chromium que já vem junto do Playwright, com as flags que todo contêiner
   // exige (sem sandbox, sem depender de /dev/shm). Liga com DUOLIVE_CHROMIUM_NUVEM=1.
   if (process.env.DUOLIVE_CHROMIUM_NUVEM === '1' || process.env.DUOLIVE_NUVEM === '1') {
+    // O TikTok RECUSA navegador invisível (headless). Na nuvem a gente roda HEADED
+    // (de verdade) sob um Xvfb (tela virtual) — o Dockerfile chama o robô via
+    // `xvfb-run`, que cria o DISPLAY. Com DISPLAY presente, abrimos headed; sem ele
+    // (ex.: teste local do contêiner), cai no headless como último recurso.
+    const temTela = !!process.env.DISPLAY;
     const b = await chromium.launch({
-      headless: invisivel !== false,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-first-run'],
+      headless: temTela ? false : (invisivel !== false),
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-first-run',
+        '--disable-blink-features=AutomationControlled', '--start-maximized', '--window-size=1280,720'],
     });
-    console.log('  (usando o Chromium do Playwright — modo nuvem)');
+    console.log('  (Chromium do Playwright — nuvem' + (temTela ? ', HEADED sob Xvfb ✅' : ', headless ⚠️ o TikTok pode bloquear') + ')');
     return b;
   }
   try {

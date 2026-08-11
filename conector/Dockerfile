@@ -18,4 +18,9 @@ COPY . .
 ENV DUOLIVE_SO_CONSOLE=1 \
     DUOLIVE_CHROMIUM_NUVEM=1
 
-CMD ["node", "robo-nuvem.js"]
+# O TikTok recusa navegador invisível. Então rodamos o robô com um navegador DE
+# VERDADE (headed) numa TELA VIRTUAL (Xvfb) — que a imagem do Playwright já traz.
+# O xvfb-run cria o DISPLAY; o navegador.js vê o DISPLAY e abre headed. Sem isso,
+# o Chromium sobe invisível e o TikTok bloqueia (era a causa do "nao captura").
+# Qual robô roscar: DUOLIVE_ROBO_ENTRADA (padrão robo-nuvem.js = vendas).
+CMD ["sh", "-c", "xvfb-run -a --server-args='-screen 0 1280x720x24' node ${DUOLIVE_ROBO_ENTRADA:-robo-nuvem.js}"]
