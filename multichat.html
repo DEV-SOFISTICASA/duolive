@@ -83,6 +83,7 @@
     <span class="chip on" data-t="seguidor">⭐ Seguidores</span>
     <span class="chip on" data-t="presente">🎁 Presentes</span>
     <span class="chip" data-t="entrada">👋 Entradas</span>
+    <span class="chip on" data-t="curtiu">❤️ Curtidas</span>
   </div>
 
   <div id="off">
@@ -101,7 +102,7 @@
 (function(){
   var $=function(id){return document.getElementById(id)};
   var feed=$('feed'), MAX=200;
-  var filtros={mensagem:true,venda:true,seguidor:true,presente:true,entrada:false,share:true};
+  var filtros={mensagem:true,venda:true,seguidor:true,presente:true,entrada:false,share:true,curtiu:true};
   var K_VENDAS='ld-multichat-vendas';
   var vendas=[]; try{ vendas=JSON.parse(localStorage.getItem(K_VENDAS))||[]; }catch(e){}
   var platVenda='shopee';
