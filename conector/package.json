@@ -14,6 +14,7 @@
     "robo-vendas": "node robo-vendas.js",
     "robo-tiktok": "node robo-vendas.js",
     "produtos": "node robo-produtos.js",
+    "produtos-console": "node robo-produtos-console.js",
     "robo-oferta": "node robo-oferta.js",
     "robo-console": "node robo-console.js",
     "subir-sessoes": "node subir-sessoes.js",

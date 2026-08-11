@@ -80,6 +80,12 @@
   .pickItem .pn{flex:1;min-width:0}
   .pickItem .pn b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pickItem .pn span{font-size:10.5px;color:var(--text-3)}
+  /* multi-seleção do seletor de produtos */
+  .pickItem.on{background:rgba(74,222,128,.13)}
+  .pkChk{width:19px;height:19px;border-radius:5px;border:1.5px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;color:#04120a;font-weight:800;font-size:12px}
+  .pickItem.on .pkChk{border-color:var(--ok);background:var(--ok)}
+  .pickFoot{padding:9px 11px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
+  .pickFoot #pkCont{font-size:11.5px;color:var(--text-2)}
 </style>
 </head>
 <body>
@@ -95,17 +101,8 @@
     </div>
     <div id="fixLista" style="margin-top:8px"></div>
     <div id="fixAdd" style="margin-top:10px;display:none">
-      <button class="btn mini" id="btnFixAdd" style="background:var(--ok);color:#04120a">+ Adicionar produto</button>
+      <button class="btn mini" id="btnFixAdd" style="background:var(--ok);color:#04120a">🛍️ Escolher produtos</button>
       <button class="btn ghost mini" id="btnFixManual">✍️ Digitar à mão</button>
-      <button class="btn ghost mini" id="btnFixColar">📋 Colar lista</button>
-    </div>
-    <div id="fixColarBox" style="display:none;margin-top:10px">
-      <label>Um <b>produto por bloco</b>: <code>Nome | de | por</code>. Embaixo, as <b>variações</b> com um traço: <code>- Cor | preço</code> (variação <b>sem preço</b> usa o preço do conjunto). Linha em branco separa os produtos.</label>
-      <textarea id="fixColarTxt" rows="9" placeholder="Kit Cozinha Desenhos 3P | 99,99 | 44,99&#10;- Miniboho Caramelo | 39,99&#10;- Miniboho Terracota | 39,99&#10;- Tribal Preto&#10;&#10;Jogo de Banheiro Mandacaru 3P | 59,99 | 27,99&#10;- Cru | 24,99" style="resize:vertical;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace"></textarea>
-      <div style="margin-top:6px;display:flex;align-items:center;gap:10px">
-        <button class="btn mini" id="btnFixColarSalvar" style="background:var(--ok);color:#04120a">Cadastrar tudo</button>
-        <span id="fixColarMsg" style="font-size:11px;color:var(--text-3)"></span>
-      </div>
     </div>
   </div>
 
@@ -685,32 +682,57 @@
     }
     grupos.forEach(function(gp){ el.appendChild(linhaConjunto(gp)); });
   }
-  // adicionar produto: escolher do catálogo do TikTok (imagem + valor normal vêm de lá)
+  // escolher produtos: seletor VISUAL com foto + MULTI-seleção (marca vários de uma vez)
   function abrePicker(){
     var loja=lojaEscolhida||'';
     var wrap=document.createElement('div'); wrap.className='pickWrap';
-    wrap.innerHTML='<div class="pickBox"><div class="pickTop"><input id="pkBusca" placeholder="Buscar produto…"><button class="btn ghost mini" id="pkFecha">✕</button></div><div class="pickList" id="pkList"><div class="vazio">Buscando os produtos…</div></div></div>';
+    wrap.innerHTML='<div class="pickBox">'
+      +'<div class="pickTop"><input id="pkBusca" placeholder="Buscar produto…"><button class="btn ghost mini" id="pkFecha">✕</button></div>'
+      +'<div class="pickList" id="pkList"><div class="vazio">Buscando os produtos…</div></div>'
+      +'<div class="pickFoot"><span id="pkCont">0 selecionados</span><button class="btn mini" id="pkAdd" disabled style="background:var(--ok);color:#04120a">Adicionar</button></div>'
+      +'</div>';
     document.body.appendChild(wrap);
     wrap.addEventListener('click',function(e){ if(e.target===wrap) wrap.remove(); });
     wrap.querySelector('#pkFecha').onclick=function(){ wrap.remove(); };
-    var todos=[];
+    var todos=[], sel={}; // sel[id] = produto marcado
+    function atualizaFoot(){
+      var n=Object.keys(sel).length;
+      wrap.querySelector('#pkCont').textContent=n+' selecionado'+(n===1?'':'s');
+      var b=wrap.querySelector('#pkAdd'); b.disabled=!n; b.textContent='Adicionar'+(n?(' ('+n+')'):'');
+    }
     function pinta(filtro){
       var lst=wrap.querySelector('#pkList'); lst.innerHTML='';
       var f=slug(filtro||'');
-      var vis=todos.filter(function(p){ return !f || slug(p.nome).indexOf(f)>=0; }).slice(0,60);
-      if(!vis.length){ lst.innerHTML='<div class="vazio">Nada encontrado. No PC rode <code>npm run produtos</code> para atualizar o catálogo.</div>'; return; }
+      var vis=todos.filter(function(p){ return !f || slug(p.nome).indexOf(f)>=0; }).slice(0,80);
+      if(!vis.length){ lst.innerHTML='<div class="vazio">Nada encontrado. No PC rode <code>npm run produtos-console</code> para puxar os produtos da live (com foto).</div>'; return; }
       vis.forEach(function(p){
-        var it=document.createElement('div'); it.className='pickItem';
-        it.innerHTML='<img class="th" src="'+(p.imagem||'')+'" onerror="this.style.visibility=\'hidden\'"><div class="pn"><b></b><span>'+(p.preco?('R$ '+brl(p.preco)):'sem preço')+(p.variacoes>1?(' · '+p.variacoes+' variações'):'')+'</span></div>';
+        var it=document.createElement('div'); it.className='pickItem'+(sel[p.id]?' on':'');
+        it.innerHTML='<div class="pkChk">'+(sel[p.id]?'✓':'')+'</div>'
+          +'<img class="th" src="'+(p.imagem||'')+'" onerror="this.style.visibility=\'hidden\'">'
+          +'<div class="pn"><b></b><span>'+(p.preco?('R$ '+brl(p.preco)):'sem preço')+(p.variacoes>1?(' · '+p.variacoes+' variações'):'')+'</span></div>';
         it.querySelector('b').textContent=p.nome;
-        it.onclick=function(){ salvaFix({produto_id:p.id, sku:null, nome:p.nome, imagem:p.imagem, valor_normal:p.preco||null, valor_desconto:null, plataforma:p.plataforma||'tiktok'}, function(){ wrap.remove(); carregaFixas(); }); };
+        it.onclick=function(){
+          if(sel[p.id]) delete sel[p.id]; else sel[p.id]=p;
+          var on=!!sel[p.id]; it.classList.toggle('on',on); it.querySelector('.pkChk').textContent=on?'✓':'';
+          atualizaFoot();
+        };
         lst.appendChild(it);
       });
     }
+    wrap.querySelector('#pkAdd').onclick=function(){
+      var lista=Object.keys(sel).map(function(k){ return sel[k]; });
+      if(!lista.length) return;
+      var b=wrap.querySelector('#pkAdd'); b.disabled=true; b.textContent='adicionando…';
+      (function proximo(i){
+        if(i>=lista.length){ wrap.remove(); carregaFixas(); return; }
+        var p=lista[i];
+        salvaFix({produto_id:p.id, sku:null, nome:p.nome, imagem:p.imagem, valor_normal:p.preco||null, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){ proximo(i+1); });
+      })(0);
+    };
     fetch(apiBase()+'/produtos'+(loja?('?loja='+encodeURIComponent(loja)):''),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){
         todos=((d&&d.tiktok)||[]).concat((d&&d.shopee)||[]);
-        if(!todos.length){ wrap.querySelector('#pkList').innerHTML='<div class="vazio">Catálogo vazio. No PC rode <code>npm run produtos</code> e tente de novo.</div>'; return; }
+        if(!todos.length){ wrap.querySelector('#pkList').innerHTML='<div class="vazio">Catálogo vazio. No PC rode <code>npm run produtos-console</code> e tente de novo.</div>'; return; }
         pinta('');
       }).catch(function(){ wrap.querySelector('#pkList').innerHTML='<div class="vazio">Não consegui falar com o conector.</div>'; });
     var busca=wrap.querySelector('#pkBusca'); busca.oninput=function(){ pinta(busca.value); }; busca.focus();
@@ -723,49 +745,8 @@
     var por=brlNum(prompt('Desconto — Por R$ (pode deixar em branco):','')||'');
     salvaFix({produto_id:'manual-'+slug(nome), sku:null, nome:nome, imagem:'', valor_normal:de, valor_desconto:por}, carregaFixas);
   }
-  // ---- colar vários produtos + variações de uma vez (um bloco por produto) ----
-  // produto: "Nome | de | por"  ·  variação: "- Cor | preço" (traço/indentado)
-  function parseColarFixas(txt){
-    var linhas=String(txt||'').split(/\r?\n/), prods=[], atual=null;
-    linhas.forEach(function(raw){
-      var l=raw.trim();
-      if(!l) return;                                   // linha vazia: só separa visualmente
-      var ehVar=/^[-*•]\s*/.test(l) || /^\s{2,}\S/.test(raw); // traço OU indentado = variação
-      if(ehVar && atual){
-        var t=l.replace(/^[-*•]\s*/,''), p=t.split(/\s*\|\s*/);
-        var nm=(p[0]||'').trim(); if(nm) atual.vars.push({ nome:nm, preco:(p[1]!=null?brlNum(p[1]):null) });
-      } else {
-        var q=l.split(/\s*\|\s*/), nome=(q[0]||'').trim(); if(!nome) return;
-        atual={ nome:nome, de:(q[1]!=null?brlNum(q[1]):null), por:(q[2]!=null?brlNum(q[2]):null), vars:[] };
-        prods.push(atual);
-      }
-    });
-    return prods;
-  }
-  function colarFixas(){
-    if(!podeEditarFix()){ $('fixColarMsg').textContent = liveAoVivo?'live no ar — encerre pra editar':'só o ADM edita'; return; }
-    var prods=parseColarFixas($('fixColarTxt').value);
-    if(!prods.length){ $('fixColarMsg').textContent='nada pra cadastrar — confira o formato'; return; }
-    var total=prods.length, feitos=0;
-    $('fixColarMsg').textContent='cadastrando…';
-    (function proximo(i){
-      if(i>=prods.length){ $('fixColarMsg').textContent='✅ '+feitos+'/'+total+' produto(s) cadastrados'; if(feitos){ $('fixColarTxt').value=''; carregaFixas(); } return; }
-      var pr=prods[i], pid='manual-'+slug(pr.nome);
-      salvaFix({produto_id:pid, sku:null, nome:pr.nome, imagem:'', valor_normal:pr.de, valor_desconto:pr.por}).then(function(d){
-        if(d&&d.ok) feitos++;
-        var vs=pr.vars.slice();
-        (function proxVar(){
-          if(!vs.length){ proximo(i+1); return; }
-          var v=vs.shift(); if(!v.nome){ proxVar(); return; }
-          salvaFix({produto_id:pid, sku:slug(v.nome), nome:pr.nome, imagem:'', valor_normal:pr.de, variacao_nome:v.nome, valor_desconto:v.preco}).then(proxVar);
-        })();
-      });
-    })(0);
-  }
   if($('btnFixAdd')) $('btnFixAdd').onclick=abrePicker;
   if($('btnFixManual')) $('btnFixManual').onclick=addManual;
-  if($('btnFixColar')) $('btnFixColar').onclick=function(){ var b=$('fixColarBox'); b.style.display=(b.style.display==='none')?'':'none'; };
-  if($('btnFixColarSalvar')) $('btnFixColarSalvar').onclick=colarFixas;
   carregaFixas();
   setInterval(function(){ if(!fixEditando) carregaFixas(); }, 12000);
 
