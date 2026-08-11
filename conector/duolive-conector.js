@@ -111,6 +111,8 @@ function gravaVendaHistorico(v) {
 }
 // ofertas relampago NO AR (varias ao mesmo tempo), transmitidas para todos os aparelhos
 let ofertas = [];
+// automacao da ⚡ ligada por loja (o robo da oferta no PC le isto e dispara sozinho)
+let ofertaAuto = {};
 // VARIAS lojas; cada loja junta as DUAS contas (TikTok + Shopee) com os produtos
 // de cada uma:  lojas['bellini'] = { nome, contas:{tiktok,shopee}, produtos:{tiktok:[],shopee:[]}, ts:{} }
 const lojas = {};
@@ -795,6 +797,32 @@ const server = http.createServer((req, res) => {
       acao.then(() => res.end('{"ok":true}'))
         .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
     });
+    return;
+  }
+
+  // interruptor da AUTOMACAO da ⚡ por loja: o ADM liga/desliga no painel; o robo
+  // da oferta no PC le isto (GET) e so' dispara quando estiver ligado.
+  if (req.url.startsWith('/oferta-auto')) {
+    if (req.method === 'POST') {
+      const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
+      if (!ehAdm) { res.statusCode = 403; res.setHeader('content-type', 'application/json'); res.end('{"ok":false,"erro":"So o ADM liga/desliga a automacao."}'); return; }
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
+      req.on('end', () => {
+        let b; try { b = JSON.parse(corpo); } catch (e) { b = null; }
+        res.setHeader('content-type', 'application/json');
+        if (!b || !b.loja) { res.statusCode = 400; res.end('{"ok":false,"erro":"faltou a loja"}'); return; }
+        ofertaAuto[String(b.loja)] = !!b.ligado;
+        emitir({ tipo: 'oferta-auto', loja: String(b.loja), ligado: !!b.ligado });
+        console.log('  ⚡ automacao ' + (b.ligado ? 'LIGADA' : 'desligada') + ' na loja ' + b.loja);
+        res.end(JSON.stringify({ ok: true, loja: String(b.loja), ligado: !!b.ligado }));
+      });
+      return;
+    }
+    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
+    const loja = qs.get('loja') || '';
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ loja: loja, ligado: !!ofertaAuto[loja] }));
     return;
   }
 

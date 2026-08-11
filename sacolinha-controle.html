@@ -92,6 +92,17 @@
   <h1>🛍️ Ofertas da live</h1>
   <div class="sub" id="minhaLoja" style="display:none"></div>
 
+  <!-- Liga/desliga a automação da ⚡ (o robô cria e renova sozinho). Só o ADM. -->
+  <div class="card" id="autoCard" style="display:none;border-color:rgba(255,92,53,.4)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="min-width:0">
+        <b style="font-size:12.5px">⚡ Automação das ofertas</b>
+        <div id="autoNota" style="font-size:10.5px;color:var(--text-3);margin-top:2px">o robô cria e renova as ⚡ sozinho, na loja selecionada</div>
+      </div>
+      <button class="btn" id="btnAuto" style="min-width:104px;flex:none">—</button>
+    </div>
+  </div>
+
   <!-- Ofertas fixas: o desconto do conjunto (e a exceção de cada estampa) ficam
        salvos até o ADM mudar. As vendedoras só enxergam; quem edita é o ADM. -->
   <div class="card" id="fixCard" style="display:none">
@@ -360,6 +371,7 @@
             body:JSON.stringify({loja:lojaEscolhida,selecionar:true})}).catch(function(){});
           mostraLoja();
           try{ carregaFixas(); }catch(e){}   // troquei de loja: recarrega as ofertas fixas dela
+          try{ carregaAuto(); }catch(e){}    // e o estado da automação dela
         };
       });
     }).catch(function(){});
@@ -749,6 +761,32 @@
   if($('btnFixManual')) $('btnFixManual').onclick=addManual;
   carregaFixas();
   setInterval(function(){ if(!fixEditando) carregaFixas(); }, 12000);
+
+  // ======== Automação da ⚡ (liga/desliga por loja; só o ADM) ========
+  var autoLig=false;
+  function pintaAuto(){
+    var b=$('btnAuto'), n=$('autoNota'); if(!b) return;
+    b.textContent=autoLig?'🟢 Ligada':'⚪ Desligada';
+    b.style.background=autoLig?'var(--ok)':'transparent';
+    b.style.color=autoLig?'#04120a':'var(--text-2)';
+    b.style.border=autoLig?'none':'1px solid var(--line)';
+    if(n) n.textContent=autoLig?'ligada — o robô cria/renova as ⚡ sozinho nesta loja (com a live no ar)':(fixEhAdm?'toque pra ligar: o robô cria/renova as ⚡ sozinho':'só o ADM liga/desliga');
+  }
+  function carregaAuto(){
+    var loja=lojaEscolhida||''; if(!loja) return;
+    fetch(apiBase()+'/oferta-auto?loja='+encodeURIComponent(loja),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){ autoLig=!!(d&&d.ligado); if($('autoCard'))$('autoCard').style.display=''; pintaAuto(); }).catch(function(){});
+  }
+  if($('btnAuto')) $('btnAuto').onclick=function(){
+    if(!fixEhAdm){ alert('Só o ADM liga/desliga a automação.'); return; }
+    var loja=lojaEscolhida||''; if(!loja) return;
+    var novo=!autoLig;
+    if(novo && !confirm('Ligar a automação da ⚡ na loja "'+loja+'"?\n\nCom a live no ar, o robô vai CRIAR e RENOVAR as ofertas relâmpago sozinho, pelos preços cadastrados aqui.')) return;
+    fetch(apiBase()+'/oferta-auto',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({loja:loja,ligado:novo})})
+      .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok){ autoLig=!!d.ligado; pintaAuto(); } else alert((d&&d.erro)||'Não consegui ligar/desligar.'); }).catch(function(){ alert('Sem conexão com o conector.'); });
+  };
+  carregaAuto();
+  setInterval(carregaAuto, 15000);
 
   // com a live NO AR: some a caixa de EDIÇÃO; fica só a lista de ofertas fixas (read-only).
   // A edição/cadastro só volta quando a live é encerrada.

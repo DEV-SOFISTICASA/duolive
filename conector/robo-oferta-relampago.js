@@ -69,6 +69,13 @@ async function liveNoAr(loja) {
   const c = await pega(base + '/conta?loja=' + encodeURIComponent(loja));
   return !!(c && c.aoVivo);
 }
+// interruptor do painel: o ADM liga/desliga a automação por loja (o robô respeita)
+async function autoLigada(loja) {
+  if (FORCA) return true;
+  const base = enderecoConector().replace(/\/+$/, '');
+  const r = await pega(base + '/oferta-auto?loja=' + encodeURIComponent(loja));
+  return !!(r && r.ligado);
+}
 
 // ---------- chamada assinada, feita de DENTRO da página ----------
 async function api(page, caminho, metodo, corpo) {
@@ -138,8 +145,10 @@ async function agendador(contas) {
   console.log('  (cada loja só dispara com a SUA live no ar; Ctrl+C para parar)\n');
   for (;;) {
     for (const c of contas) {
+      let ligada = true; try { ligada = await autoLigada(c.loja); } catch (e) {}
+      if (!ligada) continue;                          // o painel desligou a automação desta loja
       let vivo = true; try { vivo = await liveNoAr(c.loja); } catch (e) {}
-      if (!vivo) continue;
+      if (!vivo) continue;                            // a live desta loja não está no ar
       try { await reporOfertas(c); } catch (e) { console.log('  (' + c.loja + ' erro: ' + String(e.message).slice(0, 60) + ')'); }
     }
     await sleep(CHECK_S * 1000);
