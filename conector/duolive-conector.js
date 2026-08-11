@@ -52,7 +52,7 @@ let ultimaVendaTs = 0;          // ultima venda vista (para detectar quando come
 const chats = {}; // loja -> { usuario, conexao, geracao, aoVivo, liveEstado, sigla, siglaTs }
 function chatDe(loja) {
   const k = String(loja || '');
-  if (!chats[k]) chats[k] = { usuario: '', conexao: null, geracao: 0, aoVivo: false, liveEstado: { espectadores: 0, likes: 0, inicio: 0, roomId: '' }, sigla: '', siglaTs: 0, curtiram: new Set() };
+  if (!chats[k]) chats[k] = { usuario: '', conexao: null, geracao: 0, aoVivo: false, liveEstado: { espectadores: 0, likes: 0, inicio: 0, roomId: '' }, sigla: '', siglaTs: 0, curtiram: new Map() };
   return chats[k];
 }
 // carimba a loja no evento (a chave '' nao carimba — evento "de todos")
@@ -1089,10 +1089,13 @@ function criarConexao(k) {
     const t = parseInt(bruto, 10);
     if (!isNaN(t)) { c.liveEstado.likes = t; emitir(comLoja(k, { tipo: 'contadores', likes: t })); }
     const quem = nomeDe(d);            // quem curtiu -> aparece no multichat
-    if (!c.curtiram) c.curtiram = new Set();
-    // uma vez por pessoa: a mesma pessoa curte varias vezes (spam), mas no chat
-    // aparece so' a primeira "Fulana curtiu a live" (pedido do usuario)
-    if (quem && !c.curtiram.has(quem)) { c.curtiram.add(quem); emitir(comLoja(k, { tipo: 'curtiu', quem: quem })); }
+    if (!c.curtiram) c.curtiram = new Map();
+    // cooldown de 30s por pessoa: a mesma pessoa curte varias vezes (spam), mas
+    // "Fulana curtiu a live" so' reaparece 30s depois da ultima (pedido do usuario)
+    if (quem) {
+      const agora = Date.now();
+      if (agora - (c.curtiram.get(quem) || 0) >= 30000) { c.curtiram.set(quem, agora); emitir(comLoja(k, { tipo: 'curtiu', quem: quem })); }
+    }
   });
   cx.on(WebcastEvent.STREAM_END, () => {
     const g = c.geracao; c.aoVivo = false; c.liveEstado.inicio = 0;
@@ -1153,7 +1156,7 @@ function ligarConta(novo, loja) {
   c.geracao++; // invalida timers/pendencias da conta anterior desta loja
   c.aoVivo = false;
   c.liveEstado = { espectadores: 0, likes: 0, inicio: 0, roomId: '' }; // zera os contadores ao trocar a conta
-  c.curtiram = new Set(); // live nova: a lista de quem ja' curtiu recomeca
+  c.curtiram = new Map(); // live nova: o cooldown de curtidas recomeca
   if (c.conexao) { try { c.conexao.disconnect(); } catch (e) {} c.conexao = null; }
   c.usuario = novo;
   if (!c.usuario) { emitir(comLoja(k, { tipo: 'status', conectado: false, usuario: '' })); return; }
