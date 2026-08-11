@@ -192,9 +192,10 @@ const ROTAS_LIVRES = ['/login', '/entrar', '/favicon.ico'];
 function paginaLogin() {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>DuoLive · Entrar</title>
-<style>:root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--accent:#ff5c35;--ok:#4ade80}
-*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--text);font:14px -apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}
-form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:340px;max-width:92vw}
+<style>:root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--accent:#ff5c35;--ok:#4ade80;--flor:#C4738F}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--text);font:14px -apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;overflow:hidden;position:relative}
+form{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:340px;max-width:92vw;position:relative;z-index:2;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.floresWrap{position:absolute;left:0;right:0;bottom:0;width:100%;z-index:1;pointer-events:none;line-height:0}
 h1{font-size:20px;margin-bottom:4px}p{color:#a3a3ad;font-size:12.5px;margin-bottom:8px}
 label{display:block;font-size:11px;color:#737373;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.4px}
 select,input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:11px 13px;font-size:14px;outline:none}
@@ -226,6 +227,54 @@ button{width:100%;margin-top:16px;padding:11px;border:0;border-radius:9px;backgr
 <input type="password" id="senha" placeholder="Senha" autocomplete="current-password">
 <button type="submit">Entrar</button>
 <div class="aviso" id="aviso"></div><div class="erro" id="erro"></div></form>
+<div class="floresWrap">
+<svg viewBox="0 0 1200 260" preserveAspectRatio="xMidYMax meet" width="100%" style="display:block">
+<defs>
+<g id="daisy"><circle r="7"/><g transform="rotate(0)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g><g transform="rotate(45)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g><g transform="rotate(90)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g><g transform="rotate(135)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g><g transform="rotate(180)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g><g transform="rotate(225)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g><g transform="rotate(270)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g><g transform="rotate(315)"><ellipse cx="0" cy="-15" rx="6" ry="11"/></g></g>
+<g id="blossom"><circle r="5"/><g transform="rotate(0)"><circle cx="0" cy="-12" r="8"/></g><g transform="rotate(72)"><circle cx="0" cy="-12" r="8"/></g><g transform="rotate(144)"><circle cx="0" cy="-12" r="8"/></g><g transform="rotate(216)"><circle cx="0" cy="-12" r="8"/></g><g transform="rotate(288)"><circle cx="0" cy="-12" r="8"/></g></g>
+<path id="leaf" d="M0,0 C -9,-7 -9,-20 0,-27 C 9,-20 9,-7 0,0 Z"/>
+</defs>
+<g fill="var(--flor)" opacity="0.28">
+<g transform="translate(90,260)"><rect x="-2.5" y="-180" width="5" height="180" rx="2.5"/><use href="#daisy" transform="translate(0,-180) scale(1.1)"/></g>
+<g transform="translate(250,260)"><rect x="-2.5" y="-200" width="5" height="200" rx="2.5"/><use href="#blossom" transform="translate(0,-200) scale(1.2)"/></g>
+<g transform="translate(430,260)"><rect x="-2.5" y="-185" width="5" height="185" rx="2.5"/><use href="#daisy" transform="translate(0,-185) scale(1.25)"/></g>
+<g transform="translate(610,260)"><rect x="-2.5" y="-205" width="5" height="205" rx="2.5"/><use href="#daisy" transform="translate(0,-205) scale(1.15)"/></g>
+<g transform="translate(770,260)"><rect x="-2.5" y="-180" width="5" height="180" rx="2.5"/><use href="#blossom" transform="translate(0,-180) scale(1.1)"/></g>
+<g transform="translate(940,260)"><rect x="-2.5" y="-200" width="5" height="200" rx="2.5"/><use href="#daisy" transform="translate(0,-200) scale(1.15)"/></g>
+<g transform="translate(1110,260)"><rect x="-2.5" y="-185" width="5" height="185" rx="2.5"/><use href="#daisy" transform="translate(0,-185) scale(1.2)"/></g>
+</g>
+<g fill="var(--flor)" opacity="0.6">
+<g transform="translate(170,260)"><rect x="-2.5" y="-150" width="5" height="150" rx="2.5"/><use href="#leaf" transform="translate(0,-85) rotate(38) scale(.85)"/><use href="#blossom" transform="translate(0,-150) scale(1)"/></g>
+<g transform="translate(350,260)"><rect x="-2.5" y="-160" width="5" height="160" rx="2.5"/><use href="#daisy" transform="translate(0,-160) scale(1.05)"/></g>
+<g transform="translate(520,260)"><rect x="-2.5" y="-140" width="5" height="140" rx="2.5"/><use href="#daisy" transform="translate(0,-140) scale(1)"/></g>
+<g transform="translate(690,260)"><rect x="-2.5" y="-155" width="5" height="155" rx="2.5"/><use href="#leaf" transform="translate(0,-90) rotate(-38) scale(.85)"/><use href="#daisy" transform="translate(0,-155) scale(1)"/></g>
+<g transform="translate(860,260)"><rect x="-2.5" y="-145" width="5" height="145" rx="2.5"/><use href="#blossom" transform="translate(0,-145) scale(1.05)"/></g>
+<g transform="translate(1030,260)"><rect x="-2.5" y="-160" width="5" height="160" rx="2.5"/><use href="#daisy" transform="translate(0,-160) scale(1.05)"/></g>
+</g>
+<g fill="var(--flor)">
+<g transform="translate(40,262)"><rect x="-2" y="-100" width="4" height="100" rx="2"/><use href="#blossom" transform="translate(0,-100) scale(.9)"/></g>
+<g transform="translate(110,262)"><rect x="-3" y="-128" width="6" height="128" rx="3"/><use href="#leaf" transform="translate(0,-72) rotate(-36) scale(.85)"/><use href="#daisy" transform="translate(0,-128) scale(1.2)"/></g>
+<g transform="translate(210,262)"><rect x="-2" y="-92" width="4" height="92" rx="2"/><use href="#blossom" transform="translate(0,-92) scale(.9)"/></g>
+<g transform="translate(290,262)"><rect x="-3" y="-138" width="6" height="138" rx="3"/><use href="#leaf" transform="translate(0,-74) rotate(40) scale(1)"/><use href="#leaf" transform="translate(0,-100) rotate(-36) scale(.85)"/><use href="#daisy" transform="translate(0,-138) scale(1.25)"/></g>
+<g transform="translate(390,262)"><rect x="-2" y="-84" width="4" height="84" rx="2"/><use href="#blossom" transform="translate(0,-84) scale(.85)"/></g>
+<g transform="translate(470,262)"><rect x="-3" y="-120" width="6" height="120" rx="3"/><use href="#leaf" transform="translate(0,-68) rotate(-40) scale(.9)"/><use href="#daisy" transform="translate(0,-120) scale(1.05)"/></g>
+<g transform="translate(560,262)"><rect x="-3" y="-150" width="6" height="150" rx="3"/><use href="#leaf" transform="translate(0,-82) rotate(42) scale(1)"/><use href="#leaf" transform="translate(0,-110) rotate(-38) scale(.85)"/><use href="#daisy" transform="translate(0,-150) scale(1.15)"/></g>
+<g transform="translate(640,262)"><rect x="-2" y="-96" width="4" height="96" rx="2"/><use href="#blossom" transform="translate(0,-96) scale(.9)"/></g>
+<g transform="translate(730,262)"><rect x="-2" y="-108" width="4" height="108" rx="2"/><use href="#leaf" transform="translate(0,-60) rotate(-34) scale(.8)"/><use href="#blossom" transform="translate(0,-108) scale(.95)"/></g>
+<g transform="translate(820,262)"><rect x="-3" y="-134" width="6" height="134" rx="3"/><use href="#leaf" transform="translate(0,-76) rotate(38) scale(.95)"/><use href="#daisy" transform="translate(0,-134) scale(1.15)"/></g>
+<g transform="translate(910,262)"><rect x="-2" y="-90" width="4" height="90" rx="2"/><use href="#blossom" transform="translate(0,-90) scale(.85)"/></g>
+<g transform="translate(985,262)"><rect x="-3" y="-125" width="6" height="125" rx="3"/><use href="#leaf" transform="translate(0,-70) rotate(-40) scale(.9)"/><use href="#daisy" transform="translate(0,-125) scale(1.05)"/></g>
+<g transform="translate(1075,262)"><rect x="-3" y="-142" width="6" height="142" rx="3"/><use href="#leaf" transform="translate(0,-80) rotate(40) scale(.95)"/><use href="#daisy" transform="translate(0,-142) scale(1.15)"/></g>
+<g transform="translate(1160,262)"><rect x="-2" y="-98" width="4" height="98" rx="2"/><use href="#blossom" transform="translate(0,-98) scale(.9)"/></g>
+</g>
+<g fill="var(--flor)" opacity="0.9">
+<use href="#leaf" transform="translate(20,262) rotate(-18) scale(.7)"/><use href="#leaf" transform="translate(60,262) rotate(15) scale(.6)"/><use href="#leaf" transform="translate(150,262) rotate(-14) scale(.75)"/><use href="#leaf" transform="translate(240,262) rotate(20) scale(.6)"/><use href="#leaf" transform="translate(330,262) rotate(-20) scale(.7)"/><use href="#leaf" transform="translate(420,262) rotate(16) scale(.65)"/><use href="#leaf" transform="translate(510,262) rotate(-15) scale(.75)"/><use href="#leaf" transform="translate(600,262) rotate(18) scale(.6)"/><use href="#leaf" transform="translate(680,262) rotate(-18) scale(.7)"/><use href="#leaf" transform="translate(770,262) rotate(14) scale(.65)"/><use href="#leaf" transform="translate(860,262) rotate(-16) scale(.75)"/><use href="#leaf" transform="translate(945,262) rotate(20) scale(.6)"/><use href="#leaf" transform="translate(1025,262) rotate(-15) scale(.7)"/><use href="#leaf" transform="translate(1110,262) rotate(17) scale(.65)"/><use href="#leaf" transform="translate(1180,262) rotate(-16) scale(.7)"/>
+</g>
+<g stroke="var(--flor)" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8">
+<path d="M85,262 C 87,235 82,215 90,198"/><path d="M320,262 C 318,232 324,212 316,194"/><path d="M505,262 C 507,238 502,218 510,202"/><path d="M715,262 C 713,234 719,214 711,198"/><path d="M905,262 C 907,236 902,216 910,200"/><path d="M1055,262 C 1053,232 1059,212 1051,196"/>
+</g>
+</svg>
+</div>
 <script>
 var pessoas=[];
 fetch('/usuarios-login').then(function(r){return r.json();}).then(function(l){
