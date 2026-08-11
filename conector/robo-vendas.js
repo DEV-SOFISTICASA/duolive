@@ -169,7 +169,7 @@ function comToken(extra) {
 // a venda leva o carimbo da LOJA da conta que a viu: no painel ela so' aparece
 // na loja onde aconteceu (venda da monaco NUNCA aparece na fast).
 function manda(plataforma, p, loja) {
-  const dados = JSON.stringify({ orderId: p.orderId, quem: p.quem, valor: p.valor, plataforma: plataforma, loja: loja || '' });
+  const dados = JSON.stringify({ orderId: p.orderId, quem: p.quem, valor: p.valor, produto: p.produto || '', plataforma: plataforma, loja: loja || '' });
   const u = new URL(CONECTOR + '/venda-auto');
   const lib = u.protocol === 'https:' ? https : http;
   const req = lib.request({
@@ -587,7 +587,7 @@ async function lerAtividade(conta) {
       jaVistos.add(chave);
       // vendas antigas (fora da janela) só são marcadas como vistas, não disparam
       if (v.ts && v.ts < INICIO - TOLERANCIA) continue;
-      manda('tiktok', { orderId: v.messageId, quem: v.quem, valor: v.valor }, conta.loja);
+      manda('tiktok', { orderId: v.messageId, quem: v.quem, valor: v.valor, produto: v.produtoNome }, conta.loja);
       console.log('  🛒 ' + nome(conta) + ': ' + (v.quem || 'cliente') + ' — R$ ' + v.valor.toFixed(2).replace('.', ',') + ' · ' + v.produtoNome.slice(0, 28));
     }
     // 🛍️ sacolinha: quem esta' de olho nos produtos (cada pessoa+produto uma vez)
