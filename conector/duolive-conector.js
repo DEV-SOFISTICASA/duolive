@@ -431,6 +431,9 @@ const server = http.createServer((req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     (async () => {
       if (!LD.ativo()) { res.end('{"ok":false,"erro":"livedash off","vendedoras":[]}'); return; }
+      const u = req.usuario || null;
+      const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(u);
+      const soSigla = (!ehAdm && u && u.papel === 'vendedora' && u.sigla) ? u.sigla : null; // vendedora vê só a DELA
       const siglas = SB.ativo() ? await siglasConhecidas() : [];
       const periodo = new URLSearchParams((req.url.split('?')[1] || '')).get('periodo') || 'hoje';
       const r = await LD.horasPeriodo(siglas, periodo);
@@ -441,6 +444,8 @@ const server = http.createServer((req, res) => {
           r.vendedoras.forEach((v) => { const c = map[v.sigla]; if (c) { v.nome = c.nome || v.nome; v.cor = c.cor || v.cor; } });
         } catch (e) {}
       }
+      if (soSigla) r.vendedoras = r.vendedoras.filter((v) => v.sigla === soSigla); // vendedora só vê a própria meta
+      r.ehAdm = ehAdm;
       res.end(JSON.stringify(r));
     })().catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e), vendedoras: [] })); });
     return;

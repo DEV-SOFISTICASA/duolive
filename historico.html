@@ -64,7 +64,7 @@
   <div class="filtros" id="visoes" style="margin-top:2px">
     <span class="chip on" data-v="vend">👤 Vendedoras</span>
     <span class="chip" data-v="loja">🏪 Lojas</span>
-    <span class="chip" data-v="metas" style="display:none">⏱️ Metas</span>
+    <span class="chip" data-v="metas">⏱️ Metas</span>
   </div>
 
   <div class="cards">
@@ -140,7 +140,6 @@
       if(!d||!d.ok){ $('erro').style.display='block'; return; }
       $('erro').style.display='none';
       ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla;
-      var _mc=document.querySelector('#visoes .chip[data-v="metas"]'); if(_mc) _mc.style.display=ehAdm?'':'none';
       $('sub').innerHTML = (visao==='loja')
         ? 'Cada barra/cartão é uma <b>loja</b> — o total de vendas dela no período.'
         : (papel==='vendedora')
@@ -264,7 +263,8 @@
         if(!d||!d.ok){ $('erro').style.display='block'; return; }
         $('erro').style.display='none';
         var nomePer={hoje:'hoje','7':'nos últimos 7 dias',mes:'neste mês',total:'no total'}[periodo]||'no período';
-        $('sub').innerHTML='Meta de <b>horas de live</b> por vendedora — '+nomePer+'. Meta do período: <b>'+fmtH(d.metaMin)+'</b> ('+fmtH(d.metaDia)+'/dia × '+d.dias+' dia'+(d.dias===1?'':'s')+').';
+        var titulo=d.ehAdm?'Meta de <b>horas de live</b> por vendedora':'A <b>sua</b> meta de horas de live';
+        $('sub').innerHTML=titulo+' — '+nomePer+'. Meta do período: <b>'+fmtH(d.metaMin)+'</b> ('+fmtH(d.metaDia)+'/dia × '+d.dias+' dia'+(d.dias===1?'':'s')+').';
         renderMetas(d);
       }).catch(function(){ $('erro').style.display='block'; });
   }
