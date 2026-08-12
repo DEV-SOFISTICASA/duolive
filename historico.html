@@ -125,12 +125,15 @@
     ajustaPeriodos();
     carregar();
   });
-  // Metas não tem "Total" (meta de horas no acumulado não faz sentido) — some com o botão
+  // Metas: os botões viram Diária/Semanal/Mensal e o "Total" some (meta acumulada não faz sentido)
   function ajustaPeriodos(){
+    var chips=document.querySelectorAll('#filtros .chip');
+    var rot=(visao==='metas')?{hoje:'Diária','7':'Semanal',mes:'Mensal',total:'Total'}:{hoje:'Hoje','7':'7 dias',mes:'Mês',total:'Total'};
+    chips.forEach(function(c){ if(rot[c.dataset.p]) c.textContent=rot[c.dataset.p]; });
     var tot=document.querySelector('#filtros .chip[data-p="total"]');
     if(visao==='metas'){
       if(tot) tot.style.display='none';
-      if(periodo==='total'){ periodo='mes'; document.querySelectorAll('#filtros .chip').forEach(function(x){ x.classList.toggle('on',x.dataset.p==='mes'); }); }
+      if(periodo==='total'){ periodo='mes'; chips.forEach(function(x){ x.classList.toggle('on',x.dataset.p==='mes'); }); }
     } else if(tot){ tot.style.display=''; }
   }
 
