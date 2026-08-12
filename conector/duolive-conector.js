@@ -425,6 +425,27 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---------- horas de live por vendedora HOJE (meta diária de horas) ----------
+  if (req.url.split('?')[0] === '/horas-vendedoras') {
+    res.setHeader('content-type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+    (async () => {
+      if (!LD.ativo()) { res.end('{"ok":false,"erro":"livedash off","vendedoras":[]}'); return; }
+      const siglas = SB.ativo() ? await siglasConhecidas() : [];
+      const periodo = new URLSearchParams((req.url.split('?')[1] || '')).get('periodo') || 'hoje';
+      const r = await LD.horasPeriodo(siglas, periodo);
+      // nome/cor do NOSSO cadastro (usuarios) por cima — o que o ADM escolheu ganha
+      if (SB.ativo()) {
+        try {
+          const map = {}; (await SB.seleciona('usuarios', 'select=sigla,nome,cor')).forEach((x) => { map[x.sigla] = x; });
+          r.vendedoras.forEach((v) => { const c = map[v.sigla]; if (c) { v.nome = c.nome || v.nome; v.cor = c.cor || v.cor; } });
+        } catch (e) {}
+      }
+      res.end(JSON.stringify(r));
+    })().catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e), vendedoras: [] })); });
+    return;
+  }
+
   // ---------- Lojas fixas (Monaco/Fast/Mania/Bellini + @). Iguais p/ todos; só o ADM edita ----------
   if (req.url.split('?')[0] === '/lojas-fixas' && req.method === 'GET') {
     res.setHeader('content-type', 'application/json');
@@ -492,7 +513,7 @@ const server = http.createServer((req, res) => {
         const quem = String(b.quem || '').slice(0, 60).trim();
         const produto = String(b.produto || '').slice(0, 80).trim();
         const lj = b.loja ? L.limpaNome(b.loja) : '';
-        if (quem) emitir(comLoja(lj, { tipo: 'sacolinha', quem: quem, produto: produto }));
+        if (quem) emitir(comLoja(lj, { tipo: 'sacolinha', quem: quem, produto: produto, carrinho: !!b.carrinho }));
       } catch (e) {}
       res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
     });

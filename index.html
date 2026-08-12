@@ -137,6 +137,9 @@
   }
   var URL_MC=apiBase().replace(/\/+$/,'');
   var mc=document.getElementById('mc'), aviso=document.getElementById('semConector');
+  // o Multichat carrega DEPOIS (src setado abaixo); toda vez que ele (re)carrega,
+  // reaplica o tema atual nele — senao ele pode abrir no tema errado (claro no escuro).
+  mc.onload=function(){ try{ aplicaTema(document.documentElement.getAttribute('data-tema')==='claro'?'claro':'escuro'); }catch(e){} };
   var ligado=false;
   function confere(){
     var base=apiBase().replace(/\/+$/,'');

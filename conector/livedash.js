@@ -39,6 +39,20 @@ const EXCECOES = {
   '7671442687194598165': { ov: 'tc' },
 };
 
+// Crédito manual de HORAS por loja+dia: lives SEM nome no título que o usuário
+// confirmou serem de alguém. Ex.: em 2026-08-12 a KA (Adriana) fez todas as lives
+// da Fast, mas sem se identificar no título ("Lets Go LIVE!"). Formato: 'loja|diaBRT'.
+// (é pontual — o certo é a vendedora pôr o apelido no título, aí conta sozinho.)
+const CREDITO_LOJA_DIA = {
+  'fast|2026-08-12': 'p_1786125236457_1002', // Adriana (KA) — só as lives de hoje na Fast
+};
+
+// Ajuste de EXIBIÇÃO de sigla: quando a equipe chama a pessoa por um apelido
+// diferente do login do painel. Ex.: Giovana no título é "GC", mas o login é "JK".
+const SIGLA_EXIBE = {
+  'p_1786125236457_1001': 'GC', // Giovana → mostra GC (não o login JK)
+};
+
 // Pessoas APAGADAS do histórico a pedido do usuário: as lives atribuídas a elas
 // não aparecem nem contam. Numa dupla, só a parte dela some.
 //   Luana (p_1785537102138_6823) — 2026-08-08
@@ -105,7 +119,7 @@ async function dados() {
       lista.push({
         room_id: String(l.room_id || ''), titulo: String(l.title || ''),
         ts: new Date(ini).toISOString(), dia: new Date(ini - 3 * 3600000).toISOString().slice(0, 10),
-        gmv: +l.gmv || 0, pedidos: +l.orders || 0,
+        gmv: +l.gmv || 0, pedidos: +l.orders || 0, duracao: +l.duration_min || 0,
       });
     });
   });
@@ -153,6 +167,7 @@ function resolveTodas(d) {
         if (a.grav) pids = ['__sem__'];
         else if (a.ids.length) { const vivos = a.ids.filter((id) => !ehDona[id]); pids = vivos.length ? vivos : ['__sem__']; }
         else if (viz[r.room_id]) pids = viz[r.room_id].slice();
+        else if (CREDITO_LOJA_DIA[loja + '|' + r.dia]) pids = [CREDITO_LOJA_DIA[loja + '|' + r.dia]];
         else if (r.dia <= (d.viraISO || '')) {
           const lojaUp = String(loja).toUpperCase();
           const p = d.resp.find((pp) => pp.lojaFallback && limpa(pp.lojaFallback) === limpa(lojaUp));
@@ -209,4 +224,50 @@ async function espelho(siglasNossas) {
   return { vendas: vendas, cores: cores };
 }
 
-module.exports = { config, ativo, dados, espelho };
+// ---------- horas de live por vendedora HOJE (pra meta diária de horas) ----------
+// Usa a MESMA atribuição do espelho (resolveTodas). Para HORAS, numa dupla cada
+// pessoa leva a duração CHEIA (as duas ficaram ao vivo o tempo todo — não divide).
+// periodo: 'hoje' | '7' | 'mes' | 'total'. META = 4h/dia × dias do período.
+async function horasPeriodo(siglasNossas, periodo) {
+  const d = await dados();
+  const porId = {}; d.resp.forEach((p) => { porId[p.id] = p; });
+  // "agora" em BRT (UTC-3) pra fechar dia/mês certo no fuso do Brasil
+  const agora = new Date(Date.now() - 3 * 3600000);
+  const Y = agora.getUTCFullYear(), M = agora.getUTCMonth(), D = agora.getUTCDate();
+  const meiaNoiteBRT = (y, m, dd) => new Date(Date.UTC(y, m, dd) + 3 * 3600000).toISOString(); // 00:00 BRT como ISO UTC
+  let desde, dias;
+  if (periodo === '7') { desde = meiaNoiteBRT(Y, M, D - 6); dias = 7; }
+  else if (periodo === 'mes') { desde = meiaNoiteBRT(Y, M, 1); dias = D; }
+  else if (periodo === 'total') {
+    desde = meiaNoiteBRT(2000, 0, 1);
+    let cedo = null; // 1ª live registrada (pra "dias corridos" fazer sentido)
+    Object.keys(d.porLoja).forEach((loja) => d.porLoja[loja].forEach((r) => { if (!cedo || r.ts < cedo) cedo = r.ts; }));
+    const e = cedo ? new Date(new Date(cedo).getTime() - 3 * 3600000) : agora;
+    dias = Math.max(1, Math.round((Date.UTC(Y, M, D) - Date.UTC(e.getUTCFullYear(), e.getUTCMonth(), e.getUTCDate())) / 86400000) + 1);
+  } else { desde = meiaNoiteBRT(Y, M, D); dias = 1; } // hoje
+  const minId = {}; // id da pessoa -> minutos de live no período
+  resolveTodas(d).forEach((x) => {
+    if (x.live.ts < desde) return;                        // fora do período
+    x.pids.forEach((pid) => {
+      if (pid === '__sem__' || !porId[pid] || APAGADAS[pid]) return;
+      minId[pid] = (minId[pid] || 0) + (x.live.duracao || 0); // dupla NÃO divide (as duas ficaram ao vivo)
+    });
+  });
+  const metaDia = Math.round((+(process.env.DUOLIVE_META_HORAS || 4)) * 60);
+  const metaMin = metaDia * dias;
+  const nossas = new Set((siglasNossas || []).map(limpa)); // apelidos cadastrados no painel
+  const vendedoras = [];
+  d.resp.forEach((p) => {
+    if (APAGADAS[p.id]) return;
+    if (!(p.aliases || []).some((a) => nossas.has(limpa(a)))) return; // só quem está no cadastro (Giovana: JK)
+    const sig = SIGLA_EXIBE[p.id] || siglaDe(p, siglasNossas);        // exibe GC pra Giovana
+    if (vendedoras.some((v) => v.sigla === sig)) return;
+    vendedoras.push({ sigla: sig, nome: p.nome, cor: p.cor || '#8b8b95', minutos: minId[p.id] || 0 });
+  });
+  vendedoras.sort((a, b) => b.minutos - a.minutos);
+  return { ok: true, periodo: periodo || 'hoje', dias, metaDia, metaMin, vendedoras };
+}
+// atalho: só de hoje (usado pelo painel AO VIVO)
+async function horasHoje(siglasNossas) { return horasPeriodo(siglasNossas, 'hoje'); }
+
+module.exports = { config, ativo, dados, espelho, horasHoje, horasPeriodo };

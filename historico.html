@@ -64,6 +64,7 @@
   <div class="filtros" id="visoes" style="margin-top:2px">
     <span class="chip on" data-v="vend">👤 Vendedoras</span>
     <span class="chip" data-v="loja">🏪 Lojas</span>
+    <span class="chip" data-v="metas" style="display:none">⏱️ Metas</span>
   </div>
 
   <div class="cards">
@@ -121,14 +122,25 @@
     var c=e.target.closest('.chip'); if(!c) return;
     visao=c.dataset.v;
     document.querySelectorAll('#visoes .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
+    ajustaPeriodos();
     carregar();
   });
+  // Metas não tem "Total" (meta de horas no acumulado não faz sentido) — some com o botão
+  function ajustaPeriodos(){
+    var tot=document.querySelector('#filtros .chip[data-p="total"]');
+    if(visao==='metas'){
+      if(tot) tot.style.display='none';
+      if(periodo==='total'){ periodo='mes'; document.querySelectorAll('#filtros .chip').forEach(function(x){ x.classList.toggle('on',x.dataset.p==='mes'); }); }
+    } else if(tot){ tot.style.display=''; }
+  }
 
   function carregar(){
+    if(visao==='metas'){ carregarMetas(); return; }
     fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
       if(!d||!d.ok){ $('erro').style.display='block'; return; }
       $('erro').style.display='none';
       ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla;
+      var _mc=document.querySelector('#visoes .chip[data-v="metas"]'); if(_mc) _mc.style.display=ehAdm?'':'none';
       $('sub').innerHTML = (visao==='loja')
         ? 'Cada barra/cartão é uma <b>loja</b> — o total de vendas dela no período.'
         : (papel==='vendedora')
@@ -146,6 +158,10 @@
   }
 
   function render(vendas, cores){
+    // rótulos dos cartões voltam ao normal (o modo Metas troca eles)
+    $('cTotal').previousElementSibling.textContent='💰 Total no período';
+    $('cQtd').previousElementSibling.textContent='🛒 Vendas';
+    $('cLives').previousElementSibling.textContent='📺 Lives';
     // LIVE 10K é evento TEMPORÁRIO: aparece nos períodos recentes (Hoje/7/Mês),
     // mas NÃO entra no "Total" (que é o acumulado permanente).
     if(periodo==='total'){ vendas=vendas.filter(function(v){ return v.sigla!=='LIVE 10K' && v.produto!=='LIVE 10K'; }); } // LIVE 10K dividido em TS/AL fica marcado por produto
@@ -237,6 +253,52 @@
       var s=document.createElement('span');
       s.innerHTML='<i style="background:'+corDe(cores,p.sig)+'"></i>'+nomeDe(cores,p.sig);
       leg.appendChild(s);
+    });
+  }
+
+  // ===== modo METAS (horas de live por vendedora, vs a meta do período) =====
+  function fmtH(min){ min=Math.max(0,Math.round(+min||0)); return Math.floor(min/60)+'h'+('0'+(min%60)).slice(-2); }
+  function carregarMetas(){
+    fetch('/horas-vendedoras?periodo='+encodeURIComponent(periodo),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!d||!d.ok){ $('erro').style.display='block'; return; }
+        $('erro').style.display='none';
+        var nomePer={hoje:'hoje','7':'nos últimos 7 dias',mes:'neste mês',total:'no total'}[periodo]||'no período';
+        $('sub').innerHTML='Meta de <b>horas de live</b> por vendedora — '+nomePer+'. Meta do período: <b>'+fmtH(d.metaMin)+'</b> ('+fmtH(d.metaDia)+'/dia × '+d.dias+' dia'+(d.dias===1?'':'s')+').';
+        renderMetas(d);
+      }).catch(function(){ $('erro').style.display='block'; });
+  }
+  function renderMetas(d){
+    var vend=d.vendedoras||[], metaMin=d.metaMin||240;
+    var bateram=vend.filter(function(v){return (+v.minutos||0)>=metaMin;}).length;
+    var somaMin=vend.reduce(function(a,v){return a+(+v.minutos||0);},0);
+    $('cTotal').textContent=fmtH(metaMin); $('cTotal').previousElementSibling.textContent='🎯 Meta do período';
+    $('cQtd').textContent=bateram+'/'+vend.length; $('cQtd').previousElementSibling.textContent='✅ Bateram a meta';
+    $('cLives').textContent=fmtH(somaMin); $('cLives').previousElementSibling.textContent='⏱️ Horas somadas';
+    var pe=$('pessoas'); pe.innerHTML='';
+    vend.forEach(function(v){
+      var falta=metaMin-(+v.minutos||0), ok=falta<=0, cor=v.cor||'#6b7280';
+      var msg=ok?('Meta concluída! Horas realizadas: '+fmtH(v.minutos)):('Falta '+fmtH(falta)+' para bater a meta diária!');
+      var el=document.createElement('div'); el.className='pessoa'; el.style.borderLeftColor=cor;
+      el.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+(v.nome||v.sigla)+' ('+v.sigla+')</div>'
+        +'<div class="vl">'+fmtH(v.minutos)+' <span style="font-size:12px;color:var(--text-3)">/ '+fmtH(metaMin)+'</span></div>'
+        +'<div class="qt" style="color:'+(ok?'#22c55e':'#ef4444')+';font-weight:800">'+msg+'</div>';
+      pe.appendChild(el);
+    });
+    $('grafTit').textContent='Horas de live por vendedora'; $('legenda').style.display='none';
+    var barras=$('barras');
+    if(!vend.length){ barras.style.display='none'; $('vazio').style.display=''; $('vazio').textContent='Nenhuma vendedora cadastrada.'; return; }
+    barras.style.display=''; $('vazio').style.display='none'; barras.innerHTML='';
+    var maxV=Math.max.apply(null, vend.map(function(v){return +v.minutos||0;}).concat([metaMin]))||1;
+    vend.forEach(function(v){
+      var ok=(+v.minutos||0)>=metaMin, cor=ok?'#22c55e':(v.cor||'#6b7280');
+      var altura=Math.max(3, Math.round((+v.minutos||0)/maxV*190));
+      var col=document.createElement('div'); col.className='col';
+      col.innerHTML='<div class="val">'+fmtH(v.minutos)+'</div>'
+        +'<div class="stack" style="height:'+altura+'px"><div class="seg" style="height:'+altura+'px;background:'+cor+'"></div></div>'
+        +'<div class="hora">'+v.sigla+'</div>';
+      col.title=(v.nome||v.sigla)+' · '+fmtH(v.minutos)+' de '+fmtH(metaMin)+(ok?' ✅':'');
+      barras.appendChild(col);
     });
   }
 

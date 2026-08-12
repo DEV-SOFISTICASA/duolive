@@ -103,6 +103,7 @@ function interessesDaAtividade(json) {
       quem: String(quem),
       produtoNome: String(produtoNome),
       produtoId: String(d.strs['.8.4.4'] || ''),
+      acao: d.ints['.8.5'] || 0, // 1 = só olhando; outro valor (ex.: 2) = colocou no CARRINHO
     });
   }
   return out;

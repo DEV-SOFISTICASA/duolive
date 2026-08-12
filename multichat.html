@@ -43,11 +43,14 @@
   .ev .ico.shopee{background:#ee4d2d}
   .ev .ico svg{width:.95em;height:.95em}
   .ev b{font-size:1em;font-weight:800} /* nome do usuário: mais forte e com a cor dele */
+  /* tema claro: escurece a cor do nome pra ele NAO sumir no fundo branco (branco-no-branco) */
+  :root[data-tema=claro] .ev b{filter:brightness(.58) saturate(1.2)}
   .ev .txt{color:var(--text);font-weight:700;word-break:break-word}
   .ev small{font-weight:400}
   .ev.seguidor{border-color:rgba(56,189,248,.4)}
   .ev.presente{border-color:rgba(244,114,182,.45)}
   .ev.venda{border-color:rgba(74,222,128,.5);background:linear-gradient(135deg,var(--card),rgba(74,222,128,.1))}
+  .ev.carrinho{border-color:rgba(251,191,36,.6);background:linear-gradient(135deg,var(--card),rgba(251,191,36,.13))} /* colocou no carrinho: sinal forte */
   .ev small{margin-left:auto;color:var(--text-3);font-size:.7em;flex:none}
   #off{padding:14px;margin:10px 12px;border:1px dashed var(--line);border-radius:10px;color:var(--text-2);font-size:12px;line-height:1.7;display:none}
   #off code{font-family:ui-monospace,Consolas,monospace;background:var(--card-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11px}
@@ -84,7 +87,8 @@
     <span class="chip on" data-t="presente">🎁 Presentes</span>
     <span class="chip" data-t="entrada">👋 Entradas</span>
     <span class="chip on" data-t="curtiu">❤️ Curtidas</span>
-    <span class="chip" data-t="sacolinha">🛍️ Sacolinha</span>
+    <span class="chip on" data-t="carrinho">🛒 No carrinho</span>
+    <span class="chip" data-t="sacolinha">👀 Olhando</span>
   </div>
 
   <div id="off">
@@ -103,7 +107,7 @@
 (function(){
   var $=function(id){return document.getElementById(id)};
   var feed=$('feed'), MAX=200;
-  var filtros={mensagem:true,venda:true,seguidor:true,presente:true,entrada:false,share:true,curtiu:true,sacolinha:false};
+  var filtros={mensagem:true,venda:true,seguidor:true,presente:true,entrada:false,share:true,curtiu:true,sacolinha:false,carrinho:true};
   var K_VENDAS='ld-multichat-vendas';
   var vendas=[]; try{ vendas=JSON.parse(localStorage.getItem(K_VENDAS))||[]; }catch(e){}
   var platVenda='shopee';
@@ -229,7 +233,10 @@
     else if(ev.tipo==='entrada') add('entrada','👋',ev.quem,'entrou na live',ev.ts,p);
     else if(ev.tipo==='share') add('share','🔁',ev.quem,'compartilhou a live',ev.ts,p);
     else if(ev.tipo==='curtiu') add('curtiu','❤️',ev.quem,'curtiu a live',ev.ts,p);
-    else if(ev.tipo==='sacolinha') add('sacolinha','🛍️',ev.quem,'está de olho em '+(ev.produto||'um produto'),ev.ts,p);
+    else if(ev.tipo==='sacolinha'){
+      if(ev.carrinho) add('carrinho','🛒',ev.quem,'colocou no CARRINHO: '+(ev.produto||'um produto'),ev.ts,p);
+      else add('sacolinha','👀',ev.quem,'está de olho em '+(ev.produto||'um produto'),ev.ts,p);
+    }
     else if(ev.tipo==='venda'){ add('venda','🛒',ev.quem||'Venda',ev.texto||'',ev.ts,p); mostraCompra(ev.quem, ev.texto, p);
       // conta na HORA: o numero "Vendas da live" sobe junto com a venda, sem
       // esperar o refresh de /ao-vivo (o proximo refresh so' confirma o total).

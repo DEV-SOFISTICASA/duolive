@@ -188,8 +188,8 @@ function manda(plataforma, p, loja) {
 }
 
 // 🛍️ a SACOLINHA: manda quem esta' de olho num produto (interesse, sem valor)
-function mandaSacolinha(loja, it) {
-  const dados = JSON.stringify({ quem: it.quem, produto: it.produtoNome, produtoId: it.produtoId, loja: loja || '' });
+function mandaSacolinha(loja, it, noCarrinho) {
+  const dados = JSON.stringify({ quem: it.quem, produto: it.produtoNome, produtoId: it.produtoId, loja: loja || '', carrinho: !!noCarrinho, acao: it.acao || 0 });
   const u = new URL(CONECTOR + '/sacolinha');
   const lib = u.protocol === 'https:' ? https : http;
   const req = lib.request({
@@ -590,14 +590,16 @@ async function lerAtividade(conta) {
       manda('tiktok', { orderId: v.messageId, quem: v.quem, valor: v.valor, produto: v.produtoNome }, conta.loja);
       console.log('  🛒 ' + nome(conta) + ': ' + (v.quem || 'cliente') + ' — R$ ' + v.valor.toFixed(2).replace('.', ',') + ' · ' + v.produtoNome.slice(0, 28));
     }
-    // 🛍️ sacolinha: quem esta' de olho nos produtos (cada pessoa+produto uma vez)
+    // 🛍️ sacolinha: quem está de olho / colocou no carrinho (.8.5: 1=olhando, 2=carrinho)
     const interesses = ATIVIDADE.interessesDaAtividade(j);
     for (const it of interesses) {
-      const chave = 'sac:' + it.quem + ':' + it.produtoId;
+      const noCarrinho = (+it.acao === 2); // confirmar o código do carrinho na 1ª live (o log abaixo mostra)
+      const chave = 'sac:' + it.quem + ':' + it.produtoId + ':' + (it.acao || 0); // olhar E colocar no carrinho contam separado
       if (jaVistos.has(chave)) continue;
       jaVistos.add(chave);
-      if (it.ts && it.ts < INICIO - TOLERANCIA) continue; // só interesse recente
-      mandaSacolinha(conta.loja, it);
+      if (it.ts && it.ts < INICIO - TOLERANCIA) continue; // só recente
+      mandaSacolinha(conta.loja, it, noCarrinho);
+      console.log('  ' + (noCarrinho ? '🛒 CARRINHO' : '👀 olhando ') + ' ' + nome(conta) + ': ' + (it.quem || '?') + ' · ' + String(it.produtoNome || '').slice(0, 22) + '  [.8.5=' + (it.acao || 0) + ']');
     }
     conta.ultimaOk = Date.now();
     conta.falhas = 0;
