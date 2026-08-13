@@ -23,6 +23,7 @@ const SB = require('./supabase.js');
 const CONTAS = require('./contas.js');
 const LD = require('./livedash.js');   // espelho do LiveDash (fonte do histórico)
 const OFERTAS = require('./ofertas.js');
+const CATALOGO = require('./catalogo.js'); // catálogo de produtos espelhado no banco (não zera em deploy)
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
@@ -677,6 +678,7 @@ const server = http.createServer((req, res) => {
             loja.ts[plat] = Date.now();
             console.log('  📦 ' + loja.nome + ' · ' + plat + (b.conta ? ' (' + b.conta + ')' : '')
               + ': ' + loja.produtos[plat].length + ' produto(s).');
+            CATALOGO.salvar(loja.nome, plat, loja.produtos[plat]).catch(() => {}); // espelha no banco (sobrevive a deploy)
           }
         } catch (e) {}
         res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
@@ -1068,6 +1070,12 @@ server.listen(PORTA, '0.0.0.0', () => {
   } else {
     console.log('  Endereco: http://127.0.0.1:' + PORTA);
   }
+  // catálogo salvo no banco de volta pra memória (não zera o seletor de ofertas em deploy)
+  CATALOGO.carregar().then((rows) => {
+    let n = 0;
+    (rows || []).forEach((r) => { if (r && r.loja && r.plataforma && Array.isArray(r.produtos)) { achaLoja(r.loja).produtos[r.plataforma] = r.produtos; n += r.produtos.length; } });
+    if (n) console.log('  📦 catálogo do banco: ' + n + ' produto(s) recarregado(s).');
+  }).catch(() => {});
   console.log('');
 });
 

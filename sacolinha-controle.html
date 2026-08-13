@@ -706,7 +706,7 @@
       if(podeEditarFix()){
         var lb=document.createElement('span'); lb.className='de'; lb.textContent='R$'; row.appendChild(lb);
         row.appendChild(campoPrecoHerda(es.valor_desconto, pc, function(v,ok){
-          salvaFix({produto_id:gp.id, sku:es.sku, nome:conj.nome, imagem:es.imagem||conj.imagem, valor_normal:conj.valor_normal, variacao_nome:es.variacao_nome, valor_desconto:v}, function(){ es.valor_desconto=v; ok(); });
+          salvaFix({produto_id:gp.id, sku:es.sku, nome:conj.nome, imagem:es.imagem||'', valor_normal:conj.valor_normal, variacao_nome:es.variacao_nome, valor_desconto:v}, function(){ es.valor_desconto=v; ok(); });
         }));
         var x=document.createElement('button'); x.className='x'; x.textContent='✕'; x.title='Tirar a variação';
         x.onclick=function(){ removeFix({produto_id:gp.id,sku:es.sku}).then(function(){ gp.estampas=gp.estampas.filter(function(z){return z.sku!==es.sku;}); montaEstampas(box,gp,conj); }); };
@@ -795,7 +795,8 @@
             if(j>=cores.length){ proximo(i+1); return; }
             var cn=String(cores[j].nome||'').trim(); if(!cn){ corN(j+1); return; }
             // valor_desconto:null = herda o preço do conjunto (o ADM só muda as exceções)
-            salvaFix({produto_id:p.id, sku:slug(cn)||('c'+j), nome:p.nome, imagem:cores[j].foto||p.imagem, valor_normal:p.preco||null, variacao_nome:cn, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){ corN(j+1); });
+            // imagem só se houver foto REAL da variação; senão fica em branco -> quadradinho de COR
+            salvaFix({produto_id:p.id, sku:slug(cn)||('c'+j), nome:p.nome, imagem:cores[j].foto||'', valor_normal:p.preco||null, variacao_nome:cn, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){ corN(j+1); });
           })(0);
         });
       })(0);
