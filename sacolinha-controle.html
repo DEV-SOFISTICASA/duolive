@@ -132,7 +132,7 @@
     <div style="font-size:11.5px;color:var(--text-2);margin-top:4px">As ofertas fixas acima estão <b>rodando</b>. Para <b>editar ou cadastrar</b>, é só encerrar a live.</div>
   </div>
 
-  <div class="card" id="cadCard">
+  <div class="card" id="cadCard" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <b style="font-size:12.5px">Cadastrar produto</b>
       <div class="platsel" id="cadPlat"><span data-p="shopee" class="on">🧡 Shopee</span><span data-p="tiktok">🎵 TikTok</span></div>
@@ -582,7 +582,12 @@
     if(CORHEX[k]) return CORHEX[k];
     var p=k.split(new RegExp('[\\s-]'))[0]; return CORHEX[p]||null; // "Verde Bandeira" -> "verde"
   }
-  function coresDe(p){ var c=(p&&(p.cores||p.variacoesNomes)); return Array.isArray(c)?c:[]; } // nomes das variações (cores) do produto
+  // variações do produto -> [{nome, foto}]. Aceita cores:["Areia",...] (só nome)
+  // ou variacoes:[{nome,foto}] (com foto por cor, quando o robô capturar).
+  function coresDe(p){
+    var c=(p&&(p.variacoes||p.cores)); if(!Array.isArray(c)) return [];
+    return c.map(function(x){ return (typeof x==='string')?{nome:x,foto:''}:{nome:(x.nome||x.cor||''),foto:(x.foto||x.imagem||'')}; }).filter(function(x){ return x.nome; });
+  }
 
   // salva/atualiza uma linha (conjunto = sku vazio; estampa = sku preenchido)
   function salvaFix(o, aoOk){
@@ -632,6 +637,29 @@
     wrap.appendChild(i); wrap.appendChild(ok);
     return wrap;
   }
+  // campo de preço de uma VARIAÇÃO: vazio = herda o preço do conjunto (mostra "= 71,92"
+  // no placeholder); digitou um valor = vira exceção só daquela cor.
+  function campoPrecoHerda(valor, herdado, salvar){
+    var wrap=document.createElement('span'); wrap.style.cssText='display:inline-flex;align-items:center;gap:6px';
+    var i=document.createElement('input'); i.className='miniIn'; i.setAttribute('inputmode','decimal');
+    i.placeholder=(herdado!=null)?('= '+brl(herdado)):'0,00';
+    if(valor!=null) i.value=brl(valor);
+    var ok=document.createElement('span'); ok.className='salvoOk'; ok.textContent='salvo ✓';
+    i.addEventListener('focus',function(){ fixEditando=true; });
+    i.addEventListener('blur',function(){ setTimeout(function(){ fixEditando=false; },400); });
+    i.addEventListener('input',function(){
+      clearTimeout(i._t); i._t=setTimeout(function(){
+        salvar(brlNum(i.value), function(){ ok.classList.add('on'); setTimeout(function(){ ok.classList.remove('on'); },1300); });
+      },700);
+    });
+    wrap.appendChild(i); wrap.appendChild(ok);
+    return wrap;
+  }
+  function fazSwatch(nome){ var hx=corHex(nome); var sw=document.createElement('span'); sw.className='sw'+(hx?'':' semcor'); if(hx) sw.style.background=hx; sw.title=nome||''; return sw; }
+  function fazThumbVar(es){ // foto DA VARIAÇÃO (se o robô capturou), senão o quadradinho de cor
+    if(es.imagem){ var im=document.createElement('img'); im.className='vth'; im.src=es.imagem; im.title=es.variacao_nome||''; im.onerror=function(){ this.replaceWith(fazSwatch(es.variacao_nome)); }; return im; }
+    return fazSwatch(es.variacao_nome);
+  }
   function iconeVazio(){ var e=document.createElement('div'); e.className='th'; e.textContent='🛍️'; return e; }
   function atualizaPct(lin,de,por){ var p=lin.querySelector('[data-pct]'); if(p) p.textContent=pctOff(de,por); }
 
@@ -671,20 +699,24 @@
   }
   function montaEstampas(box, gp, conj){
     box.innerHTML='';
+    var pc=(conj&&conj.valor_desconto!=null)?conj.valor_desconto:null; // preço do conjunto (o herdado)
     gp.estampas.forEach(function(es){
       var row=document.createElement('div'); row.className='est';
-      var hx=corHex(es.variacao_nome); var sw=document.createElement('span'); sw.className='sw'+(hx?'':' semcor'); if(hx) sw.style.background=hx; sw.title=es.variacao_nome||''; row.appendChild(sw);
+      row.appendChild(fazThumbVar(es)); // foto da cor (ou quadradinho da cor)
       var en=document.createElement('div'); en.className='en'; en.textContent=es.variacao_nome||es.sku; row.appendChild(en);
       if(podeEditarFix()){
         var lb=document.createElement('span'); lb.className='de'; lb.textContent='R$'; row.appendChild(lb);
-        row.appendChild(campoPreco(es.valor_desconto, function(v,ok){
-          salvaFix({produto_id:gp.id, sku:es.sku, nome:conj.nome, imagem:conj.imagem, valor_normal:conj.valor_normal, variacao_nome:es.variacao_nome, valor_desconto:v}, function(){ es.valor_desconto=v; ok(); });
+        row.appendChild(campoPrecoHerda(es.valor_desconto, pc, function(v,ok){
+          salvaFix({produto_id:gp.id, sku:es.sku, nome:conj.nome, imagem:es.imagem||conj.imagem, valor_normal:conj.valor_normal, variacao_nome:es.variacao_nome, valor_desconto:v}, function(){ es.valor_desconto=v; ok(); });
         }));
-        var x=document.createElement('button'); x.className='x'; x.textContent='✕'; x.title='Tirar a exceção';
+        var x=document.createElement('button'); x.className='x'; x.textContent='✕'; x.title='Tirar a variação';
         x.onclick=function(){ removeFix({produto_id:gp.id,sku:es.sku}).then(function(){ gp.estampas=gp.estampas.filter(function(z){return z.sku!==es.sku;}); montaEstampas(box,gp,conj); }); };
         row.appendChild(x);
       } else {
-        var v=document.createElement('span'); v.className='porTxt'; v.textContent=es.valor_desconto!=null?('R$ '+brl(es.valor_desconto)):'—'; row.appendChild(v);
+        var eff=(es.valor_desconto!=null)?es.valor_desconto:pc; // herda o do conjunto se não tiver exceção
+        var v=document.createElement('span'); v.className='porTxt'; v.textContent=(eff!=null)?('R$ '+brl(eff)):'—';
+        if(es.valor_desconto==null && eff!=null){ v.style.opacity='.55'; v.title='mesmo preço do conjunto'; }
+        row.appendChild(v);
       }
       box.appendChild(row);
     });
@@ -762,8 +794,9 @@
           var cores=coresDe(p);
           (function corN(j){
             if(j>=cores.length){ proximo(i+1); return; }
-            var cn=String(cores[j]||'').trim(); if(!cn){ corN(j+1); return; }
-            salvaFix({produto_id:p.id, sku:slug(cn)||('c'+j), nome:p.nome, imagem:p.imagem, valor_normal:p.preco||null, variacao_nome:cn, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){ corN(j+1); });
+            var cn=String(cores[j].nome||'').trim(); if(!cn){ corN(j+1); return; }
+            // valor_desconto:null = herda o preço do conjunto (o ADM só muda as exceções)
+            salvaFix({produto_id:p.id, sku:slug(cn)||('c'+j), nome:p.nome, imagem:cores[j].foto||p.imagem, valor_normal:p.preco||null, variacao_nome:cn, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){ corN(j+1); });
           })(0);
         });
       })(0);
@@ -818,7 +851,7 @@
   // com a live NO AR: some a caixa de EDIÇÃO; fica só a lista de ofertas fixas (read-only).
   // A edição/cadastro só volta quando a live é encerrada.
   function atualizaModoLive(){
-    if($('cadCard')) $('cadCard').style.display = liveAoVivo ? 'none' : '';
+    if($('cadCard')) $('cadCard').style.display = 'none'; // cadastro manual removido — só o seletor visual
     if($('liveAviso')) $('liveAviso').style.display = liveAoVivo ? '' : 'none';
   }
   function pegaAoVivoFix(){
