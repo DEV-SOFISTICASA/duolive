@@ -31,6 +31,14 @@
   .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   .tile small{font-size:10.5px;color:var(--text-3);display:block}
   .tile b{font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  /* 🛍️ Últimas compras (últimos compradores da live atual) */
+  .uc{display:flex;flex-direction:column;gap:5px;margin-top:2px}
+  .uc-row{display:flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:12px}
+  .uc-row .pico{flex:none;width:1.4em;height:1.4em;border-radius:.3em;background:#000;color:#fff;font-size:.8em;display:inline-flex;align-items:center;justify-content:center}
+  .uc-row b{font-weight:700;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+  .uc-row .uc-p{color:var(--text-3);font-size:11px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .uc-row .uc-v{color:var(--ok);font-weight:800;white-space:nowrap}
+  .uc-row small{color:var(--text-3);font-size:10.5px;min-width:34px;text-align:right}
   .tabelaBox{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
   table{border-collapse:collapse;width:100%;min-width:640px}
   th,td{padding:8px 12px;text-align:right;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -101,8 +109,7 @@
     <div class="tile doConsole"><small>📦 Pedidos</small><b id="tPed">–</b></div>
     <div class="tile doConsole"><small>👀 Pessoas que assistiram</small><b id="tViews">–</b></div>
     <div class="tile doConsole"><small id="tHorasLbl">⏱️ Tempo de live</small><b id="tHoras">–</b></div>
-    <div id="hojeBox" style="display:none;grid-column:1/-1"></div>
-    <div id="metasBox" style="display:none;grid-column:1/-1"></div>
+    <div id="comprasBox" style="display:none;grid-column:1/-1"></div>
   </div>
 
   <div id="shoTit" style="display:none;font-size:12px;color:var(--text-2);margin:4px 0 6px">🧡 <b>Lives da Shopee</b></div>
@@ -312,56 +319,44 @@
     render(); // as caixinhas vazias do console somem (ou voltam)
   }
 
-  // mini-histórico do DIA (banco LIMPO via /vendas-historico): a vendedora vê o
-  // total DELA hoje; o ADM vê a renda de hoje de TODAS as vendedoras. Substitui as
-  // "vendas anotadas", que liam a memória suja do conector (/vendas).
-  function pegaHoje(){
-    var box=$('hojeBox'); if(!box) return;
-    if(modo!=='aovivo'){ box.style.display='none'; return; }
-    var meia=new Date(); meia.setHours(0,0,0,0);
-    fetch(apiBase()+'/vendas-historico?desde='+encodeURIComponent(meia.toISOString()),{cache:'no-store'})
-      .then(function(r){return r.json();}).then(function(d){
-        if(!d||!d.ok||!Array.isArray(d.vendas)){ box.style.display='none'; return; }
-        var por={}; d.vendas.forEach(function(v){ var s=v.sigla||'—'; if(!por[s])por[s]={n:0,t:0}; por[s].n+=((+v.qtd>=0&&v.qtd!=null)?+v.qtd:1); por[s].t+=(+v.valor||0); });
-        var sigs=Object.keys(por).sort(function(a,b){return por[b].t-por[a].t;});
-        var titulo=d.ehAdm?'📊 Hoje — renda por vendedora':'📊 Meu total de hoje';
-        var h='<div style="font-size:12px;color:var(--text-2);margin-bottom:4px">'+titulo+'</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
-        if(!sigs.length) h+='<div style="color:var(--text-2);font-size:13px">Sem vendas hoje ainda.</div>';
-        sigs.forEach(function(s){
-          var cor=(s==='LIVE 10K')?'#f59e0b':((d.cores&&d.cores[s]&&d.cores[s].cor)||'#6b7280');
-          var nome=(d.cores&&d.cores[s]&&d.cores[s].nome)||s;
-          h+='<div class="tile" style="border-color:'+cor+';min-width:135px"><small><span style="color:'+cor+'">●</span> '+nome+' ('+s+')</small><b>'+real(por[s].t)+'</b><div style="font-size:11px;color:var(--text-2);font-weight:600">'+por[s].n+' venda(s)</div></div>';
-        });
-        h+='</div>'; box.innerHTML=h; box.style.display='';
-      }).catch(function(){ box.style.display='none'; });
+  // 🛍️ ÚLTIMAS COMPRAS da live atual: os últimos compradores (nome · produto ·
+  // valor · quando). Vem do /vendas (robô automático + anotadas no Multichat).
+  // Metas de horas e renda por vendedora saíram daqui — agora só no Histórico.
+  function haQuanto(ts){
+    var s=Math.floor((Date.now()-(ts||0))/1000);
+    if(s<45) return 'agora';
+    var m=Math.floor(s/60); if(m<60) return m+' min';
+    var h=Math.floor(m/60); if(h<24) return h+'h';
+    return Math.floor(h/24)+'d';
   }
-  pegaHoje();
-  setInterval(pegaHoje, 15*1000);
-
-  // metas de HORAS de live por vendedora (hoje). Vermelho = falta; verde = concluiu.
-  function pegaMetasHoras(){
-    var box=$('metasBox'); if(!box) return;
+  function pegaCompras(){
+    var box=$('comprasBox'); if(!box) return;
     if(modo!=='aovivo'){ box.style.display='none'; return; }
-    fetch(apiBase()+'/horas-vendedoras',{cache:'no-store'})
-      .then(function(r){return r.json();}).then(function(d){
-        if(!d||!d.ok||!Array.isArray(d.vendedoras)||!d.vendedoras.length){ box.style.display='none'; return; }
-        var metaMin=d.metaMin||240;
-        function fmt(m){ m=Math.max(0,Math.round(m)); return Math.floor(m/60)+'h'+('0'+(m%60)).slice(-2); }
-        var h='<div style="font-size:12px;color:var(--text-2);margin-bottom:4px">⏱️ Metas de horas — hoje (meta '+fmt(metaMin)+')</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
-        d.vendedoras.forEach(function(v){
-          var falta=metaMin-(+v.minutos||0), ok=falta<=0, cor=v.cor||'#6b7280';
-          var msg=ok?('Meta concluída! Horas realizadas: '+fmt(v.minutos)):('Falta '+fmt(falta)+' para bater a sua meta diária!');
-          h+='<div class="tile" style="border-color:'+cor+';min-width:200px">'+
-               '<small><span style="color:'+cor+'">●</span> '+(v.nome||v.sigla)+' ('+v.sigla+')</small>'+
-               '<b style="font-size:15px">'+fmt(v.minutos)+' <span style="font-size:11px;color:var(--text-3);font-weight:600">de '+fmt(metaMin)+'</span></b>'+
-               '<div style="font-size:11.5px;font-weight:800;color:'+(ok?'#22c55e':'#ef4444')+'">'+msg+'</div>'+
-             '</div>';
-        });
-        h+='</div>'; box.innerHTML=h; box.style.display='';
-      }).catch(function(){ box.style.display='none'; });
+    fetch(apiBase()+'/vendas',{cache:'no-store'}).then(function(r){return r.json();}).then(function(arr){
+      if(!Array.isArray(arr)){ box.style.display='none'; return; }
+      var lim=Date.now()-6*3600000; // últimas 6h ~ a live de agora (não histórico)
+      var v=arr.filter(function(x){
+        if(!x||!x.ts||x.ts<lim) return false;
+        if(lojaSel && lojaSel!=='(todas)' && x.loja && String(x.loja).toLowerCase()!==String(lojaSel).toLowerCase()) return false;
+        return true;
+      }).sort(function(a,b){ return b.ts-a.ts; }).slice(0,5);
+      if(!v.length){ box.style.display='none'; return; } // sem compras: não ocupa espaço
+      function esc(t){ return String(t==null?'':t).replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;';}); }
+      var h='<div style="font-size:12px;color:var(--text-2);margin:2px 0 5px">🛍️ Últimas compras</div><div class="uc">';
+      v.forEach(function(x){
+        var ico=(x.plataforma==='shopee')?'🧡':'♪';
+        var val=(+x.valor>0)?('R$ '+(+x.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})):'';
+        h+='<div class="uc-row"><span class="pico">'+ico+'</span>'+
+             '<b>'+esc(x.quem||'Comprador')+'</b>'+
+             '<span class="uc-p">'+esc(x.produto||'')+'</span>'+
+             (val?'<span class="uc-v">'+val+'</span>':'')+
+             '<small>'+haQuanto(x.ts)+'</small></div>';
+      });
+      h+='</div>'; box.innerHTML=h; box.style.display='';
+    }).catch(function(){ box.style.display='none'; });
   }
-  pegaMetasHoras();
-  setInterval(pegaMetasHoras, 15*1000);
+  pegaCompras();
+  setInterval(pegaCompras, 5*1000);
 
   // registro das lives da Shopee (chat + vendas), guardado pelo conector no seu PC
   function pegaShopee(){
