@@ -115,7 +115,6 @@
     <div id="fixLista" style="margin-top:8px"></div>
     <div id="fixAdd" style="margin-top:10px;display:none">
       <button class="btn mini" id="btnFixAdd" style="background:var(--ok);color:#04120a">🛍️ Escolher produtos</button>
-      <button class="btn ghost mini" id="btnFixManual">✍️ Digitar à mão</button>
     </div>
   </div>
 
@@ -738,7 +737,7 @@
     var grupos=agrupaFixas(descontos);
     if(!grupos.length){
       el.innerHTML='<div class="vazio">'+(podeEditarFix()
-        ? 'Nenhuma oferta fixa ainda. Toque em <b>+ Adicionar produto</b> — o desconto que você puser fica salvo até mudar.'
+        ? 'Nenhuma oferta ainda. Toque em <b>🛍️ Escolher produtos</b> e ponha a Promo do conjunto — fica salva até você mudar.'
         : (liveAoVivo ? 'Nenhuma oferta fixa nesta live.' : 'Sem ofertas fixas ainda. O ADM define os descontos aqui.'))+'</div>';
       return;
     }

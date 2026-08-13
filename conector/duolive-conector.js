@@ -1024,7 +1024,7 @@ const server = http.createServer((req, res) => {
     fs.readFile(path.join(__dirname, '..', ESTATICOS[caminho]), (err, corpo) => {
       if (err) { res.statusCode = 404; res.end('arquivo nao encontrado'); return; }
       res.setHeader('content-type', caminho.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache'); // pega sempre a versao nova apos um deploy
+      res.setHeader('Cache-Control', 'no-store, must-revalidate'); // NUNCA cacheia (nem iframe) — a versao nova entra sempre
       res.end(corpo);
     });
     return;
@@ -1034,7 +1034,7 @@ const server = http.createServer((req, res) => {
   fs.readFile(arq, (err, html) => {
     if (err) { res.statusCode = 500; res.end('multichat.html nao encontrado ao lado da pasta conector/'); return; }
     res.setHeader('content-type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache'); // pega sempre a versao nova apos um deploy
+    res.setHeader('Cache-Control', 'no-store, must-revalidate'); // NUNCA cacheia (nem iframe) — a versao nova entra sempre
     res.end(html);
   });
 });
