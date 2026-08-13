@@ -50,7 +50,7 @@
   #menuLojas .add:hover{color:var(--text)}
   /* o template do desenho: esquerda = Analytics em cima + Ofertas embaixo; direita = Multichat inteiro */
   .grade{display:grid;flex:1;min-height:0;gap:0;padding:6px;grid-template-columns:minmax(300px,var(--esq,46%)) 10px 1fr}
-  .esq{display:grid;gap:6px;grid-template-rows:1fr;min-width:0}  /* Ofertas removido temporariamente: Analytics ocupa a coluna toda. Restaurar: voltar para "46% 1fr" */
+  .esq{display:grid;gap:6px;grid-template-rows:46% 1fr;min-width:0}  /* Analytics em cima, Ofertas embaixo */
   /* a barrinha do meio: segure e arraste para aumentar/diminuir o Multichat
      (2 cliques rápidos voltam ao tamanho padrão) */
   #divisor{cursor:col-resize;display:flex;align-items:center;justify-content:center;border-radius:6px;touch-action:none}
@@ -96,9 +96,7 @@
   <div class="grade">
     <div class="esq">
       <div class="caixa"><span class="rotulo">Analytics</span><iframe src="analytics.html" title="Analytics"></iframe></div>
-      <!-- Ofertas removido temporariamente (a pedido). Restaurar: tirar este comentario + voltar .esq grid-template-rows para "46% 1fr"
       <div class="caixa"><span class="rotulo">Ofertas</span><iframe src="sacolinha-controle.html" title="Ofertas"></iframe></div>
-      -->
     </div>
     <div id="divisor" title="Arraste para aumentar/diminuir o Multichat · 2 cliques: tamanho padrão"></div>
     <div class="caixa">

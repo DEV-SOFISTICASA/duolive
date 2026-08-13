@@ -67,6 +67,8 @@
   .salvoOk.on{opacity:1}
   .estBox{margin:7px 0 0 51px}
   .est{display:flex;align-items:center;gap:6px;padding:3px 0}
+  .est .sw{width:15px;height:15px;border-radius:5px;border:1px solid rgba(255,255,255,.28);flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+  .est .sw.semcor{background:conic-gradient(from 0deg,#f87171,#fbbf24,#4ade80,#38bdf8,#a78bfa,#f87171)}
   .est .en{flex:1;font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .exp{background:none;border:none;color:var(--azul);font-size:11px;cursor:pointer;padding:2px 3px}
   .pickWrap{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:18px 12px}
@@ -566,6 +568,21 @@
   function brlNum(s){ s=String(s==null?'':s).replace(/[^\d.,]/g,''); if(!s) return null; if(s.indexOf(',')>=0&&s.indexOf('.')>=0) s=s.replace(/\./g,''); s=s.replace(',','.'); var n=parseFloat(s); return isNaN(n)?null:n; }
   function pctOff(de,por){ de=+de; por=+por; if(de>0&&por>0&&por<de) return '−'+Math.round(100*(1-por/de))+'%'; return ''; }
   function slug(s){ return String(s).normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]','g'),'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40); }
+  // nome da cor -> hex (pra pintar o quadradinho da variação). Sem match = chip neutro.
+  var CORHEX={branco:'#f7f7f7','off white':'#f0ece1',marfim:'#f5f0e1',cru:'#efe7d3',bege:'#e6d3b3',areia:'#e0cda9',nude:'#e8c9b0',fendi:'#c9bfb0',
+    preto:'#1a1a1a',grafite:'#3a3a3a',chumbo:'#4a4a4a',cinza:'#9ca3af','cinza claro':'#cbd5e1','cinza escuro':'#4b5563',prata:'#c0c0c0',
+    caramelo:'#c68a4e',marrom:'#7c4a2d','marrom claro':'#a9744f',chocolate:'#5c3a24',choco:'#5c3a24',cafe:'#4b3621',telha:'#b5533a',terracota:'#c56a4a',ferrugem:'#b7410e',
+    rosa:'#f9a8d4','rosa claro':'#fbcfe8',rose:'#e8b4b8',pink:'#ec4899',salmao:'#fda4af',coral:'#fb7185',pessego:'#ffd7ba',
+    vermelho:'#dc2626',vinho:'#7f1d3a',bordo:'#6d213c',laranja:'#f97316',mostarda:'#d9a441',amarelo:'#facc15',dourado:'#c9a227',ouro:'#c9a227',
+    verde:'#22c55e','verde claro':'#86efac','verde escuro':'#166534','verde musgo':'#4d5d3a','verde oliva':'#6b7a3a','verde agua':'#8fd3c8',menta:'#a7f3d0',tiffany:'#7ad3c8',
+    azul:'#3b82f6','azul claro':'#93c5fd','azul escuro':'#1e3a8a','azul marinho':'#1e293b','azul royal':'#1d4ed8',marinho:'#1e293b',turquesa:'#14b8a6',celeste:'#7dd3fc',jeans:'#4a6fa5',
+    roxo:'#8b5cf6',lilas:'#c4b5fd',lavanda:'#c7bce8',violeta:'#7c3aed',uva:'#5b21b6'};
+  function corHex(nome){
+    var k=String(nome||'').normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]','g'),'').toLowerCase().trim();
+    if(CORHEX[k]) return CORHEX[k];
+    var p=k.split(new RegExp('[\\s-]'))[0]; return CORHEX[p]||null; // "Verde Bandeira" -> "verde"
+  }
+  function coresDe(p){ var c=(p&&(p.cores||p.variacoesNomes)); return Array.isArray(c)?c:[]; } // nomes das variações (cores) do produto
 
   // salva/atualiza uma linha (conjunto = sku vazio; estampa = sku preenchido)
   function salvaFix(o, aoOk){
@@ -628,7 +645,7 @@
     var lin=document.createElement('div'); lin.className='lin';
     if(c.valor_normal!=null){ var s=document.createElement('s'); s.textContent='R$ '+brl(c.valor_normal); lin.appendChild(s); }
     if(podeEditarFix()){
-      var lb=document.createElement('span'); lb.className='de'; lb.textContent='por R$'; lin.appendChild(lb);
+      var lb=document.createElement('span'); lb.className='de'; lb.textContent='Promo do conjunto R$'; lin.appendChild(lb);
       lin.appendChild(campoPreco(c.valor_desconto, function(v,ok){
         salvaFix({produto_id:gp.id, sku:null, nome:c.nome, imagem:c.imagem, valor_normal:c.valor_normal, valor_desconto:v}, function(){ c.valor_desconto=v; ok(); atualizaPct(lin,c.valor_normal,v); });
       }));
@@ -639,9 +656,9 @@
     cnt.appendChild(lin);
     var nEst=gp.estampas.length;
     if(nEst || podeEditarFix()){
-      var exp=document.createElement('button'); exp.className='exp'; exp.textContent='▸ estampas'+(nEst?(' ('+nEst+')'):'');
+      var exp=document.createElement('button'); exp.className='exp'; exp.textContent='▸ variações'+(nEst?(' ('+nEst+')'):'');
       var estBox=document.createElement('div'); estBox.className='estBox'; estBox.style.display='none';
-      exp.onclick=function(){ var ab=estBox.style.display==='none'; estBox.style.display=ab?'':'none'; exp.textContent=(ab?'▾':'▸')+' estampas'+(nEst?(' ('+nEst+')'):''); if(ab) montaEstampas(estBox,gp,c); };
+      exp.onclick=function(){ var ab=estBox.style.display==='none'; estBox.style.display=ab?'':'none'; exp.textContent=(ab?'▾':'▸')+' variações'+(nEst?(' ('+nEst+')'):''); if(ab) montaEstampas(estBox,gp,c); };
       cnt.appendChild(exp); cnt.appendChild(estBox);
     }
     d.appendChild(cnt);
@@ -656,6 +673,7 @@
     box.innerHTML='';
     gp.estampas.forEach(function(es){
       var row=document.createElement('div'); row.className='est';
+      var hx=corHex(es.variacao_nome); var sw=document.createElement('span'); sw.className='sw'+(hx?'':' semcor'); if(hx) sw.style.background=hx; sw.title=es.variacao_nome||''; row.appendChild(sw);
       var en=document.createElement('div'); en.className='en'; en.textContent=es.variacao_nome||es.sku; row.appendChild(en);
       if(podeEditarFix()){
         var lb=document.createElement('span'); lb.className='de'; lb.textContent='R$'; row.appendChild(lb);
@@ -671,9 +689,9 @@
       box.appendChild(row);
     });
     if(podeEditarFix()){
-      var add=document.createElement('button'); add.className='exp'; add.textContent='+ estampa';
+      var add=document.createElement('button'); add.className='exp'; add.textContent='+ variação (cor)';
       add.onclick=function(){
-        var nome=(prompt('Nome da estampa (ex.: Folhas, Dubai):','')||'').trim();
+        var nome=(prompt('Nome da variação/cor (ex.: Areia, Verde, Terracota):','')||'').trim();
         if(!nome) return;
         var sku=slug(nome); if(!sku) return;
         salvaFix({produto_id:gp.id, sku:sku, nome:conj.nome, imagem:conj.imagem, valor_normal:conj.valor_normal, variacao_nome:nome, valor_desconto:null}, function(){
@@ -721,7 +739,7 @@
         var it=document.createElement('div'); it.className='pickItem'+(sel[p.id]?' on':'');
         it.innerHTML='<div class="pkChk">'+(sel[p.id]?'✓':'')+'</div>'
           +'<img class="th" src="'+(p.imagem||'')+'" onerror="this.style.visibility=\'hidden\'">'
-          +'<div class="pn"><b></b><span>'+(p.preco?('R$ '+brl(p.preco)):'sem preço')+(p.variacoes>1?(' · '+p.variacoes+' variações'):'')+'</span></div>';
+          +'<div class="pn"><b></b><span>'+(p.preco?('R$ '+brl(p.preco)):'sem preço')+(coresDe(p).length?(' · '+coresDe(p).length+' cores'):(p.variacoes>1?(' · '+p.variacoes+' variações'):''))+'</span></div>';
         it.querySelector('b').textContent=p.nome;
         it.onclick=function(){
           if(sel[p.id]) delete sel[p.id]; else sel[p.id]=p;
@@ -738,7 +756,16 @@
       (function proximo(i){
         if(i>=lista.length){ wrap.remove(); carregaFixas(); return; }
         var p=lista[i];
-        salvaFix({produto_id:p.id, sku:null, nome:p.nome, imagem:p.imagem, valor_normal:p.preco||null, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){ proximo(i+1); });
+        salvaFix({produto_id:p.id, sku:null, nome:p.nome, imagem:p.imagem, valor_normal:p.preco||null, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){
+          // cada variação (cor) do produto entra como uma linha, com o preço em branco
+          // pro ADM preencher. Se o produto não trouxe cores, segue sem variações.
+          var cores=coresDe(p);
+          (function corN(j){
+            if(j>=cores.length){ proximo(i+1); return; }
+            var cn=String(cores[j]||'').trim(); if(!cn){ corN(j+1); return; }
+            salvaFix({produto_id:p.id, sku:slug(cn)||('c'+j), nome:p.nome, imagem:p.imagem, valor_normal:p.preco||null, variacao_nome:cn, valor_desconto:null, plataforma:p.plataforma||'tiktok'}).then(function(){ corN(j+1); });
+          })(0);
+        });
       })(0);
     };
     fetch(apiBase()+'/produtos'+(loja?('?loja='+encodeURIComponent(loja)):''),{cache:'no-store'})
