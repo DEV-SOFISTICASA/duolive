@@ -117,7 +117,7 @@ async function garanteAuthorId(conta) {
       const cb = d.creator_base || {};
       console.log('  ⚡' + conta.loja + ': DIAG creator_base = ' + JSON.stringify(cb).slice(0, 280));
       let cand = cb.creator_id || cb.author_id || cb.user_id || cb.id || cb.uid || cb.oec_uid || '';
-      if (!/^\d{8,}$/.test(String(cand))) cand = achaIdEm(cb) || achaIdEm(d); // fallback: acha o id longo no creator_base
+      if (!/^\d{8,}$/.test(String(cand))) cand = achaIdEm(cb); // SÓ dentro do creator_base (nunca id aleatório da resposta)
       if (cand && /^\d{8,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id via creator_base (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
       console.log('  ⚡' + conta.loja + ': creator_base = ' + JSON.stringify(cb).slice(0, 200));
     }
@@ -712,6 +712,16 @@ async function vigiarAtividade(conta) {
   conta.urlAtividade = null; conta.ultimaOk = 0; conta.ultimaCarga = 0; conta.recarregando = false; conta.falhas = 0; conta.jaLeu = false;
   // captura a URL exata da chamada de atividade (com os parâmetros certos)
   conta.page.on('response', (resp) => { if (/user_activity_history/i.test(resp.url())) conta.urlAtividade = resp.url(); });
+  // ⚡ tenta pegar o author_id (dono da live) do CORPO do feed de atividade
+  if (OFERTA_ON) conta.page.on('response', async (resp) => {
+    if (conta.authorId || !/user_activity_history/i.test(resp.url())) return;
+    try {
+      const j = await resp.json(); const dd = (j && j.data) || {};
+      const id = dd.anchor_id || dd.author_id || dd.owner_id || (dd.anchor && dd.anchor.id) || (dd.owner && dd.owner.id) || (dd.room && (dd.room.owner_user_id || dd.room.author_id));
+      if (id && /^\d{8,}$/.test(String(id))) { conta.authorId = String(id); console.log('  ⚡' + conta.loja + ': author_id do feed (' + id + ') ✓'); }
+      else if (!conta._feedDump) { conta._feedDump = true; console.log('  ⚡' + conta.loja + ': DIAG feed data-keys = ' + Object.keys(dd).join(',')); }
+    } catch (e) {}
+  });
   // ⚡ captura o author_id das próprias chamadas da página (necessário pro create da ⚡)
   if (OFERTA_ON) conta.page.on('request', (req) => {
     if (conta.authorId) return;
