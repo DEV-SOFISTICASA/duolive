@@ -89,16 +89,18 @@ const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
 // pelo NOME do produto. O robô pega o catálogo da loja AO VIVO e aplica os mesmos preços.
 async function rodaOferta(conta) {
   if (!OFERTA_ON || !conta || !conta.page || !conta.loja) return;
+  // "live no ar" = o PRÓPRIO robô de vendas achou e está lendo o feed desta loja.
+  // NÃO uso /ao-vivo do conector: ele reflete o robô de CHAT, que pode nem estar rodando.
+  if (!conta.urlAtividade || (Date.now() - (conta.ultimaOk || 0)) > 120000) return;
   let ligada = false; try { ligada = await OFERTA.autoLigada(CONECTOR, TOKEN, conta.loja); } catch (e) {}
   if (!ligada) return;                       // o ADM não ligou a automação desta loja
-  let vivo = false; try { vivo = await OFERTA.liveNoAr(CONECTOR, TOKEN, conta.loja); } catch (e) {}
-  if (!vivo) return;                         // a ⚡ só existe com a live no ar
   const agora = Date.now();
   if (!_ofCfg._master || agora - (_ofCfgTs._master || 0) > 120000) { // recarrega a lista mestre a cada ~2 min
     try { _ofCfg._master = await OFERTA.configDoPainel(CONECTOR, TOKEN, OFERTA_MASTER); _ofCfgTs._master = agora; } catch (e) {}
   }
   const ofertas = _ofCfg._master || [];
-  if (!ofertas.length || !conta.authorId) return; // sem lista mestre, ou author_id ainda não capturado
+  if (!ofertas.length) return;               // lista mestre vazia
+  if (!conta.authorId) { console.log('  ⚡' + conta.loja + ': automação ON e live no ar, mas ainda sem author_id — tento no próximo ciclo'); return; }
   try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
 }
 const INICIO = Date.now();
