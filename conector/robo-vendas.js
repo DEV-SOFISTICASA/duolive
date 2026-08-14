@@ -101,7 +101,18 @@ async function garanteAuthorId(conta) {
       }
     }
   } catch (e) {}
-  // (2) 2ª aba no painel de produtos, SEM bloquear recursos (igual ao robô que funciona)
+  // (2) usa o room_id do feed pra perguntar o dono da live numa chamada de flash sale (assinada)
+  try {
+    const rid = conta.urlAtividade && new URL(conta.urlAtividade).searchParams.get('room_id');
+    if (rid) {
+      const r = await OFERTA.api(conta.page, '/api/v1/live_promotion/flash_sale/product_list', 'POST', { promotion_type: 3, need_sku_info: false, room_id: rid, page_info: { page_no: 1, page_size: 5 }, promotion_product_condition: {} });
+      const d = (r && r.json && r.json.data) || {};
+      const cand = d.author_id || d.anchor_id || (d.author && d.author.id) || (d.anchor && d.anchor.id) || (d.room && (d.room.owner_user_id || d.room.author_id));
+      if (cand && /^\d{6,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id via room_id (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
+      console.log('  ⚡' + conta.loja + ': product_list(room) data-keys = ' + Object.keys(d).join(',') + ' | code=' + (r && r.json && r.json.code));
+    }
+  } catch (e) {}
+  // (3) 2ª aba no painel de produtos, SEM bloquear recursos (igual ao robô que funciona)
   let pg = null, aid = '';
   try {
     pg = await conta.page.context().newPage();
