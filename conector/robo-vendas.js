@@ -115,10 +115,13 @@ async function garanteAuthorId(conta) {
       const r = await OFERTA.api(conta.page, '/api/v1/live_promotion/flash_sale/product_list', 'POST', { promotion_type: 3, need_sku_info: false, room_id: rid, page_info: { page_no: 1, page_size: 5 }, promotion_product_condition: {} });
       const d = (r && r.json && r.json.data) || {};
       const cb = d.creator_base || {};
-      console.log('  ⚡' + conta.loja + ': DIAG creator_base = ' + JSON.stringify(cb).slice(0, 280));
+      const ppl = d.promotion_product_list || [];
+      console.log('  ⚡' + conta.loja + ': DIAG creator_base=' + JSON.stringify(cb).slice(0, 130) + ' · ⚡ativas=' + ppl.length + (ppl[0] ? ' · item0=' + JSON.stringify(ppl[0]).slice(0, 200) : ''));
       let cand = cb.creator_id || cb.author_id || cb.user_id || cb.id || cb.uid || cb.oec_uid || '';
-      if (!/^\d{8,}$/.test(String(cand))) cand = achaIdEm(cb); // SÓ dentro do creator_base (nunca id aleatório da resposta)
-      if (cand && /^\d{8,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id via creator_base (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
+      // se creator_base vazio mas há ⚡ ATIVA (a que você criou na mão), pega o dono dela
+      if (!/^\d{8,}$/.test(String(cand)) && ppl[0]) { const it = ppl[0]; cand = it.author_id || it.creator_id || it.anchor_id || (it.base && (it.base.author_id || it.base.creator_id)) || ''; }
+      if (!/^\d{8,}$/.test(String(cand))) cand = achaIdEm(cb); // por último, só dentro do creator_base (nunca id aleatório)
+      if (cand && /^\d{8,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
       console.log('  ⚡' + conta.loja + ': creator_base = ' + JSON.stringify(cb).slice(0, 200));
     }
   } catch (e) {}
