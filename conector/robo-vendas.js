@@ -66,11 +66,24 @@ const RITMO = Math.max(2, +(process.env.DUOLIVE_RITMO || 3)) * 1000;
 // se comporta EXATAMENTE como antes. Com DUOLIVE_OFERTA=1 roda em ENSAIO (só loga);
 // DUOLIVE_OFERTA_REAL=1 cria de verdade. A ⚡ só existe com a live no ar.
 const OFERTA = require('./oferta-relampago-core.js');
-const OFERTA_ON = process.env.DUOLIVE_OFERTA === '1';
-const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1';
+// LIGAR de dois jeitos (o que for mais fácil aí):
+//  (a) variável de ambiente DUOLIVE_OFERTA=1 (+ DUOLIVE_OFERTA_REAL=1 pra valer), OU
+//  (b) um arquivo conector/oferta.txt com UMA palavra na 1ª linha:
+//        ensaio  -> liga em ENSAIO (só loga, não cria)
+//        real    -> liga de VERDADE (cria a ⚡)
+//      2ª linha (opcional) = loja mestre das ofertas (padrão: mania)
+function leOfertaTxt() {
+  try {
+    const l = fs.readFileSync(path.join(__dirname, 'oferta.txt'), 'utf8').split('\n').map((x) => x.trim().toLowerCase()).filter((x) => x && !x.startsWith('#'));
+    return { modo: l[0] || '', master: l[1] || '' };
+  } catch (e) { return { modo: '', master: '' }; }
+}
+const _of = leOfertaTxt();
+const OFERTA_ON = process.env.DUOLIVE_OFERTA === '1' || _of.modo === 'ensaio' || _of.modo === 'real';
+const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1' || _of.modo === 'real';
 const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
-const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || 'mania').toLowerCase(); // lista mestre GLOBAL
+const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
 // ofertas GLOBAIS: a lista mestre (loja OFERTA_MASTER) vale pra TODAS as lojas, casada
 // pelo NOME do produto. O robô pega o catálogo da loja AO VIVO e aplica os mesmos preços.
