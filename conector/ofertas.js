@@ -41,6 +41,9 @@ async function salvar(o) {
 
 // tira uma oferta (o ADM removeu o produto/estampa da live)
 async function remover(o) {
+  // tudo:true = tira o produto INTEIRO (conjunto + TODAS as variações). Sem isso,
+  // remover só o conjunto deixava as variações órfãs (o ✕ não "apagava" o produto).
+  if (o.tudo) return SB.req('DELETE', 'ofertas?loja=eq.' + encodeURIComponent(o.loja) + '&produto_id=eq.' + encodeURIComponent(o.produto_id));
   return SB.req('DELETE', 'ofertas?' + filtroDe(o));
 }
 

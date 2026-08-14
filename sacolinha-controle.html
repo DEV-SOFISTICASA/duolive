@@ -597,7 +597,7 @@
   }
   function removeFix(o){
     return fetch(apiBase()+'/desconto-remover',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({loja:lojaEscolhida||'', produto_id:o.produto_id, sku:o.sku||null})}).then(function(r){return r.json();}).catch(function(){});
+      body:JSON.stringify({loja:lojaEscolhida||'', produto_id:o.produto_id, sku:o.sku||null, tudo:!!o.tudo})}).then(function(r){return r.json();}).catch(function(){});
   }
   function carregaFixas(){
     var loja=lojaEscolhida||'';
@@ -691,7 +691,7 @@
     d.appendChild(cnt);
     if(podeEditarFix()){
       var x=document.createElement('button'); x.className='x'; x.title='Tirar da oferta'; x.textContent='✕';
-      x.onclick=function(){ if(!confirm('Tirar "'+(c.nome||'este produto')+'" das ofertas fixas?')) return; removeFix({produto_id:gp.id,sku:null}).then(carregaFixas); };
+      x.onclick=function(){ if(!confirm('Tirar "'+(c.nome||'este produto')+'" das ofertas fixas?')) return; removeFix({produto_id:gp.id,sku:null,tudo:true}).then(carregaFixas); };
       d.appendChild(x);
     }
     return d;
@@ -738,7 +738,7 @@
     if(!grupos.length){
       el.innerHTML='<div class="vazio">'+(podeEditarFix()
         ? 'Nenhuma oferta ainda. Toque em <b>🛍️ Escolher produtos</b> e ponha a Promo do conjunto — fica salva até você mudar.'
-        : (liveAoVivo ? 'Nenhuma oferta fixa nesta live.' : 'Sem ofertas fixas ainda. O ADM define os descontos aqui.'))+'</div>';
+        : 'Não há ofertas disponíveis :( Peça para alguém com o acesso ao ADM')+'</div>';
       return;
     }
     grupos.forEach(function(gp){ el.appendChild(linhaConjunto(gp)); });
