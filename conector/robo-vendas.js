@@ -92,8 +92,18 @@ function achaIdEm(obj) {
   for (const k of Object.keys(obj)) { if (obj[k] && typeof obj[k] === 'object') { const r = achaIdEm(obj[k]); if (r) return r; } }
   return '';
 }
+// o author_id (dono da live) é FIXO por conta -> guarda num arquivo e reusa pra sempre.
+// Assim só precisa capturar UMA vez por loja (com uma ⚡ ativa); depois é automático.
+function arquivoAuthors() { return path.join(__dirname, 'author-ids.json'); }
+function authorSalvo(loja) {
+  try { const m = JSON.parse(fs.readFileSync(arquivoAuthors(), 'utf8')); const v = m[String(loja)]; return /^\d{8,}$/.test(String(v)) ? String(v) : ''; } catch (e) { return ''; }
+}
+function salvaAuthorId(loja, id) {
+  if (!/^\d{8,}$/.test(String(id))) return;
+  try { let m = {}; try { m = JSON.parse(fs.readFileSync(arquivoAuthors(), 'utf8')); } catch (e) {} if (m[String(loja)] === String(id)) return; m[String(loja)] = String(id); fs.writeFileSync(arquivoAuthors(), JSON.stringify(m, null, 1)); console.log('  ⚡' + loja + ': author_id SALVO (não precisa mais criar ⚡ na mão nesta loja)'); } catch (e) {}
+}
 // pega o author_id (dono da live). O feed só tem room_id; o dono vem de
-// flash_sale/product_list (campo creator_base). Tudo na sessão de vendas (sem conflito).
+// flash_sale/product_list (creator_base ou da ⚡ ativa). Tudo na sessão de vendas (sem conflito).
 async function garanteAuthorId(conta) {
   if (conta.authorId || conta._pegandoAuthor || !conta.page) return;
   conta._pegandoAuthor = true;
@@ -121,7 +131,7 @@ async function garanteAuthorId(conta) {
       // se creator_base vazio mas há ⚡ ATIVA (a que você criou na mão), pega o dono dela
       if (!/^\d{8,}$/.test(String(cand)) && ppl[0]) { const it = ppl[0]; cand = it.author_id || it.creator_id || it.anchor_id || (it.base && (it.base.author_id || it.base.creator_id)) || ''; }
       if (!/^\d{8,}$/.test(String(cand))) cand = achaIdEm(cb); // por último, só dentro do creator_base (nunca id aleatório)
-      if (cand && /^\d{8,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
+      if (cand && /^\d{8,}$/.test(String(cand))) { conta.authorId = String(cand); salvaAuthorId(conta.loja, cand); console.log('  ⚡' + conta.loja + ': author_id (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
       console.log('  ⚡' + conta.loja + ': creator_base = ' + JSON.stringify(cb).slice(0, 200));
     }
   } catch (e) {}
@@ -134,7 +144,7 @@ async function garanteAuthorId(conta) {
     await pg.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
     console.log('  ⚡' + conta.loja + ': 2ª aba em ' + String(pg.url()).replace(/\?.*/, '').slice(0, 55));
     for (let i = 0; i < 22 && !aid; i++) await pg.waitForTimeout(1000);
-    if (aid) { conta.authorId = aid; console.log('  ⚡' + conta.loja + ': author_id capturado (' + aid + ') ✓'); }
+    if (aid) { conta.authorId = aid; salvaAuthorId(conta.loja, aid); console.log('  ⚡' + conta.loja + ': author_id capturado (' + aid + ') ✓'); }
     else {
       console.log('  ⚡' + conta.loja + ': ainda sem author_id.');
       try { const u = new URL(conta.urlAtividade); console.log('  ⚡' + conta.loja + ': campos do feed = ' + Array.from(u.searchParams.keys()).join(',')); } catch (e) {}
@@ -158,7 +168,8 @@ async function rodaOferta(conta) {
   }
   const ofertas = _ofCfg._master || [];
   if (!ofertas.length) return;               // lista mestre vazia
-  if (!conta.authorId) { garanteAuthorId(conta); return; }
+  if (!conta.authorId) { const s = authorSalvo(conta.loja); if (s) { conta.authorId = s; console.log('  ⚡' + conta.loja + ': author_id lembrado de antes (' + s + ') ✓'); } }
+  if (!conta.authorId) { garanteAuthorId(conta); return; } // ainda não tem: captura (precisa de ⚡ ativa 1x)
   try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
 }
 const INICIO = Date.now();
@@ -721,7 +732,7 @@ async function vigiarAtividade(conta) {
     try {
       const j = await resp.json(); const dd = (j && j.data) || {};
       const id = dd.anchor_id || dd.author_id || dd.owner_id || (dd.anchor && dd.anchor.id) || (dd.owner && dd.owner.id) || (dd.room && (dd.room.owner_user_id || dd.room.author_id));
-      if (id && /^\d{8,}$/.test(String(id))) { conta.authorId = String(id); console.log('  ⚡' + conta.loja + ': author_id do feed (' + id + ') ✓'); }
+      if (id && /^\d{8,}$/.test(String(id))) { conta.authorId = String(id); salvaAuthorId(conta.loja, id); console.log('  ⚡' + conta.loja + ': author_id do feed (' + id + ') ✓'); }
       else if (!conta._feedDump) { conta._feedDump = true; console.log('  ⚡' + conta.loja + ': DIAG feed data-keys = ' + Object.keys(dd).join(',')); }
     } catch (e) {}
   });
