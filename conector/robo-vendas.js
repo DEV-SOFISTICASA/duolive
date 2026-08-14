@@ -90,19 +90,32 @@ const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
 async function garanteAuthorId(conta) {
   if (conta.authorId || conta._pegandoAuthor || !conta.page) return;
   conta._pegandoAuthor = true;
-  console.log('  ⚡' + conta.loja + ': pegando o author_id (2ª aba, mesma sessão)…');
+  console.log('  ⚡' + conta.loja + ': pegando o author_id…');
+  // (1) direto da URL do feed de atividade que o robô de vendas já capturou
+  try {
+    if (conta.urlAtividade) {
+      const u = new URL(conta.urlAtividade);
+      for (const k of ['author_id', 'anchor_id', 'owner_id', 'host_id', 'sec_author_id', 'to_user_id']) {
+        const v = u.searchParams.get(k);
+        if (v && /^\d{6,}$/.test(v)) { conta.authorId = v; console.log('  ⚡' + conta.loja + ': author_id do feed (' + v + ') via ' + k + ' ✓'); conta._pegandoAuthor = false; return; }
+      }
+    }
+  } catch (e) {}
+  // (2) 2ª aba no painel de produtos, SEM bloquear recursos (igual ao robô que funciona)
   let pg = null, aid = '';
   try {
     pg = await conta.page.context().newPage();
-    pg.on('request', (req) => {
-      if (aid) return;
-      try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') aid = String(m.author_id); } } catch (e) {}
-    });
+    await pg.route('**/*', (r) => r.continue()); // ignora o bloqueio de imagens do contexto de vendas
+    pg.on('request', (req) => { if (aid) return; try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') aid = String(m.author_id); } } catch (e) {} });
     await pg.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
-    for (let i = 0; i < 22 && !aid; i++) await pg.waitForTimeout(1000); // espera ATÉ ~22s DEPOIS de carregar
+    console.log('  ⚡' + conta.loja + ': 2ª aba em ' + String(pg.url()).replace(/\?.*/, '').slice(0, 55));
+    for (let i = 0; i < 22 && !aid; i++) await pg.waitForTimeout(1000);
     if (aid) { conta.authorId = aid; console.log('  ⚡' + conta.loja + ': author_id capturado (' + aid + ') ✓'); }
-    else console.log('  ⚡' + conta.loja + ': a 2ª aba não fez a chamada com author_id em 22s — tento de novo no próximo ciclo');
-  } catch (e) { console.log('  ⚡' + conta.loja + ': erro ao pegar author_id — ' + String(e.message).slice(0, 50)); }
+    else {
+      console.log('  ⚡' + conta.loja + ': ainda sem author_id.');
+      try { const u = new URL(conta.urlAtividade); console.log('  ⚡' + conta.loja + ': campos do feed = ' + Array.from(u.searchParams.keys()).join(',')); } catch (e) {}
+    }
+  } catch (e) { console.log('  ⚡' + conta.loja + ': erro author_id — ' + String(e.message).slice(0, 50)); }
   finally { if (pg) { try { await pg.close(); } catch (e) {} } conta._pegandoAuthor = false; }
 }
 // ofertas GLOBAIS: a lista mestre (loja OFERTA_MASTER) vale pra TODAS as lojas, casada
