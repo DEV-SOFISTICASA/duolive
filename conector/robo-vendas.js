@@ -145,8 +145,9 @@ async function rodaOferta(conta) {
   // "live no ar" = o PRÓPRIO robô de vendas achou e está lendo o feed desta loja.
   // NÃO uso /ao-vivo do conector: ele reflete o robô de CHAT, que pode nem estar rodando.
   if (!conta.urlAtividade || (Date.now() - (conta.ultimaOk || 0)) > 120000) return;
-  let ligada = false; try { ligada = await OFERTA.autoLigada(CONECTOR, TOKEN, conta.loja); } catch (e) {}
-  if (!ligada) return;                       // o ADM não ligou a automação desta loja
+  // No REAL só cria na loja com a automação LIGADA no painel. No ENSAIO roda em TODAS
+  // as lojas ao vivo (pra você comparar o casamento de todas de uma vez, sem ligar cada).
+  if (OFERTA_REAL) { let ligada = false; try { ligada = await OFERTA.autoLigada(CONECTOR, TOKEN, conta.loja); } catch (e) {} if (!ligada) return; }
   const agora = Date.now();
   if (!_ofCfg._master || agora - (_ofCfgTs._master || 0) > 120000) { // recarrega a lista mestre a cada ~2 min
     try { _ofCfg._master = await OFERTA.configDoPainel(CONECTOR, TOKEN, OFERTA_MASTER); _ofCfgTs._master = agora; } catch (e) {}
