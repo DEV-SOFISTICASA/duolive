@@ -60,6 +60,31 @@ const CONECTOR = enderecoConector().replace(/\/+$/, '');
 const TOKEN = tokenConector();
 const ARQ_DESCOBERTA = path.join(__dirname, 'descoberta-vendas.json');
 const RITMO = Math.max(2, +(process.env.DUOLIVE_RITMO || 3)) * 1000;
+
+// ⚡ Oferta Relâmpago criada pelo PRÓPRIO robô de vendas (mesma sessão do console —
+// sem abrir 2ª aba, sem conflito). DESLIGADA por padrão: sem DUOLIVE_OFERTA=1 o robô
+// se comporta EXATAMENTE como antes. Com DUOLIVE_OFERTA=1 roda em ENSAIO (só loga);
+// DUOLIVE_OFERTA_REAL=1 cria de verdade. A ⚡ só existe com a live no ar.
+const OFERTA = require('./oferta-relampago-core.js');
+const OFERTA_ON = process.env.DUOLIVE_OFERTA === '1';
+const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1';
+const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);
+const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
+const _ofCfg = {}, _ofCfgTs = {}; // cache dos preços por loja
+async function rodaOferta(conta) {
+  if (!OFERTA_ON || !conta || !conta.page || !conta.loja) return;
+  let ligada = false; try { ligada = await OFERTA.autoLigada(CONECTOR, TOKEN, conta.loja); } catch (e) {}
+  if (!ligada) return;                       // o ADM não ligou a automação desta loja
+  let vivo = false; try { vivo = await OFERTA.liveNoAr(CONECTOR, TOKEN, conta.loja); } catch (e) {}
+  if (!vivo) return;                         // a ⚡ só existe com a live no ar
+  const agora = Date.now(), loja = conta.loja;
+  if (!_ofCfg[loja] || agora - (_ofCfgTs[loja] || 0) > 120000) { // recarrega os preços a cada ~2 min
+    try { _ofCfg[loja] = await OFERTA.configDoPainel(CONECTOR, TOKEN, loja); _ofCfgTs[loja] = agora; } catch (e) {}
+  }
+  const produtos = _ofCfg[loja] || [];
+  if (!produtos.length || !conta.authorId) return; // sem preço cadastrado, ou author_id ainda não capturado
+  try { await OFERTA.reporOfertas(conta.page, conta.authorId, produtos, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
+}
 const INICIO = Date.now();
 // conta pedidos feitos até 20 min antes de ligar (ou de se recuperar de uma
 // falha). Janela generosa DE PROPÓSITO: se o robô ficar um tempo sem ler, ao
@@ -614,6 +639,11 @@ async function vigiarAtividade(conta) {
   conta.urlAtividade = null; conta.ultimaOk = 0; conta.ultimaCarga = 0; conta.recarregando = false; conta.falhas = 0; conta.jaLeu = false;
   // captura a URL exata da chamada de atividade (com os parâmetros certos)
   conta.page.on('response', (resp) => { if (/user_activity_history/i.test(resp.url())) conta.urlAtividade = resp.url(); });
+  // ⚡ captura o author_id das próprias chamadas da página (necessário pro create da ⚡)
+  if (OFERTA_ON) conta.page.on('request', (req) => {
+    if (conta.authorId) return;
+    try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') conta.authorId = String(m.author_id); } } catch (e) {}
+  });
   console.log('  ' + nome(conta) + ': vigiando as vendas da LIVE (feed de atividade)...');
   await abrirLive(conta);
   conta.relogios = [
@@ -626,6 +656,8 @@ async function vigiarAtividade(conta) {
       else if (agora - conta.ultimaCarga > 5 * 60000) abrirLive(conta).catch(() => {});
     }, 5000),
   ];
+  // ⚡ cria/renova as ofertas relâmpago desta loja NA MESMA sessão (só com DUOLIVE_OFERTA=1)
+  if (OFERTA_ON) conta.relogios.push(setInterval(() => { rodaOferta(conta).catch(() => {}); }, OFERTA_CHECK * 1000));
 }
 
 // ---------- sessoes SEMPRE FRESCAS (cura do "some venda depois de horas") ----------
@@ -694,6 +726,7 @@ async function principal() {
   else console.log('  🏪 Vigiando TODAS as lojas com login AO MESMO TEMPO: ' + (vigiadas.join(', ') || '(nenhuma — faca os logins)') + '.');
   console.log('  Cada venda aparece SO na loja onde aconteceu.');
   console.log('  Mandando as vendas para: ' + CONECTOR + '\n');
+  if (OFERTA_ON) console.log('  ⚡ Oferta Relâmpago pelo robô de vendas: LIGADA · ' + (OFERTA_REAL ? 'MODO REAL (cria de verdade)' : 'ENSAIO (só loga, não cria)') + ' · confere a cada ' + OFERTA_CHECK + 's.\n');
 
   const browser = await abreNavegador(true);
 
