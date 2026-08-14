@@ -73,6 +73,49 @@ async function reporOfertas(page, authorId, produtos, opts) {
   return pendentes.length;
 }
 
+// ---------- ofertas GLOBAIS: casa os produtos da loja AO VIVO pelo NOME ----------
+// catálogo da loja logada nesta página (nome -> produto_id), via shop_product/search
+async function catalogoDaLoja(page) {
+  const out = [];
+  for (let pg = 1; pg <= 4; pg++) {
+    const r = await api(page, '/api/v1/streamer_desktop/shop_product/search?page_number=' + pg + '&page_size=50&use_streamer_products=false&is_not_for_sale_status=1', 'GET', null);
+    const arr = (r.json && r.json.data && (r.json.data.streamer_products || r.json.data.products)) || [];
+    arr.forEach((p) => out.push({ id: String(p.product_id), nome: String(p.title || '') }));
+    if (arr.length < 50) break;
+  }
+  return out;
+}
+// tira "miolo" do nome pra casar mesmo com pequenas diferenças (3P, acento, etc.)
+function chaveNome(nome) { return slug(nome).replace(/-\d+p\b/g, '').replace(/^-|-$/g, ''); }
+// acha o produto_id DESTA loja para o nome da oferta (exato -> começa-com -> contém)
+function acheId(porNome, nome) {
+  const k = slug(nome); if (porNome[k]) return porNome[k];
+  const alvo = chaveNome(nome); const chaves = Object.keys(porNome);
+  let hit = chaves.find((c) => chaveNome(c) === alvo);
+  if (!hit) hit = chaves.find((c) => c.startsWith(k) || k.startsWith(c));
+  if (!hit) hit = chaves.find((c) => chaveNome(c).includes(alvo) || alvo.includes(chaveNome(c)));
+  return hit ? porNome[hit] : null;
+}
+// cria/renova a ⚡ na loja AO VIVO desta página, casando as ofertas (lista mestre) pelo NOME
+async function reporOfertasGlobal(page, authorId, ofertas, opts) {
+  opts = opts || {}; const diz = opts.log || (() => {});
+  let cat = []; try { cat = await catalogoDaLoja(page); } catch (e) {}
+  if (!cat.length) { diz('  ⚠️  ' + (opts.tag || '') + 'não li o catálogo da loja (a live está no ar?)'); return 0; }
+  const porNome = {}; cat.forEach((p) => { if (p.nome) porNome[slug(p.nome)] = p.id; });
+  let ativos = [];
+  try { ativos = (await listarAtivas(page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
+  let criadas = 0;
+  for (const of of (ofertas || [])) {
+    const id = acheId(porNome, of.nome);
+    if (!id) { diz('  ·  ' + (opts.tag || '') + '"' + String(of.nome).slice(0, 30) + '" não existe nesta loja — pulei'); continue; }
+    if (ativos.includes(String(id))) continue; // já tem ⚡ ativa
+    await criar(page, authorId, { produto_id: id, nome: of.nome, conjunto: of.conjunto, excecoes: of.excecoes }, opts);
+    criadas++;
+    if (opts.stagger) await new Promise((r) => setTimeout(r, opts.stagger));
+  }
+  return criadas;
+}
+
 // ---------- conector (HTTP): preços cadastrados + interruptor + trava de live ----------
 function pega(u, token) {
   return new Promise((ok) => {
@@ -108,4 +151,4 @@ async function liveNoAr(conector, token, loja) {
   return !!(r && r.aoVivo);
 }
 
-module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, configDoPainel, autoLigada, liveNoAr, slug, brl };
+module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, reporOfertasGlobal, catalogoDaLoja, acheId, configDoPainel, autoLigada, liveNoAr, slug, brl };

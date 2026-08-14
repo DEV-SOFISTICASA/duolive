@@ -70,20 +70,23 @@ const OFERTA_ON = process.env.DUOLIVE_OFERTA === '1';
 const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1';
 const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
-const _ofCfg = {}, _ofCfgTs = {}; // cache dos preços por loja
+const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || 'mania').toLowerCase(); // lista mestre GLOBAL
+const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
+// ofertas GLOBAIS: a lista mestre (loja OFERTA_MASTER) vale pra TODAS as lojas, casada
+// pelo NOME do produto. O robô pega o catálogo da loja AO VIVO e aplica os mesmos preços.
 async function rodaOferta(conta) {
   if (!OFERTA_ON || !conta || !conta.page || !conta.loja) return;
   let ligada = false; try { ligada = await OFERTA.autoLigada(CONECTOR, TOKEN, conta.loja); } catch (e) {}
   if (!ligada) return;                       // o ADM não ligou a automação desta loja
   let vivo = false; try { vivo = await OFERTA.liveNoAr(CONECTOR, TOKEN, conta.loja); } catch (e) {}
   if (!vivo) return;                         // a ⚡ só existe com a live no ar
-  const agora = Date.now(), loja = conta.loja;
-  if (!_ofCfg[loja] || agora - (_ofCfgTs[loja] || 0) > 120000) { // recarrega os preços a cada ~2 min
-    try { _ofCfg[loja] = await OFERTA.configDoPainel(CONECTOR, TOKEN, loja); _ofCfgTs[loja] = agora; } catch (e) {}
+  const agora = Date.now();
+  if (!_ofCfg._master || agora - (_ofCfgTs._master || 0) > 120000) { // recarrega a lista mestre a cada ~2 min
+    try { _ofCfg._master = await OFERTA.configDoPainel(CONECTOR, TOKEN, OFERTA_MASTER); _ofCfgTs._master = agora; } catch (e) {}
   }
-  const produtos = _ofCfg[loja] || [];
-  if (!produtos.length || !conta.authorId) return; // sem preço cadastrado, ou author_id ainda não capturado
-  try { await OFERTA.reporOfertas(conta.page, conta.authorId, produtos, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
+  const ofertas = _ofCfg._master || [];
+  if (!ofertas.length || !conta.authorId) return; // sem lista mestre, ou author_id ainda não capturado
+  try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
 }
 const INICIO = Date.now();
 // conta pedidos feitos até 20 min antes de ligar (ou de se recuperar de uma
@@ -726,7 +729,7 @@ async function principal() {
   else console.log('  🏪 Vigiando TODAS as lojas com login AO MESMO TEMPO: ' + (vigiadas.join(', ') || '(nenhuma — faca os logins)') + '.');
   console.log('  Cada venda aparece SO na loja onde aconteceu.');
   console.log('  Mandando as vendas para: ' + CONECTOR + '\n');
-  if (OFERTA_ON) console.log('  ⚡ Oferta Relâmpago pelo robô de vendas: LIGADA · ' + (OFERTA_REAL ? 'MODO REAL (cria de verdade)' : 'ENSAIO (só loga, não cria)') + ' · confere a cada ' + OFERTA_CHECK + 's.\n');
+  if (OFERTA_ON) console.log('  ⚡ Oferta Relâmpago pelo robô de vendas: LIGADA · GLOBAL (lista mestre = "' + OFERTA_MASTER + '", casa por nome em todas as lojas) · ' + (OFERTA_REAL ? 'MODO REAL (cria de verdade)' : 'ENSAIO (só loga, não cria)') + ' · confere a cada ' + OFERTA_CHECK + 's.\n');
 
   const browser = await abreNavegador(true);
 
