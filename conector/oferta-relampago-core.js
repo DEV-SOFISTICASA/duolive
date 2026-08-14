@@ -52,7 +52,7 @@ async function criar(page, authorId, prod, opts) {
   if (!opts.real) { diz('  🧪 ' + tag + (prod.nome || prod.produto_id) + ' → ' + m.rel.length + ' variações (' + precos.join(' / ') + ') — ENSAIO, não enviei'); return { ensaio: true }; }
   const r = await api(page, '/api/v1/live_promotion/flash_sale/create', 'POST', m.corpo);
   if (r.json && r.json.code === 0) { const pid = r.json.data && r.json.data.product_to_promotion_id_map && r.json.data.product_to_promotion_id_map[prod.produto_id]; diz('  ⚡ ' + tag + (prod.nome || prod.produto_id) + ' → CRIADA (' + pid + ')'); return { promotion_id: pid }; }
-  diz('  ❌ ' + tag + (prod.nome || prod.produto_id) + ': falhou — ' + (r.json ? r.json.message : (r.erro || r.texto)));
+  diz('  ❌ ' + tag + (prod.nome || prod.produto_id) + ': falhou — code=' + (r.json && r.json.code) + ' msg="' + (r.json ? r.json.message : (r.erro || '')) + '" resp=' + String(r.texto || '').slice(0, 160));
   return null;
 }
 async function listarAtivas(page) {

@@ -115,6 +115,7 @@ async function garanteAuthorId(conta) {
       const r = await OFERTA.api(conta.page, '/api/v1/live_promotion/flash_sale/product_list', 'POST', { promotion_type: 3, need_sku_info: false, room_id: rid, page_info: { page_no: 1, page_size: 5 }, promotion_product_condition: {} });
       const d = (r && r.json && r.json.data) || {};
       const cb = d.creator_base || {};
+      console.log('  ⚡' + conta.loja + ': DIAG creator_base = ' + JSON.stringify(cb).slice(0, 280));
       let cand = cb.creator_id || cb.author_id || cb.user_id || cb.id || cb.uid || cb.oec_uid || '';
       if (!/^\d{8,}$/.test(String(cand))) cand = achaIdEm(cb) || achaIdEm(d); // fallback: acha o id longo no creator_base
       if (cand && /^\d{8,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id via creator_base (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
