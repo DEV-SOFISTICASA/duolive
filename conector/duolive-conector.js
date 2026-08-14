@@ -902,7 +902,9 @@ const server = http.createServer((req, res) => {
     const qs = new URLSearchParams((req.url.split('?')[1] || ''));
     const loja = qs.get('loja') || '';
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ loja: loja, ligado: !!ofertaAuto[loja] }));
+    // automação LIGADA por padrão: só fica desligada se o ADM desligar de propósito.
+    // Assim, mesmo depois de um deploy (que zera a memória), todas já vêm ativas.
+    res.end(JSON.stringify({ loja: loja, ligado: ofertaAuto[loja] !== false }));
     return;
   }
 
