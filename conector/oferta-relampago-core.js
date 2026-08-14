@@ -85,16 +85,26 @@ async function catalogoDaLoja(page) {
   }
   return out;
 }
-// tira "miolo" do nome pra casar mesmo com pequenas diferenças (3P, acento, etc.)
-function chaveNome(nome) { return slug(nome).replace(/-\d+p\b/g, '').replace(/^-|-$/g, ''); }
-// acha o produto_id DESTA loja para o nome da oferta (exato -> começa-com -> contém)
+// NÚCLEO do nome: primeiras N palavras significativas (tira "de/com/para" e palavras de 1 letra).
+// Assim "Kit Cozinha Desenhos 3P – Tear Boho, Tapete…" e "Kit Cozinha Desenhos 3P Bohochic…"
+// casam pelo começo, mesmo com descrições diferentes no fim.
+var STOP = { de: 1, da: 1, do: 1, das: 1, dos: 1, para: 1, pra: 1, com: 1, e: 1, o: 1, a: 1, em: 1, no: 1, na: 1 };
+function nucleoNome(nome, n) {
+  return slug(nome).split('-').filter(function (w) { return w && w.length > 1 && !STOP[w]; }).slice(0, n).join('-');
+}
+// acha o produto_id DESTA loja para o nome da oferta: prefixo direto, senão núcleo (4 depois 3 palavras)
 function acheId(porNome, nome) {
-  const k = slug(nome); if (porNome[k]) return porNome[k];
-  const alvo = chaveNome(nome); const chaves = Object.keys(porNome);
-  let hit = chaves.find((c) => chaveNome(c) === alvo);
-  if (!hit) hit = chaves.find((c) => c.startsWith(k) || k.startsWith(c));
-  if (!hit) hit = chaves.find((c) => chaveNome(c).includes(alvo) || alvo.includes(chaveNome(c)));
-  return hit ? porNome[hit] : null;
+  var k = slug(nome); if (porNome[k]) return porNome[k];
+  var chaves = Object.keys(porNome);
+  var hit = chaves.find(function (c) { return c.startsWith(k) || k.startsWith(c); });
+  if (hit) return porNome[hit];
+  for (var _i = 0, ns = [4, 3]; _i < ns.length; _i++) {
+    var alvo = nucleoNome(nome, ns[_i]);
+    if (alvo.split('-').length < 3) continue; // núcleo curto demais = arriscado (evita falso positivo)
+    hit = chaves.find(function (c) { var cn = nucleoNome(c, ns[_i]); return cn === alvo || cn.startsWith(alvo) || alvo.startsWith(cn); });
+    if (hit) return porNome[hit];
+  }
+  return null;
 }
 // cria/renova a ⚡ na loja AO VIVO desta página, casando as ofertas (lista mestre) pelo NOME
 async function reporOfertasGlobal(page, authorId, ofertas, opts) {
@@ -102,6 +112,7 @@ async function reporOfertasGlobal(page, authorId, ofertas, opts) {
   let cat = []; try { cat = await catalogoDaLoja(page); } catch (e) {}
   if (!cat.length) { diz('  ⚠️  ' + (opts.tag || '') + 'não li o catálogo da loja (a live está no ar?)'); return 0; }
   const porNome = {}; cat.forEach((p) => { if (p.nome) porNome[slug(p.nome)] = p.id; });
+  diz('  ⚡' + (opts.tag || '') + 'catálogo da loja: ' + cat.length + ' produtos (ex.: "' + String((cat[0] && cat[0].nome) || '').slice(0, 34) + '")');
   let ativos = [];
   try { ativos = (await listarAtivas(page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
   let criadas = 0;
