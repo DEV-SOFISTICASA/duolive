@@ -109,7 +109,7 @@
        salvos até o ADM mudar. As vendedoras só enxergam; quem edita é o ADM. -->
   <div class="card" id="fixCard" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <b style="font-size:12.5px">💾 Ofertas fixas <span style="color:var(--text-3);font-weight:400">— ficam salvas até mudar</span></b>
+      <b style="font-size:12.5px">💾 Ofertas da live <span style="color:var(--text-3);font-weight:400">— 🌐 valem para TODAS as lojas</span></b>
       <span id="fixQuem" style="font-size:10.5px;color:var(--text-3)"></span>
     </div>
     <div id="fixLista" style="margin-top:8px"></div>
@@ -588,19 +588,23 @@
     return c.map(function(x){ return (typeof x==='string')?{nome:x,foto:''}:{nome:(x.nome||x.cor||''),foto:(x.foto||x.imagem||'')}; }).filter(function(x){ return x.nome; });
   }
 
+  // As ofertas são GLOBAIS: valem pra TODAS as lojas. Ficam guardadas numa loja "mestre"
+  // e o robô casa por nome em cada loja ao vivo. Por isso o painel mostra/edita SEMPRE a
+  // mestre, não importa a loja selecionada — assim a lista aparece igual em todas.
+  var OFERTA_MASTER='mania';
   // salva/atualiza uma linha (conjunto = sku vazio; estampa = sku preenchido)
   function salvaFix(o, aoOk){
-    o.loja=lojaEscolhida||''; o.plataforma=o.plataforma||'tiktok';
+    o.loja=OFERTA_MASTER; o.plataforma=o.plataforma||'tiktok';
     return fetch(apiBase()+'/desconto-salvar',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(o)})
       .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok&&aoOk) aoOk(); return d; })
       .catch(function(){});
   }
   function removeFix(o){
     return fetch(apiBase()+'/desconto-remover',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({loja:lojaEscolhida||'', produto_id:o.produto_id, sku:o.sku||null, tudo:!!o.tudo})}).then(function(r){return r.json();}).catch(function(){});
+      body:JSON.stringify({loja:OFERTA_MASTER, produto_id:o.produto_id, sku:o.sku||null, tudo:!!o.tudo})}).then(function(r){return r.json();}).catch(function(){});
   }
   function carregaFixas(){
-    var loja=lojaEscolhida||'';
+    var loja=OFERTA_MASTER; // sempre a lista mestre (ofertas globais, iguais em todas as lojas)
     fetch(apiBase()+'/descontos'+(loja?('?loja='+encodeURIComponent(loja)):''),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){
         if(!d||!d.ok) return;
@@ -745,7 +749,7 @@
   }
   // escolher produtos: seletor VISUAL com foto + MULTI-seleção (marca vários de uma vez)
   function abrePicker(){
-    var loja=lojaEscolhida||'';
+    var loja=OFERTA_MASTER; // catálogo da loja mestre — de onde se escolhem os produtos das ofertas globais
     var wrap=document.createElement('div'); wrap.className='pickWrap';
     wrap.innerHTML='<div class="pickBox">'
       +'<div class="pickTop"><input id="pkBusca" placeholder="Buscar produto…"><button class="btn ghost mini" id="pkFecha">✕</button></div>'
