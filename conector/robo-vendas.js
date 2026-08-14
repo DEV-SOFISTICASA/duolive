@@ -85,8 +85,15 @@ const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
 const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
-// pega o author_id (dono da live) SEM mexer na aba de vendas: abre uma 2ª aba NA MESMA
-// sessão (mesmo login = SEM conflito), navega no painel de produtos, captura e fecha.
+// acha o 1º id longo (>=8 dígitos) num campo cujo nome tem "id" — recursivo
+function achaIdEm(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  for (const k of Object.keys(obj)) { const v = obj[k]; if ((typeof v === 'string' || typeof v === 'number') && /id/i.test(k) && /^\d{8,}$/.test(String(v))) return String(v); }
+  for (const k of Object.keys(obj)) { if (obj[k] && typeof obj[k] === 'object') { const r = achaIdEm(obj[k]); if (r) return r; } }
+  return '';
+}
+// pega o author_id (dono da live). O feed só tem room_id; o dono vem de
+// flash_sale/product_list (campo creator_base). Tudo na sessão de vendas (sem conflito).
 async function garanteAuthorId(conta) {
   if (conta.authorId || conta._pegandoAuthor || !conta.page) return;
   conta._pegandoAuthor = true;
@@ -107,9 +114,11 @@ async function garanteAuthorId(conta) {
     if (rid) {
       const r = await OFERTA.api(conta.page, '/api/v1/live_promotion/flash_sale/product_list', 'POST', { promotion_type: 3, need_sku_info: false, room_id: rid, page_info: { page_no: 1, page_size: 5 }, promotion_product_condition: {} });
       const d = (r && r.json && r.json.data) || {};
-      const cand = d.author_id || d.anchor_id || (d.author && d.author.id) || (d.anchor && d.anchor.id) || (d.room && (d.room.owner_user_id || d.room.author_id));
-      if (cand && /^\d{6,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id via room_id (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
-      console.log('  ⚡' + conta.loja + ': product_list(room) data-keys = ' + Object.keys(d).join(',') + ' | code=' + (r && r.json && r.json.code));
+      const cb = d.creator_base || {};
+      let cand = cb.creator_id || cb.author_id || cb.user_id || cb.id || cb.uid || cb.oec_uid || '';
+      if (!/^\d{8,}$/.test(String(cand))) cand = achaIdEm(cb) || achaIdEm(d); // fallback: acha o id longo no creator_base
+      if (cand && /^\d{8,}$/.test(String(cand))) { conta.authorId = String(cand); console.log('  ⚡' + conta.loja + ': author_id via creator_base (' + cand + ') ✓'); conta._pegandoAuthor = false; return; }
+      console.log('  ⚡' + conta.loja + ': creator_base = ' + JSON.stringify(cb).slice(0, 200));
     }
   } catch (e) {}
   // (3) 2ª aba no painel de produtos, SEM bloquear recursos (igual ao robô que funciona)
