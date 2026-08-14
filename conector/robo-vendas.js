@@ -90,24 +90,20 @@ const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
 async function garanteAuthorId(conta) {
   if (conta.authorId || conta._pegandoAuthor || !conta.page) return;
   conta._pegandoAuthor = true;
-  let pg = null;
+  console.log('  ⚡' + conta.loja + ': pegando o author_id (2ª aba, mesma sessão)…');
+  let pg = null, aid = '';
   try {
     pg = await conta.page.context().newPage();
-    const got = new Promise((ok) => {
-      let done = false;
-      pg.on('request', (req) => {
-        if (done) return;
-        try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') { done = true; ok(String(m.author_id)); } } } catch (e) {}
-      });
-      setTimeout(() => { if (!done) ok(''); }, 16000);
+    pg.on('request', (req) => {
+      if (aid) return;
+      try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') aid = String(m.author_id); } } catch (e) {}
     });
     await pg.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
-    const aid = await got;
+    for (let i = 0; i < 22 && !aid; i++) await pg.waitForTimeout(1000); // espera ATÉ ~22s DEPOIS de carregar
     if (aid) { conta.authorId = aid; console.log('  ⚡' + conta.loja + ': author_id capturado (' + aid + ') ✓'); }
-  } catch (e) {} finally {
-    if (pg) { try { await pg.close(); } catch (e) {} }
-    conta._pegandoAuthor = false;
-  }
+    else console.log('  ⚡' + conta.loja + ': a 2ª aba não fez a chamada com author_id em 22s — tento de novo no próximo ciclo');
+  } catch (e) { console.log('  ⚡' + conta.loja + ': erro ao pegar author_id — ' + String(e.message).slice(0, 50)); }
+  finally { if (pg) { try { await pg.close(); } catch (e) {} } conta._pegandoAuthor = false; }
 }
 // ofertas GLOBAIS: a lista mestre (loja OFERTA_MASTER) vale pra TODAS as lojas, casada
 // pelo NOME do produto. O robô pega o catálogo da loja AO VIVO e aplica os mesmos preços.
@@ -124,7 +120,7 @@ async function rodaOferta(conta) {
   }
   const ofertas = _ofCfg._master || [];
   if (!ofertas.length) return;               // lista mestre vazia
-  if (!conta.authorId) { garanteAuthorId(conta); console.log('  ⚡' + conta.loja + ': pegando o author_id (2ª aba, mesma sessão)…'); return; }
+  if (!conta.authorId) { garanteAuthorId(conta); return; }
   try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
 }
 const INICIO = Date.now();
