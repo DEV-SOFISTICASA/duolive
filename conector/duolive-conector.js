@@ -644,6 +644,9 @@ const server = http.createServer((req, res) => {
       }
       // espectadores: o do chat; se 0 e o Compass tem views, mostra as views do console
       const espectadores = st.liveEstado.espectadores || (compassFresco ? c.views : 0);
+      // LIVE FECHADA: zera pedidos/valor da live no painel (cada live comeca do zero).
+      // O historico fica registrado no LiveDash/Historico — aqui e' so' o "ao vivo agora".
+      if (!st.aoVivo) { totalTiktok = 0; pedidosTiktok = 0; sho.n = 0; sho.t = 0; }
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({
         usuario: st.usuario, aoVivo: st.aoVivo, loja: lj || undefined,
