@@ -85,6 +85,30 @@ const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
 const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
+// pega o author_id (dono da live) SEM mexer na aba de vendas: abre uma 2ª aba NA MESMA
+// sessão (mesmo login = SEM conflito), navega no painel de produtos, captura e fecha.
+async function garanteAuthorId(conta) {
+  if (conta.authorId || conta._pegandoAuthor || !conta.page) return;
+  conta._pegandoAuthor = true;
+  let pg = null;
+  try {
+    pg = await conta.page.context().newPage();
+    const got = new Promise((ok) => {
+      let done = false;
+      pg.on('request', (req) => {
+        if (done) return;
+        try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') { done = true; ok(String(m.author_id)); } } } catch (e) {}
+      });
+      setTimeout(() => { if (!done) ok(''); }, 16000);
+    });
+    await pg.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+    const aid = await got;
+    if (aid) { conta.authorId = aid; console.log('  ⚡' + conta.loja + ': author_id capturado (' + aid + ') ✓'); }
+  } catch (e) {} finally {
+    if (pg) { try { await pg.close(); } catch (e) {} }
+    conta._pegandoAuthor = false;
+  }
+}
 // ofertas GLOBAIS: a lista mestre (loja OFERTA_MASTER) vale pra TODAS as lojas, casada
 // pelo NOME do produto. O robô pega o catálogo da loja AO VIVO e aplica os mesmos preços.
 async function rodaOferta(conta) {
@@ -100,7 +124,7 @@ async function rodaOferta(conta) {
   }
   const ofertas = _ofCfg._master || [];
   if (!ofertas.length) return;               // lista mestre vazia
-  if (!conta.authorId) { console.log('  ⚡' + conta.loja + ': automação ON e live no ar, mas ainda sem author_id — tento no próximo ciclo'); return; }
+  if (!conta.authorId) { garanteAuthorId(conta); console.log('  ⚡' + conta.loja + ': pegando o author_id (2ª aba, mesma sessão)…'); return; }
   try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
 }
 const INICIO = Date.now();
