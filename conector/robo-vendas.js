@@ -100,7 +100,31 @@ function authorSalvo(loja) {
 }
 function salvaAuthorId(loja, id) {
   if (!/^\d{8,}$/.test(String(id))) return;
+  salvaAuthorNoConector(loja, id); // guarda no BANCO (via conector) — vale pra sempre, mesmo com restart/deploy
   try { let m = {}; try { m = JSON.parse(fs.readFileSync(arquivoAuthors(), 'utf8')); } catch (e) {} if (m[String(loja)] === String(id)) return; m[String(loja)] = String(id); fs.writeFileSync(arquivoAuthors(), JSON.stringify(m, null, 1)); console.log('  ⚡' + loja + ': author_id SALVO (não precisa mais criar ⚡ na mão nesta loja)'); } catch (e) {}
+}
+// lê/salva o "dono da live" no conector (BANCO). É isto que faz 1 ⚡ manual por loja
+// valer PRA SEMPRE: mesmo que o robô reinicie e perca o arquivo local, pega do banco.
+function authorDoConector(loja) {
+  return new Promise((ok) => {
+    try {
+      const u = new URL(CONECTOR + '/author-id?loja=' + encodeURIComponent(loja));
+      const lib = u.protocol === 'https:' ? https : http;
+      lib.get({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, headers: comToken({}) }, (r) => {
+        let c = ''; r.on('data', (d) => { c += d; }); r.on('end', () => { try { const j = JSON.parse(c); ok(/^\d{8,}$/.test(String(j.author_id || '')) ? String(j.author_id) : ''); } catch (e) { ok(''); } });
+      }).on('error', () => ok(''));
+    } catch (e) { ok(''); }
+  });
+}
+function salvaAuthorNoConector(loja, id) {
+  try {
+    const dados = JSON.stringify({ loja: loja, author_id: String(id) });
+    const u = new URL(CONECTOR + '/author-id');
+    const lib = u.protocol === 'https:' ? https : http;
+    const req = lib.request({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'POST', headers: comToken({ 'content-type': 'application/json', 'content-length': Buffer.byteLength(dados) }) });
+    req.on('error', () => {});
+    req.end(dados);
+  } catch (e) {}
 }
 // pega o author_id (dono da live). O feed só tem room_id; o dono vem de
 // flash_sale/product_list (creator_base ou da ⚡ ativa). Tudo na sessão de vendas (sem conflito).
@@ -169,6 +193,7 @@ async function rodaOferta(conta) {
   const ofertas = _ofCfg._master || [];
   if (!ofertas.length) return;               // lista mestre vazia
   if (!conta.authorId) { const s = authorSalvo(conta.loja); if (s) { conta.authorId = s; console.log('  ⚡' + conta.loja + ': author_id lembrado de antes (' + s + ') ✓'); } }
+  if (!conta.authorId) { const s = await authorDoConector(conta.loja); if (s) { conta.authorId = s; salvaAuthorId(conta.loja, s); console.log('  ⚡' + conta.loja + ': author_id lembrado do BANCO (' + s + ') ✓'); } }
   if (!conta.authorId) { garanteAuthorId(conta); return; } // ainda não tem: captura (precisa de ⚡ ativa 1x)
   try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
 }

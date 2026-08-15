@@ -24,6 +24,7 @@ const CONTAS = require('./contas.js');
 const LD = require('./livedash.js');   // espelho do LiveDash (fonte do histórico)
 const OFERTAS = require('./ofertas.js');
 const CATALOGO = require('./catalogo.js'); // catálogo de produtos espelhado no banco (não zera em deploy)
+const AUTHORDB = require('./author-db.js'); // author_id (dono da live) no banco: 1 ⚡ manual por loja = pra sempre
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
@@ -114,6 +115,9 @@ function gravaVendaHistorico(v) {
 let ofertas = [];
 // automacao da ⚡ ligada por loja (o robo da oferta no PC le isto e dispara sozinho)
 let ofertaAuto = {};
+// dono da live (author_id) por loja — carregado do banco no boot, atualizado pelo robô.
+// Faz 1 ⚡ manual por loja valer PRA SEMPRE (sobrevive a restart/deploy). NÃO é preço.
+let authorIds = {};
 // VARIAS lojas; cada loja junta as DUAS contas (TikTok + Shopee) com os produtos
 // de cada uma:  lojas['bellini'] = { nome, contas:{tiktok,shopee}, produtos:{tiktok:[],shopee:[]}, ts:{} }
 const lojas = {};
@@ -186,7 +190,7 @@ function liveShopeeAtual() {
 
 // Rotas que o ROBÔ usa (mandam dados de máquina). Não têm cookie de navegador;
 // quando há senha na nuvem, elas se protegem pelo token (DUOLIVE_TOKEN).
-const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos', '/oferta-estado', '/sacolinha'];
+const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos', '/oferta-estado', '/sacolinha', '/author-id'];
 // Rotas liberadas sem login (a própria tela de senha e o que ela precisa).
 const ROTAS_LIVRES = ['/login', '/entrar', '/favicon.ico'];
 
@@ -908,6 +912,36 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // o "dono da live" (author_id) por loja. É rota de MÁQUINA (token do robô), NÃO
+  // mexe em preço nenhum. O robô captura o dono 1x (de uma ⚡ ativa que o vendedor
+  // cria na mão) e manda aqui (POST); guardamos no BANCO. Depois o robô lê de volta
+  // (GET) no lugar de pedir ⚡ manual toda vez — mesmo depois de restart/deploy.
+  if (req.url.startsWith('/author-id')) {
+    if (req.method === 'POST') {
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
+      req.on('end', () => {
+        let b; try { b = JSON.parse(corpo); } catch (e) { b = null; }
+        res.setHeader('content-type', 'application/json');
+        const loja = b && String(b.loja || '');
+        const id = b && String(b.author_id || '');
+        if (!loja || !/^\d{8,}$/.test(id)) { res.statusCode = 400; res.end('{"ok":false,"erro":"faltou loja/author_id valido"}'); return; }
+        if (authorIds[loja] !== id) {
+          authorIds[loja] = id;
+          AUTHORDB.salvar(loja, id).catch(() => {}); // espelha no banco (sobrevive a restart/deploy)
+          console.log('  ⚡ author_id da ' + loja + ' guardado no banco (' + id + ') — nao precisa mais de ⚡ manual nela.');
+        }
+        res.end(JSON.stringify({ ok: true, loja: loja }));
+      });
+      return;
+    }
+    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
+    const loja = qs.get('loja') || '';
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ loja: loja, author_id: authorIds[loja] || '' }));
+    return;
+  }
+
   // o robo da oferta conta como foi (aplicada / ensaio / erro / restaurada)
   if (req.url.startsWith('/oferta-estado') && req.method === 'POST') {
     let corpo = '';
@@ -1080,6 +1114,12 @@ server.listen(PORTA, '0.0.0.0', () => {
     let n = 0;
     (rows || []).forEach((r) => { if (r && r.loja && r.plataforma && Array.isArray(r.produtos)) { achaLoja(r.loja).produtos[r.plataforma] = r.produtos; n += r.produtos.length; } });
     if (n) console.log('  📦 catálogo do banco: ' + n + ' produto(s) recarregado(s).');
+  }).catch(() => {});
+  // author_id (dono da live) do banco de volta pra memória (1 ⚡ manual por loja = pra sempre)
+  AUTHORDB.carregar().then((rows) => {
+    let n = 0;
+    (rows || []).forEach((r) => { if (r && r.loja && r.author_id) { authorIds[String(r.loja)] = String(r.author_id); n++; } });
+    if (n) console.log('  ⚡ author_id do banco: ' + n + ' loja(s) já com dono (não precisa de ⚡ manual nelas).');
   }).catch(() => {});
   console.log('');
 });
