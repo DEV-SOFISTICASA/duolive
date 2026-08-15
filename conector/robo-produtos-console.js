@@ -2,10 +2,11 @@
 //
 // O robô de produtos "normal" (robo-produtos.js) lê do Seller Center, que a nossa
 // sessão recuperada NÃO abre. Mas o CONSOLE DE LIVE (shop.tiktok.com/streamer),
-// de onde vêm as vendas, expõe os produtos da live com FOTO e preço pela API
-//   /api/v1/streamer_desktop/live_product/list
-// Este robô abre o console de cada loja (com a sessão salva), captura essa lista e
-// manda para o conector (/produtos). Aí o seletor visual de ofertas mostra as fotos.
+// de onde vêm as vendas, expõe o CATÁLOGO COMPLETO da loja com FOTO, preço e
+// variações (cores) pela API  /api/v1/streamer_desktop/shop_product/search
+// Este robô abre o console de cada loja (com a sessão salva), lê o catálogo inteiro,
+// TIRA os vasos (a live não usa) e manda para o conector (/produtos). Aí o seletor
+// visual de ofertas mostra tudo com as fotos.
 //
 // Uso:  npm run produtos-console            (as 4 lojas)
 //       npm run produtos-console -- monaco  (só uma)
@@ -62,36 +63,38 @@ async function leLoja(browser, loja) {
   if (!fs.existsSync(sess)) { console.log('  ' + loja + ': sem sessao-console-' + loja + '.json (pule)'); return; }
   const ctx = await browser.newContext({ storageState: sess, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
-  let bruto = null;
-  page.on('response', async (res) => {
-    try {
-      if (!/live_product\/list/.test(res.url())) return;
-      const b = await res.json().catch(() => null);
-      if (b && b.data && Array.isArray(b.data.products)) bruto = b.data.products;
-    } catch (e) {}
-  });
   try { await page.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 }); }
   catch (e) { console.log('  ' + loja + ': nao abriu o console (' + String(e.message).slice(0, 40) + ')'); await ctx.close(); return; }
   if (/login|passport|signin/i.test(page.url())) { console.log('  ' + loja + ': SESSAO EXPIROU (caiu no login) — puxe fresca do LiveDash'); await ctx.close(); return; }
-  for (let i = 0; i < 12 && !bruto; i++) await page.waitForTimeout(1500);
-  if (!bruto) { console.log('  ' + loja + ': nao capturei a lista de produtos (a live pode estar sem produtos)'); await ctx.close(); return; }
-  const conta = (bruto[0] && bruto[0].seller_info && bruto[0].seller_info.shop_name) || '';
-  const produtos = bruto.map((p) => {
-    const de = num(p.format_origin_price);
-    const av = num(p.format_available_price);
-    const base = de || av;                           // sem "de" (sem oferta) -> o preço é o disponível
-    return {
-      id: String(p.product_id || ''),
-      nome: String(p.title || ''),
-      preco: base,
-      promo: (de > 0 && av > 0 && av < de) ? av : 0, // só conta como promo se houver "de" e for menor
-      imagem: (p.cover && p.cover.url_list && p.cover.url_list[0]) || '',
-      variacoes: 0,                                   // variações vêm da tela de detalhe (próximo passo)
-      plataforma: 'tiktok',
-    };
-  }).filter((p) => p.id && p.nome);
+  await page.waitForTimeout(6000);
+  // catálogo COMPLETO da loja (não só os produtos da live), via shop_product/search paginado
+  const todos = await page.evaluate(async () => {
+    const base = 'user_language=pt-BR&locale=pt-BR&aid=253642&app_name=i18n_ecom_alliance&device_platform=web';
+    let all = [], pg = 1;
+    while (pg <= 8) {
+      const res = await fetch('/api/v1/streamer_desktop/shop_product/search?page_number=' + pg + '&page_size=50&use_streamer_products=false&is_not_for_sale_status=1&' + base);
+      const j = await res.json().catch(() => null);
+      const arr = (j && j.data && (j.data.streamer_products || j.data.products)) || [];
+      all = all.concat(arr);
+      if (arr.length < 50) break;
+      pg++;
+    }
+    return all;
+  });
+  if (!todos.length) { console.log('  ' + loja + ': nao li o catalogo (a sessao abriu? a loja tem produtos?)'); await ctx.close(); return; }
+  // a live não usa VASO nem SABONETE — tira todos
+  const EXCLUI = /vaso|sabonete/i;
+  const arr = todos.filter((p) => !EXCLUI.test(p.title || ''));
+  const seller = (todos.find((p) => p.seller_info && p.seller_info.shop_name) || {}).seller_info;
+  const conta = (seller && seller.shop_name) || '';
+  const imgDe = (v) => { if (!v) return ''; if (typeof v.img === 'string') return v.img; if (v.img && v.img.url_list) return v.img.url_list[0] || ''; if (typeof v.image === 'string') return v.image; if (v.image && v.image.url_list) return v.image.url_list[0] || ''; if (v.thumb_url_list) return v.thumb_url_list[0] || ''; return ''; };
+  const variacoesDe = (p) => { const sa = p.sales_attributes || p.sale_props || p.product_attributes || []; let out = []; for (const attr of sa) { const vals = attr.values || attr.sale_prop_values || attr.attribute_values || []; for (const v of vals) { const nome = v.name || v.value_name || v.attribute_value || ''; if (nome) out.push({ nome: nome, foto: imgDe(v) }); } if (out.length) break; } if (!out.length) { const nomes = [...new Set((p.skus || []).flatMap((s) => s.property_value_names || []))]; nomes.forEach((n) => out.push({ nome: n, foto: '' })); } return out; };
+  const cover = (p) => (p.cover && ((p.cover.thumb_url_list && p.cover.thumb_url_list[0]) || (p.cover.url_list && p.cover.url_list[0]))) || '';
+  const precoNum = (p) => { let v = p.min_sale_price != null ? p.min_sale_price : p.max_sale_price; if (typeof v === 'string') { let s = v.replace(/[^\d.,]/g, ''); if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\./g, ''); s = s.replace(',', '.'); v = parseFloat(s) || 0; } v = Number(v) || 0; if (v > 10000) v = v / 100; return +v.toFixed(2); };
+  const produtos = arr.map((p) => ({ id: String(p.product_id || ''), nome: p.title || '', preco: precoNum(p), imagem: cover(p), variacoes: variacoesDe(p), plataforma: 'tiktok' })).filter((p) => p.id && p.nome);
   const resp = await postProdutos(loja, conta, produtos);
-  console.log('  ' + loja + (conta ? ' (' + conta + ')' : '') + ': ' + produtos.length + ' produto(s) com foto -> ' + resp.slice(0, 40));
+  const tirados = todos.length - arr.length;
+  console.log('  ' + loja + (conta ? ' (' + conta + ')' : '') + ': ' + todos.length + ' no catalogo · ' + produtos.length + ' enviados (tirei ' + tirados + ' vaso/sabonete) -> ' + String(resp).slice(0, 40));
   await ctx.close();
 }
 
