@@ -28,11 +28,12 @@ function contaPedida(argv) {
   return L.lojaPedida(args); // aceita --loja também, pra bater com o resto do DuoLive
 }
 
-// todas as contas que já têm login de postagem (lê os arquivos sessao-postar-*.json)
+// todas as contas que já têm login de postagem (lê os sessao-postar-*.json,
+// que o lojas.js guarda na pasta conector — uma acima desta)
 function contasComLogin() {
   const achadas = new Set();
   let arquivos = [];
-  try { arquivos = fs.readdirSync(__dirname); } catch (e) {}
+  try { arquivos = fs.readdirSync(path.join(__dirname, '..')); } catch (e) {}
   arquivos.forEach((a) => {
     const m = a.match(/^sessao-postar-(.+)\.json$/);
     if (m) achadas.add(m[1]);
