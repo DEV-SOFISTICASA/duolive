@@ -17,6 +17,14 @@ const PASTA_LOGS = path.join(__dirname, 'postar-logs');
 // (se o TikTok mudar a tela, é aqui que se conserta)
 const SELETORES = {
   inputArquivo: 'input[type="file"]',
+  // botão que revela o seletor de arquivo, se o input não estiver logo no DOM
+  botaoSelecionar: [
+    'button:has-text("Selecionar vídeos")',
+    'button:has-text("Selecionar vídeo")',
+    'button:has-text("Select video")',
+    'button:has-text("Carregar")',
+    '[data-e2e="select_video_button"]',
+  ],
   legenda: [
     'div[contenteditable="true"][role="textbox"]',
     'div.public-DraftEditor-content',
@@ -49,6 +57,25 @@ async function achaPrimeiro(page, seletores, timeoutMs) {
     for (const s of lista) {
       const loc = page.locator(s).first();
       try { if ((await loc.count()) && (await loc.isVisible())) return loc; } catch (e) {}
+    }
+    await page.waitForTimeout(500);
+  }
+  return null;
+}
+
+// acha o input[type=file] pra soltar o vídeo. Diferente dos outros: o input de
+// arquivo do TikTok fica ESCONDIDO atrás do botão "Selecionar vídeos", então NÃO
+// dá pra exigir que ele esteja visível (setInputFiles funciona em input oculto).
+// Se o input ainda não estiver no DOM, clica no botão pra revelá-lo.
+async function achaInputArquivo(page, timeoutMs) {
+  const fim = Date.now() + timeoutMs;
+  let clicou = false;
+  while (Date.now() < fim) {
+    const inp = page.locator('input[type="file"]').first();
+    try { if (await inp.count()) return inp; } catch (e) {}
+    if (!clicou) {
+      const botao = await achaPrimeiro(page, SELETORES.botaoSelecionar, 1500);
+      if (botao) { try { await botao.click(); clicou = true; } catch (e) {} }
     }
     await page.waitForTimeout(500);
   }
@@ -107,12 +134,12 @@ async function postaVideo({ context, video, legenda, real, conta }) {
     if (/\/login|\/signup/.test(page.url())) throw new Error('SESSAO_EXPIRADA');
 
     // acha o campo de arquivo (tenta o Studio; se não achar, o /upload clássico)
-    let input = await achaPrimeiro(page, SELETORES.inputArquivo, 25000);
+    let input = await achaInputArquivo(page, 25000);
     if (!input) {
       await page.goto('https://www.tiktok.com/upload?lang=pt-BR', { waitUntil: 'domcontentloaded', timeout: 60000 });
       await assenta(page, 12000);
       if (/\/login|\/signup/.test(page.url())) throw new Error('SESSAO_EXPIRADA');
-      input = await achaPrimeiro(page, SELETORES.inputArquivo, 25000);
+      input = await achaInputArquivo(page, 25000);
     }
     if (!input) {
       await print('sem-input');

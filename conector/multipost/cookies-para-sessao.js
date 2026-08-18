@@ -27,11 +27,21 @@ function sameSite(v) {
   return 'Lax'; // lax, unspecified, vazio...
 }
 
+// alguns apps de chat transformam "www.tiktok.com" no link markdown
+// "[www.tiktok.com](https://www.tiktok.com)". Aqui a gente desfaz isso,
+// preservando o ponto da frente (.www.tiktok.com continua com o ponto).
+function limpaDominio(d) {
+  d = String(d || '');
+  const m = d.match(/\[([^\]]+)\]/);
+  if (m) return (/^\./.test(d) ? '.' : '') + m[1];
+  return d;
+}
+
 // normaliza UM cookie (de qualquer formato) pro jeito do Playwright
 function normaliza(c) {
   const nome = c.name || c.Name;
   if (!nome) return null;
-  let dominio = c.domain || c.Domain || '';
+  let dominio = limpaDominio(c.domain || c.Domain || '');
   if (!dominio) return null;
   let expires = -1; // sessão
   const exp = c.expirationDate || c.expires || c.expiry || c.Expires;
