@@ -1,22 +1,20 @@
-// DuoLive · Postador — transformar cookies EXPORTADOS num login guardado
+// DuoLive · Postador — plantar o login do TikTok (cookies) no PERFIL FIXO
 //
-// Pra quando você exporta os cookies do TikTok do seu próprio navegador (com uma
-// extensão local, tipo "Cookie-Editor" ou "Get cookies.txt LOCALLY") e quer que
-// o robô use esse login. Este conversor lê o arquivo exportado e salva no mesmo
-// formato do login normal: conector/sessao-postar-<conta>.json (fora do GitHub).
-//
-// Aceita os dois formatos comuns:
-//   • JSON  (Cookie-Editor / EditThisCookie): uma lista de cookies
-//   • cookies.txt (formato "Netscape"): uma linha por cookie, separada por TAB
+// Pra quando você já está logado no TikTok no seu navegador e exporta os cookies
+// (com uma extensão local, tipo "Cookie-Editor"). Este script PLANTA esses
+// cookies dentro do perfil fixo da conta (conector/perfil-postar-<conta>/) e
+// abre o TikTok pra "assentar" — a partir daí o próprio perfil mantém e renova
+// a sessão sozinho, igual a um navegador de verdade. É isso que faz o login
+// durar (cookies soltos, sem perfil, o TikTok derruba depois do 1º uso).
 //
 // Como usar:
-//   npm run importar-cookies -- --conta monaco --arquivo "C:\Users\PC4\Downloads\tiktok-cookies.json"
+//   1) exporte os cookies do tiktok.com (logado) num arquivo .json
+//   2) npm run importar-cookies -- --conta monaco --arquivo "C:\Users\PC4\Downloads\tiktok.json"
 //
-// Depois, apague o arquivo exportado (ele contém sua sessão). O sessao-postar-*
-// já fica de fora do GitHub pelo .gitignore.
+// Depois apague o arquivo exportado (ele contém sua sessão).
 
 const fs = require('fs');
-const path = require('path');
+const { abrePerfil } = require('../navegador.js');
 const C = require('./contas-postar.js');
 
 function arg(nome) { const i = process.argv.indexOf(nome); return i >= 0 ? process.argv[i + 1] : ''; }
@@ -35,8 +33,7 @@ function normaliza(c) {
   if (!nome) return null;
   let dominio = c.domain || c.Domain || '';
   if (!dominio) return null;
-  // expiração: em segundos (epoch). Sessão -> -1.
-  let expires = -1;
+  let expires = -1; // sessão
   const exp = c.expirationDate || c.expires || c.expiry || c.Expires;
   if (exp && Number(exp) > 0) expires = Math.floor(Number(exp));
   return {
@@ -56,7 +53,6 @@ function leNetscape(texto) {
   const saida = [];
   texto.split(/\r?\n/).forEach((linha) => {
     if (!linha || linha.startsWith('#')) {
-      // algumas linhas vêm como "#HttpOnly_.tiktok.com\t..." — trata isso
       if (!/^#HttpOnly_/i.test(linha)) return;
       linha = linha.replace(/^#HttpOnly_/i, '');
     }
@@ -71,19 +67,27 @@ function leNetscape(texto) {
   return saida;
 }
 
+// espera o TikTok parar de piscar a tela de login
+async function assenta(page, ms) {
+  const fim = Date.now() + ms;
+  while (Date.now() < fim) {
+    if (!/\/login|\/signup/.test(page.url())) return;
+    await page.waitForTimeout(500);
+  }
+}
+
 (async () => {
   const conta = C.contaPedida();
   const arquivo = arg('--arquivo');
   if (!arquivo || !fs.existsSync(arquivo)) {
     console.log('\n  Cadê o arquivo de cookies? Ex.:');
-    console.log('    npm run importar-cookies -- --conta ' + conta + ' --arquivo "C:\\Users\\PC4\\Downloads\\tiktok-cookies.json"\n');
+    console.log('    npm run importar-cookies -- --conta ' + conta + ' --arquivo "C:\\Users\\PC4\\Downloads\\tiktok.json"\n');
     process.exit(1);
   }
 
   const bruto = fs.readFileSync(arquivo, 'utf8').trim();
   let cookies = [];
   try {
-    // tenta JSON primeiro; se não for, cai pro formato Netscape (cookies.txt)
     if (bruto.startsWith('[') || bruto.startsWith('{')) {
       const j = JSON.parse(bruto);
       const lista = Array.isArray(j) ? j : (j.cookies || []);
@@ -97,22 +101,38 @@ function leNetscape(texto) {
     process.exit(1);
   }
 
-  // só o que interessa: cookies do tiktok, sem vazios
   cookies = cookies.filter((c) => c && c.name && /tiktok\.com$/i.test(c.domain.replace(/^\./, '')));
   const temSession = cookies.some((c) => c.name === 'sessionid' && c.value);
-
   if (!temSession) {
     console.log('\n  Achei ' + cookies.length + ' cookies do tiktok, mas nenhum "sessionid" com valor.');
-    console.log('  Isso quer dizer que a exportação foi feita DESLOGADO ou de outro site.');
-    console.log('  Entre no tiktok.com (conta que publica), confirme que está logado, e exporte de novo.\n');
+    console.log('  Exporte de novo LOGADO no tiktok.com (a conta que publica).\n');
     process.exit(1);
   }
 
-  const ARQ = C.arquivoSessao(conta);
-  fs.writeFileSync(ARQ, JSON.stringify({ cookies, origins: [] }, null, 2));
-  console.log('\n  Login importado ✅  (' + cookies.length + ' cookies do tiktok em ' + path.basename(ARQ) + ')');
-  console.log('  Agora pode APAGAR o arquivo exportado (ele tem sua sessão): ' + arquivo);
-  console.log('  Teste sem publicar:');
-  console.log('    npm run postar -- --conta ' + conta + ' --video "C:\\caminho\\video.mp4"\n');
-  process.exit(0);
+  console.log('\n  Plantando ' + cookies.length + ' cookies no perfil da conta "' + conta + '"...');
+  const ctx = await abrePerfil(C.pastaPerfil(conta), false);
+  let logado = false;
+  try {
+    await ctx.addCookies(cookies);
+    const page = ctx.pages()[0] || await ctx.newPage();
+    await page.goto('https://www.tiktok.com/tiktokstudio/upload', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await assenta(page, 12000);
+    logado = !/\/login|\/signup/.test(page.url());
+    await page.waitForTimeout(2500); // deixa o TikTok renovar os cookies e o perfil salvar
+  } catch (e) {
+    console.log('  Erro ao plantar: ' + e.message);
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+
+  if (logado) {
+    console.log('  Login plantado e ATIVO no perfil ✅');
+    console.log('  Confirme:  npm run testa-login -- --conta ' + conta);
+    console.log('  Apague agora o arquivo exportado (tem sua sessão): ' + arquivo + '\n');
+  } else {
+    console.log('  Plantei os cookies, mas o TikTok ainda pediu login. 😕');
+    console.log('  Provável: a sessão exportada já tinha vencido. Exporte de novo, RECÉM logado no tiktok.com.\n');
+    process.exitCode = 1;
+  }
+  setTimeout(() => process.exit(process.exitCode || 0), 1500).unref();
 })();
