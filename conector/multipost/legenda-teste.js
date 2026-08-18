@@ -30,5 +30,6 @@ function arg(n) { const i = process.argv.indexOf(n); return i >= 0 ? process.arg
     console.log('  ' + e.message + '\n');
     process.exitCode = 1;
   }
-  process.exit(process.exitCode || 0);
+  // sem process.exit() aqui: a IA do Google ainda fecha conexões por baixo
+  // dos panos, e sair na marra fazia o Node reclamar feio no Windows.
 })();

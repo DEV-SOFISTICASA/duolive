@@ -95,11 +95,11 @@ A IA tira alguns quadros do vídeo, olha, e escreve a legenda + hashtags sozinha
    winget install Gyan.FFmpeg
    ```
    O MultiPost acha o ffmpeg sozinho — não precisa mexer no PATH nem reiniciar.
-2. **Chave da IA**: crie em console.anthropic.com e cole em `conector/multipost/chave-ia.txt` (uma linha só). Custa poucos centavos por vídeo. O arquivo é ignorado pelo git.
+2. **Chave da IA (Gemini, grátis)**: abra `aistudio.google.com/app/apikey`, entre com sua conta do Google, clique em "Create API key" e cole a chave (começa com `AIza`) em `conector/multipost/chave-ia.txt`. O arquivo é ignorado pelo git.
 
 Testar num vídeo (não publica nada):
 ```bash
 npm run legenda-teste -- --video "C:\videos\SEU-VIDEO.mp4" --loja "loja de decoração"
 ```
 
-> Modelo: por padrão o mais forte (`claude-opus-5`). Para baratear em muitos vídeos, use um mais leve: `set MULTIPOST_MODELO=claude-haiku-4-5` antes do comando.
+> Modelo: por padrão o `gemini-2.5-flash` (rápido, e o plano grátis dá conta). Para caprichar mais: `set MULTIPOST_MODELO=gemini-2.5-pro` antes do comando; para aliviar ainda mais o limite grátis: `set MULTIPOST_MODELO=gemini-2.5-flash-lite`.

@@ -1,16 +1,18 @@
 // MultiPost · Cérebro — a IA olha o vídeo e escreve legenda + hashtags
 //
 // Como funciona: tira alguns QUADROS do vídeo (com o ffmpeg), reduz o tamanho
-// pra ficar barato, manda pra IA (Claude) e recebe de volta uma legenda e
-// hashtags que combinam com o que aparece no vídeo.
+// pra ficar leve, manda pro Gemini (a IA do Google) e recebe de volta uma
+// legenda e hashtags que combinam com o que aparece no vídeo.
 //
 // Precisa de duas coisas (o app avisa direitinho se faltar):
 //   • ffmpeg instalado — tira os quadros do vídeo.
-//   • ANTHROPIC_API_KEY — a chave (paga) da IA.
+//   • Chave do Gemini — GRÁTIS: aistudio.google.com/app/apikey (conta Google).
+//     Cole em conector/multipost/chave-ia.txt — a chave começa com AIza.
 //
-// Modelo: por padrão usa o mais forte (claude-opus-5). Para baratear em 100+
-// vídeos, dá pra trocar por um mais leve pondo, por exemplo:
-//   set MULTIPOST_MODELO=claude-haiku-4-5
+// Modelo: por padrão usa o gemini-2.5-flash (rápido, e o plano grátis dá conta
+// dos 100+ vídeos). Dá pra trocar pondo antes do comando, por exemplo:
+//   set MULTIPOST_MODELO=gemini-2.5-pro          (mais caprichado, mais lento)
+//   set MULTIPOST_MODELO=gemini-2.5-flash-lite   (mais leve ainda)
 //
 // Uso como biblioteca:
 //   const { legendaDoVideo } = require('./legenda-ia.js');
@@ -22,7 +24,7 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 
-const MODELO = process.env.MULTIPOST_MODELO || 'claude-opus-5';
+const MODELO = process.env.MULTIPOST_MODELO || 'gemini-2.5-flash';
 const QTOS_QUADROS = Math.max(2, Math.min(12, Number(process.env.MULTIPOST_QUADROS) || 6));
 
 // acha o ffmpeg/ffprobe mesmo que não estejam no PATH (igual ao navegador.js com o
@@ -51,16 +53,18 @@ function achaExe(nome) {
 const FFMPEG = achaExe('ffmpeg');
 const FFPROBE = achaExe('ffprobe');
 
-// a chave da IA: variável de ambiente ANTHROPIC_API_KEY OU o arquivo
-// conector/multipost/chave-ia.txt (1ª linha). Mesmo esquema dos outros segredos
-// (chave-tiktok.txt etc.), pra você colar a chave uma vez e não repetir no terminal.
+// a chave da IA: variável de ambiente GEMINI_API_KEY OU o arquivo
+// conector/multipost/chave-ia.txt. Mesmo esquema dos outros segredos
+// (chave-tiktok.txt etc.): cola uma vez e não repete no terminal.
+// Chave de verdade do Google começa com "AIza" — o app acha ela no meio do
+// arquivo mesmo que sobre texto de exemplo ou espaço em volta.
 function chaveIA() {
-  let k = '';
-  if (process.env.ANTHROPIC_API_KEY) k = process.env.ANTHROPIC_API_KEY.trim();
-  else {
-    try { k = (fs.readFileSync(path.join(__dirname, 'chave-ia.txt'), 'utf8').split('\n')[0] || '').trim(); } catch (e) {}
+  let texto = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+  if (!/AIza/.test(texto)) {
+    try { texto = fs.readFileSync(path.join(__dirname, 'chave-ia.txt'), 'utf8'); } catch (e) { texto = ''; }
   }
-  return /^sk-/.test(k) ? k : ''; // chave de verdade começa com sk-; ignora vazio/exemplo
+  const m = texto.match(/AIza[0-9A-Za-z_-]{10,}/);
+  return m ? m[0] : '';
 }
 
 // roda um programa e devolve { ok, stdout, stderr }
@@ -99,23 +103,22 @@ async function tiraQuadros(video, n) {
   return { pasta, arquivos };
 }
 
-// monta as imagens no formato que a IA entende (base64)
+// monta as imagens no formato que o Gemini entende (base64 "embutido")
 function imagensPraIA(arquivos) {
   return arquivos.map((f) => ({
-    type: 'image',
-    source: { type: 'base64', media_type: 'image/jpeg', data: fs.readFileSync(f).toString('base64') },
+    inlineData: { mimeType: 'image/jpeg', data: fs.readFileSync(f).toString('base64') },
   }));
 }
 
-// a IA responde SEMPRE neste formato (legenda + lista de hashtags)
+// a IA responde SEMPRE neste formato (legenda + lista de hashtags).
+// Os tipos em MAIÚSCULO são o jeito do Gemini ("OBJECT", "STRING", "ARRAY").
 const ESQUEMA = {
-  type: 'object',
+  type: 'OBJECT',
   properties: {
-    legenda: { type: 'string' },
-    hashtags: { type: 'array', items: { type: 'string' } },
+    legenda: { type: 'STRING' },
+    hashtags: { type: 'ARRAY', items: { type: 'STRING' } },
   },
   required: ['legenda', 'hashtags'],
-  additionalProperties: false,
 };
 
 // principal: caminho do vídeo -> { legenda, hashtags }
@@ -129,15 +132,15 @@ async function legendaDoVideo(video, opts) {
   }
   const chave = chaveIA();
   if (!chave) {
-    throw new Error('Falta a chave da IA. Crie em console.anthropic.com e cole em conector/multipost/chave-ia.txt (uma linha só) — ou ponha em ANTHROPIC_API_KEY.');
+    throw new Error('Falta a chave da IA (é grátis). Pega em aistudio.google.com/app/apikey — entra com sua conta do Google e clica em "Create API key" — e cola em conector/multipost/chave-ia.txt. A chave começa com AIza.');
   }
 
   const { pasta, arquivos } = await tiraQuadros(video, QTOS_QUADROS);
   try {
     if (!arquivos.length) throw new Error('Não consegui tirar quadros do vídeo (formato estranho?). Me manda o arquivo que eu vejo.');
 
-    const Anthropic = require('@anthropic-ai/sdk');
-    const cliente = new Anthropic({ apiKey: chave });
+    const { GoogleGenAI } = require('@google/genai');
+    const ia = new GoogleGenAI({ apiKey: chave });
 
     const loja = opts.loja || opts.estilo || 'uma loja';
     const instrucao =
@@ -148,18 +151,39 @@ async function legendaDoVideo(video, opts) {
       (opts.dica ? ('Contexto extra: ' + opts.dica + '. ') : '') +
       'Responda no formato pedido.';
 
-    const resp = await cliente.messages.create({
-      model: MODELO,
-      max_tokens: 1024,
-      messages: [{
-        role: 'user',
-        content: [...imagensPraIA(arquivos), { type: 'text', text: instrucao }],
-      }],
-      output_config: { format: { type: 'json_schema', schema: ESQUEMA } },
-    });
+    const config = { responseMimeType: 'application/json', responseSchema: ESQUEMA };
+    // o flash fica "pensando" antes de responder; pra legenda não precisa —
+    // desligar deixa mais rápido e gasta menos do limite grátis. (No pro não
+    // dá pra desligar, então só mexe quando o modelo é da família flash.)
+    if (/flash/i.test(MODELO)) config.thinkingConfig = { thinkingBudget: 0 };
 
-    const bloco = (resp.content || []).find((b) => b.type === 'text');
-    let dados; try { dados = JSON.parse((bloco && bloco.text) || '{}'); } catch (e) { dados = {}; }
+    let resp;
+    try {
+      resp = await ia.models.generateContent({
+        model: MODELO,
+        contents: [{ role: 'user', parts: [...imagensPraIA(arquivos), { text: instrucao }] }],
+        config,
+      });
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      if (/API[ _]?KEY|API key|PERMISSION_DENIED/i.test(msg)) {
+        throw new Error('O Google não aceitou a chave da IA. Confere se copiou ela inteira (começa com AIza) em conector/multipost/chave-ia.txt.');
+      }
+      if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
+        throw new Error('O limite grátis do Gemini deu uma pausa (muitos pedidos seguidos). Espera 1 minuto e tenta de novo.');
+      }
+      throw new Error('A IA do Google não respondeu: ' + msg);
+    }
+
+    // no SDK novo resp.text é um atalho pro texto da resposta (JSON puro,
+    // porque pedimos application/json); se vier enfeitado, pega só o miolo {...}
+    const texto = typeof resp.text === 'function' ? resp.text() : (resp.text || '');
+    let dados;
+    try { dados = JSON.parse(texto); }
+    catch (e) {
+      const miolo = texto.match(/\{[\s\S]*\}/);
+      try { dados = miolo ? JSON.parse(miolo[0]) : {}; } catch (e2) { dados = {}; }
+    }
     return {
       legenda: String(dados.legenda || '').trim(),
       hashtags: Array.isArray(dados.hashtags) ? dados.hashtags.map(String) : [],

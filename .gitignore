@@ -21,7 +21,7 @@ conector/conector.txt
 # Chave de assinatura do chat do TikTok (eulerstream.com) - NUNCA enviar
 conector/chave-tiktok.txt
 
-# Chave da IA (Anthropic) que legenda os videos - NUNCA enviar
+# Chave da IA (Google Gemini) que legenda os videos - NUNCA enviar
 conector/multipost/chave-ia.txt
 
 # Senha do painel - NUNCA enviar
