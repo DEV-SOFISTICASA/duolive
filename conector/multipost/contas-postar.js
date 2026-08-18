@@ -10,14 +10,24 @@ const fs = require('fs');
 const path = require('path');
 const L = require('../lojas.js');
 
-// caminho do login de postagem de uma conta
+// caminho do login antigo (storageState) — mantido só pra não quebrar coisas
+// velhas. O login de verdade agora mora numa PASTA de perfil (veja pastaPerfil).
 function arquivoSessao(conta) {
   return L.arquivoSessao('postar', conta);
 }
 
-// tem login guardado?
+// pasta do PERFIL FIXO da conta (guarda o login como um navegador de verdade).
+// Fica em conector/perfil-postar-<conta>/, uma pasta por conta.
+function pastaPerfil(conta) {
+  return path.join(__dirname, '..', 'perfil-postar-' + L.limpaNome(conta));
+}
+
+// tem login guardado? (o perfil já foi criado e tem cookies dentro)
 function temLogin(conta) {
-  try { return fs.existsSync(arquivoSessao(conta)); } catch (e) { return false; }
+  try {
+    const ck = path.join(pastaPerfil(conta), 'Default', 'Network', 'Cookies');
+    return fs.existsSync(ck);
+  } catch (e) { return false; }
 }
 
 // resolve o apelido pedido: --conta X | --loja X | DUOLIVE_LOJA | loja.txt | principal
@@ -28,15 +38,15 @@ function contaPedida(argv) {
   return L.lojaPedida(args); // aceita --loja também, pra bater com o resto do DuoLive
 }
 
-// todas as contas que já têm login de postagem (lê os sessao-postar-*.json,
-// que o lojas.js guarda na pasta conector — uma acima desta)
+// todas as contas que já têm login de postagem (procura as pastas
+// perfil-postar-<conta>/ na pasta conector — uma acima desta)
 function contasComLogin() {
   const achadas = new Set();
   let arquivos = [];
   try { arquivos = fs.readdirSync(path.join(__dirname, '..')); } catch (e) {}
   arquivos.forEach((a) => {
-    const m = a.match(/^sessao-postar-(.+)\.json$/);
-    if (m) achadas.add(m[1]);
+    const m = a.match(/^perfil-postar-(.+)$/);
+    if (m && temLogin(m[1])) achadas.add(m[1]);
   });
   return Array.from(achadas).sort();
 }
@@ -52,4 +62,4 @@ function contasListadas() {
   } catch (e) { return []; }
 }
 
-module.exports = { arquivoSessao, temLogin, contaPedida, contasComLogin, contasListadas };
+module.exports = { arquivoSessao, pastaPerfil, temLogin, contaPedida, contasComLogin, contasListadas };

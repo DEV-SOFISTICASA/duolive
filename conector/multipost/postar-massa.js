@@ -22,7 +22,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { abreNavegador } = require('../navegador.js');
+const { abrePerfil } = require('../navegador.js');
 const C = require('./contas-postar.js');
 const { postaVideo, PASTA_LOGS } = require('./postador-nucleo.js');
 const { variaLegenda } = require('./postador-variacao.js');
@@ -147,17 +147,17 @@ function montaTrabalho() {
     console.log('  (' + (i + 1) + '/' + fila.length + ') ' + conta);
     console.log('        legenda: ' + legenda);
 
-    // navegador novo por conta = sessões bem separadas (uma não contamina a outra)
-    const browser = await abreNavegador(false);
+    // perfil FIXO da conta = login próprio e bem separado (uma não contamina a outra)
+    const context = await abrePerfil(C.pastaPerfil(conta), false);
     let res;
     try {
-      res = await postaVideo({ browser, sessaoArq: C.arquivoSessao(conta), video: job.video, legenda, real, conta });
+      res = await postaVideo({ context, video: job.video, legenda, real, conta });
       console.log('        ' + (res.ensaio ? 'ensaio ok ✅' : res.publicado ? 'publicado ✅' : 'feito (confira no app) ⚠'));
     } catch (e) {
       res = { ok: false, erro: e.message };
       console.log('        ERRO: ' + e.message);
     } finally {
-      await browser.close().catch(() => {});
+      await context.close().catch(() => {});
     }
     relatorio.push({ conta, legenda, ...res });
 

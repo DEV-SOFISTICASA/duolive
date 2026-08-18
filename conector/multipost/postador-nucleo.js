@@ -80,29 +80,23 @@ async function esperaSucesso(page, timeoutMs) {
 }
 
 // publica UM vídeo em UMA conta.
-//   browser    navegador já aberto (abreNavegador)
-//   sessaoArq  caminho do sessao-postar-<conta>.json
+//   context    perfil FIXO já aberto (navegador.js -> abrePerfil), já logado
 //   video      caminho do arquivo de vídeo
 //   legenda    texto da legenda (já variado)
 //   real       true = publica de verdade; false/omitido = ensaio
 //   conta      apelido (só para as mensagens e o nome do print)
 // devolve { ok, ensaio?, publicado?, aviso? } ou lança erro com mensagem clara.
-async function postaVideo({ browser, sessaoArq, video, legenda, real, conta }) {
+// Obs.: quem abriu o context é quem fecha; aqui a gente só fecha a aba (page).
+async function postaVideo({ context, video, legenda, real, conta }) {
   conta = conta || 'conta';
-  if (!sessaoArq || !fs.existsSync(sessaoArq)) {
-    throw new Error('Sem login para "' + conta + '". Rode:  npm run login-postar -- --conta ' + conta);
+  if (!context) {
+    throw new Error('Faltou abrir o perfil da conta "' + conta + '". Rode:  npm run login-postar -- --conta ' + conta);
   }
   if (!video || !fs.existsSync(video)) {
     throw new Error('Vídeo não encontrado: ' + video);
   }
   const logDir = garantePasta();
-  const ctx = await browser.newContext({
-    storageState: sessaoArq,
-    locale: 'pt-BR',
-    timezoneId: 'America/Sao_Paulo',
-    viewport: { width: 1280, height: 800 },
-  });
-  const page = await ctx.newPage();
+  const page = await context.newPage();
   const print = async (nome) => {
     try { await page.screenshot({ path: path.join(logDir, conta + '-' + nome + '.png') }); } catch (e) {}
   };
@@ -156,7 +150,7 @@ async function postaVideo({ browser, sessaoArq, video, legenda, real, conta }) {
     if (!real) {
       await print('ensaio-pronto');
       console.log('  [' + conta + '] ENSAIO ✅ tudo pronto — NÃO publiquei. Print em ' + logDir);
-      await ctx.close();
+      await page.close().catch(() => {});
       return { ok: true, ensaio: true };
     }
 
@@ -169,7 +163,7 @@ async function postaVideo({ browser, sessaoArq, video, legenda, real, conta }) {
     await botao.click();
     const publicado = await esperaSucesso(page, 60000);
     await print(publicado ? 'publicado' : 'apos-clique');
-    await ctx.close();
+    await page.close().catch(() => {});
     return {
       ok: true,
       publicado,
@@ -177,7 +171,7 @@ async function postaVideo({ browser, sessaoArq, video, legenda, real, conta }) {
     };
   } catch (e) {
     await print('erro');
-    await ctx.close().catch(() => {});
+    await page.close().catch(() => {});
     if (e.message === 'SESSAO_EXPIRADA') {
       throw new Error('O login da conta "' + conta + '" venceu. Refaça:  npm run login-postar -- --conta ' + conta);
     }

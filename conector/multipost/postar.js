@@ -13,7 +13,7 @@
 //   (aqui é --estilo, não --loja, porque --loja neste comando é o apelido da conta)
 
 const fs = require('fs');
-const { abreNavegador } = require('../navegador.js');
+const { abrePerfil } = require('../navegador.js');
 const C = require('./contas-postar.js');
 const { postaVideo } = require('./postador-nucleo.js');
 const { legendaDoVideo } = require('./legenda-ia.js');
@@ -33,6 +33,11 @@ function arg(nome) {
 
   if (!video) {
     console.log('\n  Faltou o vídeo. Ex.:  npm run postar -- --conta ' + conta + ' --video "C:\\videos\\promo.mp4" --legenda "sua legenda"\n');
+    process.exit(1);
+  }
+  if (!C.temLogin(conta)) {
+    console.log('\n  A conta "' + conta + '" ainda não tem login. Faça uma vez (nasce dentro do robô):');
+    console.log('    npm run login-postar -- --conta ' + conta + '\n');
     process.exit(1);
   }
 
@@ -61,9 +66,9 @@ function arg(nome) {
   console.log('  Modo:    ' + (real ? 'PUBLICAR DE VERDADE' : 'ENSAIO (não publica)'));
   console.log('');
 
-  const browser = await abreNavegador(false); // visível: dá pra acompanhar / resolver verificação
+  const context = await abrePerfil(C.pastaPerfil(conta), false); // visível: dá pra acompanhar / resolver verificação
   try {
-    const r = await postaVideo({ browser, sessaoArq: C.arquivoSessao(conta), video, legenda, real, conta });
+    const r = await postaVideo({ context, video, legenda, real, conta });
     if (r.ensaio) console.log('\n  Pronto (ensaio). Quando estiver ok, publique com POSTAR_REAL=1.\n');
     else if (r.publicado) console.log('\n  Publicado ✅\n');
     else console.log('\n  ' + (r.aviso || 'Terminei, confira no app.') + '\n');
@@ -71,7 +76,7 @@ function arg(nome) {
     console.log('\n  ERRO: ' + e.message + '\n');
     process.exitCode = 1;
   } finally {
-    await browser.close().catch(() => {});
+    await context.close().catch(() => {});
   }
   // deixa o Node terminar sozinho (a IA e o navegador ainda fecham conexões);
   // se algo ficar preso, o timer abaixo força a saída em 2 segundos.

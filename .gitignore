@@ -4,6 +4,9 @@ node_modules/
 # Sessoes salvas (contem cookies/logins - NUNCA enviar ao GitHub)
 conector/sessao-*.json
 
+# Perfis fixos do postador (pasta por conta, com o login do TikTok) - NUNCA enviar
+conector/perfil-postar-*/
+
 # Capturas e historicos locais (podem conter dados de pedidos/clientes)
 conector/descoberta-*.json
 conector/historico-*.json

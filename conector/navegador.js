@@ -64,4 +64,64 @@ async function abreNavegador(invisivel) {
   process.exit(1);
 }
 
-module.exports = { abreNavegador: abreNavegador, achaBrave: achaBrave };
+// -------------------------------------------------------------- PERFIL FIXO
+// Para o TikTok, o robô precisa de um navegador que GUARDE o login (perfil fixo,
+// uma pasta por conta) e que não grite "sou um robô". Sem isso, o TikTok recusa
+// o QR e invalida a sessão logo depois (foi o que aconteceu com os cookies
+// importados). Aqui a gente abre um Chrome/Edge/Brave de verdade apontando pra
+// essa pasta, desligando os sinais de automação mais óbvios.
+
+// esconde os rastros de automação que o TikTok procura no navegador
+async function aplicaDiscricao(ctx) {
+  try {
+    await ctx.addInitScript(() => {
+      // navigator.webdriver = true é a "plaquinha de robô"; some com ela
+      try { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); } catch (e) {}
+      // um punhado de sinais que sites usam pra detectar navegador automatizado
+      try { window.chrome = window.chrome || { runtime: {} }; } catch (e) {}
+      try {
+        const orig = navigator.permissions && navigator.permissions.query;
+        if (orig) navigator.permissions.query = (p) =>
+          p && p.name === 'notifications' ? Promise.resolve({ state: Notification.permission }) : orig(p);
+      } catch (e) {}
+    });
+  } catch (e) {}
+}
+
+// abre um navegador com PERFIL FIXO (a pasta userDataDir guarda o login, igual a
+// um navegador de verdade). Devolve um "context" pronto pra uso (browser embutido).
+// Tenta Chrome, Edge e Brave, nessa ordem.
+async function abrePerfil(userDataDir, invisivel) {
+  const base = {
+    headless: !!invisivel,
+    viewport: null,
+    locale: 'pt-BR',
+    timezoneId: 'America/Sao_Paulo',
+    // tira a barra "controlado por software de teste" e a flag de automação
+    ignoreDefaultArgs: ['--enable-automation'],
+    args: ['--disable-blink-features=AutomationControlled', '--no-first-run',
+      '--no-default-browser-check', '--start-maximized', '--disable-features=Translate'],
+  };
+  const tentativas = [
+    { channel: 'chrome', nome: 'Google Chrome' },
+    { channel: 'msedge', nome: 'Microsoft Edge' },
+  ];
+  const brave = achaBrave();
+  if (brave) tentativas.push({ executablePath: brave, nome: 'Brave' });
+
+  for (const t of tentativas) {
+    try {
+      const opts = Object.assign({}, base);
+      if (t.channel) opts.channel = t.channel;
+      if (t.executablePath) opts.executablePath = t.executablePath;
+      const ctx = await chromium.launchPersistentContext(userDataDir, opts);
+      await aplicaDiscricao(ctx);
+      console.log('  (usando o ' + t.nome + ' — perfil salvo, modo discreto)');
+      return ctx;
+    } catch (e) {}
+  }
+  console.log('  Nao achei Chrome/Edge/Brave pra abrir o perfil. Instale um deles e tente de novo.');
+  process.exit(1);
+}
+
+module.exports = { abreNavegador: abreNavegador, achaBrave: achaBrave, abrePerfil: abrePerfil };
