@@ -95,11 +95,11 @@ A IA tira alguns quadros do vídeo, olha, e escreve a legenda + hashtags sozinha
    winget install Gyan.FFmpeg
    ```
    O MultiPost acha o ffmpeg sozinho — não precisa mexer no PATH nem reiniciar.
-2. **Chave da IA (Gemini, grátis)**: abra `aistudio.google.com/app/apikey`, entre com sua conta do Google, clique em "Create API key" e cole a chave (começa com `AIza`) em `conector/multipost/chave-ia.txt`. O arquivo é ignorado pelo git.
+2. **Chave da IA (Gemini, grátis)**: abra `aistudio.google.com/app/apikey`, entre com sua conta do Google, clique em "Create API key" e cole a chave (começa com `AQ.`; as antigas começavam com `AIza`) em `conector/multipost/chave-ia.txt`. O arquivo é ignorado pelo git.
 
 Testar num vídeo (não publica nada):
 ```bash
 npm run legenda-teste -- --video "C:\videos\SEU-VIDEO.mp4" --loja "loja de decoração"
 ```
 
-> Modelo: por padrão o `gemini-2.5-flash` (rápido, e o plano grátis dá conta). Para caprichar mais: `set MULTIPOST_MODELO=gemini-2.5-pro` antes do comando; para aliviar ainda mais o limite grátis: `set MULTIPOST_MODELO=gemini-2.5-flash-lite`.
+> Modelo: por padrão o `gemini-3.6-flash` (o recomendado pelo Google hoje; se ele sair de linha, o app pula sozinho pro `gemini-flash-latest`). Outras opções antes do comando: `set MULTIPOST_MODELO=gemini-3.7-flash` (mais novo) ou `set MULTIPOST_MODELO=gemini-3.5-flash-lite` (mais leve).

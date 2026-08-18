@@ -7,12 +7,15 @@
 // Precisa de duas coisas (o app avisa direitinho se faltar):
 //   • ffmpeg instalado — tira os quadros do vídeo.
 //   • Chave do Gemini — GRÁTIS: aistudio.google.com/app/apikey (conta Google).
-//     Cole em conector/multipost/chave-ia.txt — a chave começa com AIza.
+//     Cole em conector/multipost/chave-ia.txt — a chave começa com "AQ."
+//     (formato novo de 2026; as antigas começavam com "AIza" e também valem).
 //
-// Modelo: por padrão usa o gemini-2.5-flash (rápido, e o plano grátis dá conta
-// dos 100+ vídeos). Dá pra trocar pondo antes do comando, por exemplo:
-//   set MULTIPOST_MODELO=gemini-2.5-pro          (mais caprichado, mais lento)
-//   set MULTIPOST_MODELO=gemini-2.5-flash-lite   (mais leve ainda)
+// Modelo: por padrão usa o gemini-3.6-flash (o que o Google recomenda hoje —
+// rápido, e o plano grátis dá conta dos 100+ vídeos). Se um dia ele sair de
+// linha, o app tenta sozinho o gemini-flash-latest (sempre o flash atual).
+// Dá pra trocar pondo antes do comando, por exemplo:
+//   set MULTIPOST_MODELO=gemini-3.7-flash        (mais novo)
+//   set MULTIPOST_MODELO=gemini-3.5-flash-lite   (mais leve)
 //
 // Uso como biblioteca:
 //   const { legendaDoVideo } = require('./legenda-ia.js');
@@ -24,7 +27,7 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 
-const MODELO = process.env.MULTIPOST_MODELO || 'gemini-2.5-flash';
+const MODELO = process.env.MULTIPOST_MODELO || 'gemini-3.6-flash';
 const QTOS_QUADROS = Math.max(2, Math.min(12, Number(process.env.MULTIPOST_QUADROS) || 6));
 
 // acha o ffmpeg/ffprobe mesmo que não estejam no PATH (igual ao navegador.js com o
@@ -56,14 +59,16 @@ const FFPROBE = achaExe('ffprobe');
 // a chave da IA: variável de ambiente GEMINI_API_KEY OU o arquivo
 // conector/multipost/chave-ia.txt. Mesmo esquema dos outros segredos
 // (chave-tiktok.txt etc.): cola uma vez e não repete no terminal.
-// Chave de verdade do Google começa com "AIza" — o app acha ela no meio do
-// arquivo mesmo que sobre texto de exemplo ou espaço em volta.
+// Chave de verdade do Google começa com "AQ." (formato novo, 2026) ou "AIza"
+// (formato antigo, sendo aposentado) — o app acha ela no meio do arquivo
+// mesmo que sobre texto de exemplo ou espaço em volta.
+const PARECE_CHAVE = /AQ\.[0-9A-Za-z_.-]{20,}|AIza[0-9A-Za-z_-]{10,}/;
 function chaveIA() {
   let texto = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
-  if (!/AIza/.test(texto)) {
+  if (!PARECE_CHAVE.test(texto)) {
     try { texto = fs.readFileSync(path.join(__dirname, 'chave-ia.txt'), 'utf8'); } catch (e) { texto = ''; }
   }
-  const m = texto.match(/AIza[0-9A-Za-z_-]{10,}/);
+  const m = texto.match(PARECE_CHAVE);
   return m ? m[0] : '';
 }
 
@@ -132,7 +137,7 @@ async function legendaDoVideo(video, opts) {
   }
   const chave = chaveIA();
   if (!chave) {
-    throw new Error('Falta a chave da IA (é grátis). Pega em aistudio.google.com/app/apikey — entra com sua conta do Google e clica em "Create API key" — e cola em conector/multipost/chave-ia.txt. A chave começa com AIza.');
+    throw new Error('Falta a chave da IA (é grátis). Pega em aistudio.google.com/app/apikey — entra com sua conta do Google e clica em "Create API key" — e cola em conector/multipost/chave-ia.txt. A chave começa com "AQ." (as antigas, com "AIza").');
   }
 
   const { pasta, arquivos } = await tiraQuadros(video, QTOS_QUADROS);
@@ -151,23 +156,37 @@ async function legendaDoVideo(video, opts) {
       (opts.dica ? ('Contexto extra: ' + opts.dica + '. ') : '') +
       'Responda no formato pedido.';
 
-    const config = { responseMimeType: 'application/json', responseSchema: ESQUEMA };
-    // o flash fica "pensando" antes de responder; pra legenda não precisa —
-    // desligar deixa mais rápido e gasta menos do limite grátis. (No pro não
-    // dá pra desligar, então só mexe quando o modelo é da família flash.)
-    if (/flash/i.test(MODELO)) config.thinkingConfig = { thinkingBudget: 0 };
+    const partes = [...imagensPraIA(arquivos), { text: instrucao }];
+    const chama = (modelo) => {
+      const config = { responseMimeType: 'application/json', responseSchema: ESQUEMA };
+      // o flash fica "pensando" antes de responder; pra legenda não precisa —
+      // pedir o mínimo deixa mais rápido e gasta menos do limite grátis.
+      // Cada geração tem seu botão: no flash 2.5 desligava (thinkingBudget 0);
+      // do 3 em diante se pede o mínimo (thinkingLevel 'low'). Pro fica quieto.
+      if (/2\.5-flash/i.test(modelo)) config.thinkingConfig = { thinkingBudget: 0 };
+      else if (/flash/i.test(modelo)) config.thinkingConfig = { thinkingLevel: 'low' };
+      return ia.models.generateContent({ model: modelo, contents: [{ role: 'user', parts: partes }], config });
+    };
 
     let resp;
+    let modeloUsado = MODELO;
     try {
-      resp = await ia.models.generateContent({
-        model: MODELO,
-        contents: [{ role: 'user', parts: [...imagensPraIA(arquivos), { text: instrucao }] }],
-        config,
-      });
+      try {
+        resp = await chama(modeloUsado);
+      } catch (e1) {
+        // o Google aposenta modelos de tempos em tempos (foi assim com o
+        // gemini-2.5-flash em 2026). Se for isso, tenta de novo com o
+        // gemini-flash-latest, que é sempre o flash mais atual.
+        const aviso = String((e1 && e1.message) || e1);
+        if (/no longer available|NOT_FOUND|404/i.test(aviso) && modeloUsado !== 'gemini-flash-latest') {
+          modeloUsado = 'gemini-flash-latest';
+          resp = await chama(modeloUsado);
+        } else { throw e1; }
+      }
     } catch (e) {
       const msg = String((e && e.message) || e);
       if (/API[ _]?KEY|API key|PERMISSION_DENIED/i.test(msg)) {
-        throw new Error('O Google não aceitou a chave da IA. Confere se copiou ela inteira (começa com AIza) em conector/multipost/chave-ia.txt.');
+        throw new Error('O Google não aceitou a chave da IA. Confere se copiou ela inteira (começa com "AQ." ou "AIza") em conector/multipost/chave-ia.txt.');
       }
       if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
         throw new Error('O limite grátis do Gemini deu uma pausa (muitos pedidos seguidos). Espera 1 minuto e tenta de novo.');
@@ -187,7 +206,7 @@ async function legendaDoVideo(video, opts) {
     return {
       legenda: String(dados.legenda || '').trim(),
       hashtags: Array.isArray(dados.hashtags) ? dados.hashtags.map(String) : [],
-      modelo: MODELO,
+      modelo: modeloUsado,
     };
   } finally {
     try { fs.rmSync(pasta, { recursive: true, force: true }); } catch (e) {}
