@@ -8,11 +8,15 @@
 //     npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --legenda "Chegou novidade #promo"
 //   Publicar de verdade:
 //     set POSTAR_REAL=1&& npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --legenda "Chegou novidade #promo"
+//   🧠 Deixando a IA escrever a legenda (é só não dar --legenda):
+//     npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --estilo "loja de decoração"
+//   (aqui é --estilo, não --loja, porque --loja neste comando é o apelido da conta)
 
 const fs = require('fs');
 const { abreNavegador } = require('../navegador.js');
 const C = require('./contas-postar.js');
 const { postaVideo } = require('./postador-nucleo.js');
+const { legendaDoVideo } = require('./legenda-ia.js');
 
 function arg(nome) {
   const i = process.argv.indexOf(nome);
@@ -30,6 +34,23 @@ function arg(nome) {
   if (!video) {
     console.log('\n  Faltou o vídeo. Ex.:  npm run postar -- --conta ' + conta + ' --video "C:\\videos\\promo.mp4" --legenda "sua legenda"\n');
     process.exit(1);
+  }
+
+  // 🧠 sem legenda? A IA olha o vídeo e escreve (legenda + hashtags juntas)
+  if (!legenda) {
+    console.log('\n  🧠 Sem legenda — a IA vai olhar o vídeo e escrever...');
+    try {
+      const r = await legendaDoVideo(video, { estilo: arg('--estilo'), dica: arg('--dica') });
+      legenda = (r.legenda + ' ' + r.hashtags.join(' ')).trim();
+    } catch (e) {
+      console.log('\n  Não consegui criar a legenda com a IA: ' + e.message);
+      console.log('  (Dá pra postar mesmo assim dizendo a legenda você mesmo: --legenda "seu texto")\n');
+      // sair "na marra" logo depois de falar com a IA crasha o Node no Windows;
+      // então marca o erro, agenda uma saída de segurança e deixa fechar sozinho
+      process.exitCode = 1;
+      setTimeout(() => process.exit(1), 2000).unref();
+      return;
+    }
   }
 
   console.log('');
@@ -52,5 +73,7 @@ function arg(nome) {
   } finally {
     await browser.close().catch(() => {});
   }
-  process.exit(process.exitCode || 0);
+  // deixa o Node terminar sozinho (a IA e o navegador ainda fecham conexões);
+  // se algo ficar preso, o timer abaixo força a saída em 2 segundos.
+  setTimeout(() => process.exit(process.exitCode || 0), 2000).unref();
 })();
