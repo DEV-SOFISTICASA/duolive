@@ -402,6 +402,13 @@ const server = http.createServer((req, res) => {
     const u = req.usuario || null;
     const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(u);
     const soSigla = (u && u.papel === 'vendedora' && u.sigla) ? u.sigla : null;
+    // SÓ as SUAS lojas: o LiveDash é COMPARTILHADO e traz vendas de outras lojas
+    // (mood, yasmin, aura-casa…) que poluíam o histórico. Filtramos pelas lojas com
+    // login; as 4 fixas ficam de base pra nunca esconder as suas caso a lista dinâmica
+    // venha vazia (ex.: sessões ainda não sincronizadas na nuvem).
+    const minhasLojas = ['monaco', 'bellini', 'fast', 'mania'];
+    try { (L.lojasComLogin() || []).forEach((l) => { if (l && minhasLojas.indexOf(l) < 0) minhasLojas.push(l); }); } catch (e) {}
+    const daMinhaLoja = (v) => !v.loja || minhasLojas.indexOf(v.loja) >= 0;
     (async () => {
       let vendas = null, coresLD = null, fonte = 'livedash';
       if (LD.ativo()) {
@@ -409,7 +416,7 @@ const server = http.createServer((req, res) => {
           const siglas = SB.ativo() ? await siglasConhecidas() : [];
           const esp = await LD.espelho(siglas);
           coresLD = esp.cores;
-          vendas = esp.vendas.filter((v) => v.ts >= corte && (!soSigla || v.sigla === soSigla));
+          vendas = esp.vendas.filter((v) => v.ts >= corte && (!soSigla || v.sigla === soSigla) && daMinhaLoja(v));
         } catch (e) { console.log('  (espelho LiveDash falhou: ' + ((e && e.message) || e) + ' — usando o banco proprio)'); vendas = null; }
       }
       if (!vendas) { // reserva: nosso banco proprio
@@ -417,7 +424,7 @@ const server = http.createServer((req, res) => {
         fonte = 'banco';
         let filtro = 'ts=gte.' + corte + '&select=sigla,quem,produto,valor,plataforma,loja,ts&order=ts.desc&limit=5000';
         if (soSigla) filtro += '&sigla=eq.' + encodeURIComponent(soSigla);
-        vendas = (await SB.seleciona('vendas', filtro)) || [];
+        vendas = ((await SB.seleciona('vendas', filtro)) || []).filter(daMinhaLoja);
       }
       // cores: as do LiveDash (pessoas extras: Luana, Isa, Gravadas...) por baixo,
       // as do NOSSO cadastro (usuarios) por cima — os hex que o ADM escolheu ganham.
