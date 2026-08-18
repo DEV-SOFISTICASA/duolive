@@ -10,7 +10,7 @@
 //     set POSTAR_REAL=1&& npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --legenda "Chegou novidade #promo"
 
 const fs = require('fs');
-const { abreNavegador } = require('./navegador.js');
+const { abreNavegador } = require('../navegador.js');
 const C = require('./contas-postar.js');
 const { postaVideo } = require('./postador-nucleo.js');
 

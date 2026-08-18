@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { abreNavegador } = require('./navegador.js');
+const { abreNavegador } = require('../navegador.js');
 const C = require('./contas-postar.js');
 const { postaVideo, PASTA_LOGS } = require('./postador-nucleo.js');
 const { variaLegenda } = require('./postador-variacao.js');

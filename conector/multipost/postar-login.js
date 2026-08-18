@@ -9,7 +9,7 @@
 //   npm run login-postar -- --conta vend-ana
 // (cada conta guarda o seu próprio login em sessao-postar-<conta>.json)
 
-const { abreNavegador } = require('./navegador.js');
+const { abreNavegador } = require('../navegador.js');
 const C = require('./contas-postar.js');
 
 const CONTA = C.contaPedida();

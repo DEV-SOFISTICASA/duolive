@@ -49,7 +49,7 @@ As sessões ficam separadas (`sessao-tiktok-bellini.json`), então uma loja nunc
 
 ## 📤 MultiPost — publicar vídeos em várias contas
 
-Publica **um vídeo em várias contas do TikTok**, variando a legenda por conta e espaçando os horários. Roda dentro do `conector/`, como os outros robôs.
+Publica **um vídeo em várias contas do TikTok**, variando a legenda por conta e espaçando os horários. Fica na pasta `conector/multipost/`; os comandos `npm run …` continuam sendo rodados de dentro de `conector/`.
 
 > ⚠️ **Segurança:** por padrão é **ENSAIO** (faz tudo, menos o clique de publicar). Só publica de verdade com `POSTAR_REAL=1`. É a conta de **criador** (tiktok.com) — outro login, separado do Seller Center e do Console de LIVE.
 
@@ -64,7 +64,7 @@ Publica **um vídeo em várias contas do TikTok**, variando a legenda por conta 
    ```
    npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --legenda "Chegou novidade #promo"
    ```
-   Confira o print em `conector/postar-logs/`. Deu certo? Publique de verdade:
+   Confira o print em `conector/multipost/postar-logs/`. Deu certo? Publique de verdade:
    ```
    set POSTAR_REAL=1&& npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --legenda "Chegou novidade #promo"
    ```
@@ -74,7 +74,7 @@ Publica **um vídeo em várias contas do TikTok**, variando a legenda por conta 
    npm run postar-massa -- --job postar-exemplo.json            (ensaio)
    set POSTAR_REAL=1&& npm run postar-massa -- --job postar-exemplo.json   (de verdade)
    ```
-   Sem `"contas"` no arquivo, usa **todas** as que já têm login. O intervalo entre contas (`intervaloMin`/`intervaloMax`, em minutos) espaça as postagens. Relatório final em `conector/postar-logs/ultimo-massa.json`.
+   Sem `"contas"` no arquivo, usa **todas** as que já têm login. O intervalo entre contas (`intervaloMin`/`intervaloMax`, em minutos) espaça as postagens. Relatório final em `conector/multipost/postar-logs/ultimo-massa.json`.
 
 | Arquivo | O que é |
 |---|---|
@@ -95,7 +95,7 @@ A IA tira alguns quadros do vídeo, olha, e escreve a legenda + hashtags sozinha
    winget install Gyan.FFmpeg
    ```
    O MultiPost acha o ffmpeg sozinho — não precisa mexer no PATH nem reiniciar.
-2. **Chave da IA**: crie em console.anthropic.com e cole em `conector/chave-ia.txt` (uma linha só). Custa poucos centavos por vídeo. O arquivo é ignorado pelo git.
+2. **Chave da IA**: crie em console.anthropic.com e cole em `conector/multipost/chave-ia.txt` (uma linha só). Custa poucos centavos por vídeo. O arquivo é ignorado pelo git.
 
 Testar num vídeo (não publica nada):
 ```bash

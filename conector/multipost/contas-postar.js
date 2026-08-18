@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const L = require('./lojas.js');
+const L = require('../lojas.js');
 
 // caminho do login de postagem de uma conta
 function arquivoSessao(conta) {

@@ -52,7 +52,7 @@ const FFMPEG = achaExe('ffmpeg');
 const FFPROBE = achaExe('ffprobe');
 
 // a chave da IA: variável de ambiente ANTHROPIC_API_KEY OU o arquivo
-// conector/chave-ia.txt (1ª linha). Mesmo esquema dos outros segredos do DuoLive
+// conector/multipost/chave-ia.txt (1ª linha). Mesmo esquema dos outros segredos
 // (chave-tiktok.txt etc.), pra você colar a chave uma vez e não repetir no terminal.
 function chaveIA() {
   let k = '';
@@ -129,7 +129,7 @@ async function legendaDoVideo(video, opts) {
   }
   const chave = chaveIA();
   if (!chave) {
-    throw new Error('Falta a chave da IA. Crie em console.anthropic.com e cole em conector/chave-ia.txt (uma linha só) — ou ponha em ANTHROPIC_API_KEY.');
+    throw new Error('Falta a chave da IA. Crie em console.anthropic.com e cole em conector/multipost/chave-ia.txt (uma linha só) — ou ponha em ANTHROPIC_API_KEY.');
   }
 
   const { pasta, arquivos } = await tiraQuadros(video, QTOS_QUADROS);

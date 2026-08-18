@@ -22,7 +22,7 @@ conector/conector.txt
 conector/chave-tiktok.txt
 
 # Chave da IA (Anthropic) que legenda os videos - NUNCA enviar
-conector/chave-ia.txt
+conector/multipost/chave-ia.txt
 
 # Senha do painel - NUNCA enviar
 conector/senha-painel.txt
@@ -45,7 +45,7 @@ conector/sessoes.cofre
 conector/*.anterior
 
 # Postador: prints e relatorios das postagens (mostram contas logadas) - nunca enviar
-conector/postar-logs/
+conector/multipost/postar-logs/
 
 # Configuracao local do Claude Code
 .claude/
