@@ -55,6 +55,17 @@ async function achaPrimeiro(page, seletores, timeoutMs) {
   return null;
 }
 
+// o TikTok Studio às vezes mostra a tela de login por um instante enquanto
+// confirma os cookies, e só então volta pro upload. Esperar "assentar" evita
+// desistir cedo demais e acusar sessão expirada à toa.
+async function assenta(page, ms) {
+  const fim = Date.now() + ms;
+  while (Date.now() < fim) {
+    if (!/\/login|\/signup/.test(page.url())) return; // saiu do login (ou nunca esteve)
+    await page.waitForTimeout(500);
+  }
+}
+
 // olha se apareceu algum sinal de "deu certo" depois de clicar em publicar
 async function esperaSucesso(page, timeoutMs) {
   const fim = Date.now() + timeoutMs;
@@ -98,14 +109,16 @@ async function postaVideo({ browser, sessaoArq, video, legenda, real, conta }) {
 
   try {
     await page.goto('https://www.tiktok.com/tiktokstudio/upload', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    if (/\/login/.test(page.url())) throw new Error('SESSAO_EXPIRADA');
+    await assenta(page, 12000); // espera o Studio parar de piscar a tela de login
+    if (/\/login|\/signup/.test(page.url())) throw new Error('SESSAO_EXPIRADA');
 
     // acha o campo de arquivo (tenta o Studio; se não achar, o /upload clássico)
-    let input = await achaPrimeiro(page, SELETORES.inputArquivo, 20000);
+    let input = await achaPrimeiro(page, SELETORES.inputArquivo, 25000);
     if (!input) {
       await page.goto('https://www.tiktok.com/upload?lang=pt-BR', { waitUntil: 'domcontentloaded', timeout: 60000 });
-      if (/\/login/.test(page.url())) throw new Error('SESSAO_EXPIRADA');
-      input = await achaPrimeiro(page, SELETORES.inputArquivo, 20000);
+      await assenta(page, 12000);
+      if (/\/login|\/signup/.test(page.url())) throw new Error('SESSAO_EXPIRADA');
+      input = await achaPrimeiro(page, SELETORES.inputArquivo, 25000);
     }
     if (!input) {
       await print('sem-input');
