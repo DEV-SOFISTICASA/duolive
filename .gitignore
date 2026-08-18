@@ -21,6 +21,9 @@ conector/conector.txt
 # Chave de assinatura do chat do TikTok (eulerstream.com) - NUNCA enviar
 conector/chave-tiktok.txt
 
+# Chave da IA (Anthropic) que legenda os videos - NUNCA enviar
+conector/chave-ia.txt
+
 # Senha do painel - NUNCA enviar
 conector/senha-painel.txt
 
@@ -40,6 +43,9 @@ conector/cofre.txt
 conector/.cofre-nuvem/
 conector/sessoes.cofre
 conector/*.anterior
+
+# Postador: prints e relatorios das postagens (mostram contas logadas) - nunca enviar
+conector/postar-logs/
 
 # Configuracao local do Claude Code
 .claude/

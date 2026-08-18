@@ -23,10 +23,18 @@
     "baixar-sessoes": "node baixar-sessoes.js",
     "empacotar-sessoes": "node empacotar-sessoes.js",
     "robo-nuvem": "node robo-nuvem.js",
+    "login-postar": "node postar-login.js",
+    "postar": "node postar.js",
+    "postar-massa": "node postar-massa.js",
+    "ensaio-variacao": "node postador-variacao.js",
+    "legenda-teste": "node legenda-teste.js",
     "test": "node testes/rodar-tudo.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.1",
     "playwright-core": "1.48.0",
     "tiktok-live-connector": "^2.4.3",
     "ws": "^8.18.0"

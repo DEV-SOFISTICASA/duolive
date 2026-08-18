@@ -46,3 +46,60 @@ As sessões ficam separadas (`sessao-tiktok-bellini.json`), então uma loja nunc
 > **Navegador:** os robôs usam o Chrome, o Edge **ou o Brave** — o primeiro que acharem instalado (`conector/navegador.js`).
 
 > **Chave do chat do TikTok:** a leitura do chat passa pelo [Euler Stream](https://www.eulerstream.com). Coloque a sua chave (grátis) em `conector/chave-tiktok.txt`, uma linha só — ou na variável `DUOLIVE_SIGN_KEY`. **Uma chave serve para todas as lojas:** ela identifica a sua conta no serviço, não o @ assistido. O arquivo é ignorado pelo git.
+
+## 📤 MultiPost — publicar vídeos em várias contas
+
+Publica **um vídeo em várias contas do TikTok**, variando a legenda por conta e espaçando os horários. Roda dentro do `conector/`, como os outros robôs.
+
+> ⚠️ **Segurança:** por padrão é **ENSAIO** (faz tudo, menos o clique de publicar). Só publica de verdade com `POSTAR_REAL=1`. É a conta de **criador** (tiktok.com) — outro login, separado do Seller Center e do Console de LIVE.
+
+1. **Logar cada conta** (uma vez por conta):
+   ```
+   npm run login-postar -- --conta monaco
+   npm run login-postar -- --conta bellini
+   ```
+   Cada login fica em `sessao-postar-<conta>.json` (ignorado pelo git).
+
+2. **Testar em uma conta** (não publica):
+   ```
+   npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --legenda "Chegou novidade #promo"
+   ```
+   Confira o print em `conector/postar-logs/`. Deu certo? Publique de verdade:
+   ```
+   set POSTAR_REAL=1&& npm run postar -- --conta monaco --video "C:\videos\promo.mp4" --legenda "Chegou novidade #promo"
+   ```
+
+3. **Postagem em massa** (várias contas): copie `postar-exemplo.json`, ajuste o caminho do vídeo, a legenda, as hashtags e as contas, e rode:
+   ```
+   npm run postar-massa -- --job postar-exemplo.json            (ensaio)
+   set POSTAR_REAL=1&& npm run postar-massa -- --job postar-exemplo.json   (de verdade)
+   ```
+   Sem `"contas"` no arquivo, usa **todas** as que já têm login. O intervalo entre contas (`intervaloMin`/`intervaloMax`, em minutos) espaça as postagens. Relatório final em `conector/postar-logs/ultimo-massa.json`.
+
+| Arquivo | O que é |
+|---|---|
+| `postar-login.js` | Login de uma conta de postagem (`npm run login-postar -- --conta X`) |
+| `postar.js` | Publica em UMA conta (bom para testar) |
+| `postar-massa.js` | Publica em VÁRIAS contas, com variação de legenda e horários espaçados |
+| `postador-variacao.js` | Varia a legenda por conta (teste: `npm run ensaio-variacao`) |
+| `postador-nucleo.js` | A parte que fala com a tela do TikTok (seletores num lugar só) |
+| `legenda-ia.js` | 🧠 A IA olha o vídeo e escreve legenda + hashtags |
+| `legenda-teste.js` | Testar a legenda da IA num vídeo (`npm run legenda-teste`) |
+
+### 🧠 Legenda automática (a IA vê o vídeo)
+
+A IA tira alguns quadros do vídeo, olha, e escreve a legenda + hashtags sozinha. Precisa de duas coisas:
+
+1. **ffmpeg** (tira os quadros). No Windows:
+   ```bash
+   winget install Gyan.FFmpeg
+   ```
+   O MultiPost acha o ffmpeg sozinho — não precisa mexer no PATH nem reiniciar.
+2. **Chave da IA**: crie em console.anthropic.com e cole em `conector/chave-ia.txt` (uma linha só). Custa poucos centavos por vídeo. O arquivo é ignorado pelo git.
+
+Testar num vídeo (não publica nada):
+```bash
+npm run legenda-teste -- --video "C:\videos\SEU-VIDEO.mp4" --loja "loja de decoração"
+```
+
+> Modelo: por padrão o mais forte (`claude-opus-5`). Para baratear em muitos vídeos, use um mais leve: `set MULTIPOST_MODELO=claude-haiku-4-5` antes do comando.
