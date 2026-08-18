@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MultiPost · Painel</title>
+<style>
+  :root{
+    --bg:#0e0e12; --card:#17171f; --card2:#1f1f2a; --linha:#2a2a38;
+    --texto:#f2f2f7; --suave:#a0a0b0; --rosa:#fe2c55; --ciano:#25f4ee;
+    --ok:#2ecc71; --aviso:#f1c40f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--texto);line-height:1.5}
+  header{padding:20px 24px;border-bottom:1px solid var(--linha);display:flex;align-items:center;gap:14px}
+  header .logo{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  header .logo b{color:var(--rosa)} header .logo i{color:var(--ciano);font-style:normal}
+  header .sub{color:var(--suave);font-size:13px}
+  .wrap{max-width:1100px;margin:0 auto;padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:20px}
+  .card h2{margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h2 .n{background:var(--rosa);color:#fff;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+  /* área de soltar vídeos */
+  .solta{border:2px dashed var(--linha);border-radius:14px;padding:26px;text-align:center;color:var(--suave);cursor:pointer;transition:.15s}
+  .solta:hover,.solta.sobre{border-color:var(--rosa);background:#fe2c5510;color:var(--texto)}
+  .solta .big{font-size:34px}
+  .videos{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:240px;overflow:auto}
+  .videos li{display:flex;align-items:center;gap:10px;background:var(--card2);border-radius:10px;padding:8px 12px;font-size:14px}
+  .videos li .kb{color:var(--suave);font-size:12px;margin-left:auto}
+  .videos li button{background:none;border:none;color:var(--suave);cursor:pointer;font-size:16px;padding:0 4px}
+  .videos li button:hover{color:var(--rosa)}
+  /* contas */
+  .contas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto}
+  .contas li{display:flex;align-items:center;gap:10px;background:var(--card2);border-radius:10px;padding:9px 12px;font-size:14px}
+  .contas li.off{opacity:.55}
+  .contas .tag{margin-left:auto;font-size:11px;padding:2px 8px;border-radius:20px}
+  .tag.on{background:#2ecc7122;color:var(--ok)} .tag.no{background:#f1c40f22;color:var(--aviso)}
+  input[type=checkbox]{width:18px;height:18px;accent-color:var(--rosa)}
+  label.campo{display:block;margin:12px 0 4px;font-size:13px;color:var(--suave)}
+  input[type=text]{width:100%;background:var(--card2);border:1px solid var(--linha);border-radius:10px;padding:10px 12px;color:var(--texto);font-size:14px}
+  .btns{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+  button.b{border:none;border-radius:12px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer}
+  button.ensaio{background:var(--ciano);color:#062e2c}
+  button.real{background:var(--rosa);color:#fff}
+  button.parar{background:var(--card2);color:var(--texto);border:1px solid var(--linha)}
+  button.b:disabled{opacity:.5;cursor:not-allowed}
+  .obs{font-size:12px;color:var(--suave);margin-top:10px}
+  /* progresso */
+  .console{background:#08080c;border:1px solid var(--linha);border-radius:12px;padding:14px;font-family:Consolas,'Courier New',monospace;font-size:12.5px;color:#cfe;white-space:pre-wrap;min-height:120px;max-height:340px;overflow:auto}
+  .pisca{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--suave);margin-right:6px}
+  .pisca.on{background:var(--ok);animation:p 1s infinite}
+  @keyframes p{50%{opacity:.3}}
+  .vazio{color:var(--suave);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><b>Multi</b><i>Post</i></div>
+  <div class="sub">poste seus vídeos no TikTok em massa — a IA escreve a legenda</div>
+</header>
+
+<div class="wrap">
+  <!-- COLUNA 1: vídeos + ajustes -->
+  <div>
+    <div class="card">
+      <h2><span class="n">1</span> Seus vídeos</h2>
+      <div class="solta" id="solta">
+        <div class="big">🎬</div>
+        <div><b>Arraste os vídeos aqui</b> ou clique pra escolher</div>
+        <div style="font-size:12px;margin-top:4px">.mp4, .mov, .webm…</div>
+        <input type="file" id="arquivo" accept="video/*" multiple hidden>
+      </div>
+      <ul class="videos" id="listaVideos"></ul>
+    </div>
+
+    <div class="card" style="margin-top:22px">
+      <h2><span class="n">2</span> Ajustes da legenda</h2>
+      <label class="campo">Tipo da loja (dá o tom da legenda)</label>
+      <input type="text" id="loja" placeholder="ex.: loja de decoração" value="loja de decoração">
+      <label class="campo">Dica opcional (contexto do dia)</label>
+      <input type="text" id="dica" placeholder="ex.: promoção de vasos coloridos">
+      <div class="obs">🧠 A IA olha cada vídeo e escreve legenda + hashtags sozinha. Você não precisa digitar legenda.</div>
+    </div>
+  </div>
+
+  <!-- COLUNA 2: contas + postar + progresso -->
+  <div>
+    <div class="card">
+      <h2><span class="n">3</span> Contas</h2>
+      <ul class="contas" id="listaContas"><li class="vazio">carregando…</li></ul>
+      <div class="obs" id="obsContas"></div>
+    </div>
+
+    <div class="card" style="margin-top:22px">
+      <h2><span class="n">4</span> Postar</h2>
+      <div class="btns">
+        <button class="b ensaio" id="btEnsaio">▶ Ensaio (não publica)</button>
+        <button class="b real" id="btReal">🚀 Publicar de verdade</button>
+        <button class="b parar" id="btParar" disabled>■ Parar</button>
+      </div>
+      <div class="obs">O <b>Ensaio</b> faz tudo menos o clique final — ótimo pra conferir. Só publica de verdade no botão rosa (que pede confirmação).</div>
+      <h2 style="margin-top:18px"><span class="pisca" id="pisca"></span> Progresso</h2>
+      <div class="console" id="console">Pronto. Escolha vídeos e contas, e mande ver. 🙂</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (s)=>document.querySelector(s);
+let videos=[], contas=[], rodando=false;
+
+async function carregar(){
+  const r = await fetch('/api/estado').then(x=>x.json());
+  videos = r.videos; contas = r.contas; rodando = r.rodando;
+  desenhaVideos(); desenhaContas();
+  $('#obsContas').textContent = r.temChave ? '' : '⚠ Falta a chave da IA (chave-ia.txt) — a legenda automática não vai funcionar até colar a chave do Gemini.';
+}
+
+function desenhaVideos(){
+  const ul = $('#listaVideos');
+  if(!videos.length){ ul.innerHTML = '<li class="vazio">nenhum vídeo ainda</li>'; return; }
+  ul.innerHTML = '';
+  videos.forEach(v=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<span>🎞️</span> <span>${v.nome}</span> <span class="kb">${(v.kb/1024).toFixed(1)} MB</span>`;
+    const x = document.createElement('button'); x.textContent='✕'; x.title='remover';
+    x.onclick = async ()=>{ await fetch('/api/apagar?nome='+encodeURIComponent(v.nome),{method:'POST'}); carregar(); };
+    li.appendChild(x); ul.appendChild(li);
+  });
+}
+
+function desenhaContas(){
+  const ul = $('#listaContas');
+  if(!contas.length){ ul.innerHTML = '<li class="vazio">nenhuma conta logada. Rode: npm run login-postar -- --conta NOME</li>'; return; }
+  ul.innerHTML = '';
+  contas.forEach(c=>{
+    const li = document.createElement('li'); if(!c.logado) li.className='off';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.value=c.nome; cb.checked=c.logado; cb.disabled=!c.logado; cb.className='cbConta';
+    const nome = document.createElement('span'); nome.textContent = c.nome;
+    const tag = document.createElement('span'); tag.className='tag '+(c.logado?'on':'no'); tag.textContent = c.logado?'logada':'sem login';
+    li.appendChild(cb); li.appendChild(nome); li.appendChild(tag); ul.appendChild(li);
+  });
+}
+
+function contasMarcadas(){ return [...document.querySelectorAll('.cbConta:checked')].map(x=>x.value); }
+
+// arrastar / escolher vídeos
+const solta = $('#solta');
+solta.onclick = ()=> $('#arquivo').click();
+$('#arquivo').onchange = (e)=> enviaArquivos(e.target.files);
+;['dragenter','dragover'].forEach(ev=> solta.addEventListener(ev,(e)=>{e.preventDefault();solta.classList.add('sobre');}));
+;['dragleave','drop'].forEach(ev=> solta.addEventListener(ev,(e)=>{e.preventDefault();solta.classList.remove('sobre');}));
+solta.addEventListener('drop',(e)=> enviaArquivos(e.dataTransfer.files));
+
+async function enviaArquivos(files){
+  for(const f of files){
+    if(!/\.(mp4|mov|webm|avi|mkv|m4v)$/i.test(f.name)) continue;
+    logaTela('enviando '+f.name+'…');
+    await fetch('/api/upload?nome='+encodeURIComponent(f.name),{method:'POST',body:f});
+  }
+  carregar();
+}
+
+// postar
+async function manda(real){
+  const vids = videos.map(v=>v.nome);
+  const cts = contasMarcadas();
+  if(!vids.length) return alert('Adicione pelo menos um vídeo.');
+  if(!cts.length) return alert('Marque pelo menos uma conta.');
+  if(real && !confirm('PUBLICAR DE VERDADE '+vids.length+' vídeo(s) em '+cts.length+' conta(s)?\n\nIsso vai postar no TikTok mesmo. Tem certeza?')) return;
+  const body = {videos:vids, contas:cts, loja:$('#loja').value, dica:$('#dica').value, real};
+  const r = await fetch('/api/postar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(x=>x.json());
+  if(!r.ok) return alert(r.erro||'não deu pra começar');
+  $('#console').textContent=''; puxaProgresso();
+}
+$('#btEnsaio').onclick = ()=> manda(false);
+$('#btReal').onclick = ()=> manda(true);
+$('#btParar').onclick = ()=> fetch('/api/parar',{method:'POST'});
+
+function logaTela(t){ const c=$('#console'); c.textContent += (c.textContent?'\n':'')+t; c.scrollTop=c.scrollHeight; }
+
+async function puxaProgresso(){
+  const r = await fetch('/api/progresso').then(x=>x.json());
+  if(r.linhas && r.linhas.length){ $('#console').textContent = r.linhas.join('\n'); $('#console').scrollTop = 1e9; }
+  rodando = r.rodando;
+  $('#pisca').className = 'pisca'+(rodando?' on':'');
+  $('#btEnsaio').disabled = rodando; $('#btReal').disabled = rodando; $('#btParar').disabled = !rodando;
+}
+
+setInterval(puxaProgresso, 1500);
+carregar();
+</script>
+</body>
+</html>

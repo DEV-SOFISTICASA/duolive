@@ -7,6 +7,9 @@ conector/sessao-*.json
 # Perfis fixos do postador (pasta por conta, com o login do TikTok) - NUNCA enviar
 conector/perfil-postar-*/
 
+# Videos que o usuario joga no painel pra postar - nao versionar
+conector/multipost/videos/
+
 # Capturas e historicos locais (podem conter dados de pedidos/clientes)
 conector/descoberta-*.json
 conector/historico-*.json
