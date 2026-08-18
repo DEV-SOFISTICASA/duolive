@@ -24,6 +24,7 @@
     "empacotar-sessoes": "node empacotar-sessoes.js",
     "robo-nuvem": "node robo-nuvem.js",
     "login-postar": "node multipost/postar-login.js",
+    "login-massa": "node multipost/login-massa.js",
     "importar-login": "node multipost/importar-login-brave.js",
     "importar-cookies": "node multipost/cookies-para-sessao.js",
     "testa-login": "node multipost/postar-testa-login.js",
