@@ -71,6 +71,7 @@
     <div class="card"><small>💰 Total no período</small><b id="cTotal" style="color:var(--ok)">R$ 0,00</b></div>
     <div class="card"><small>🛒 Vendas</small><b id="cQtd">0</b></div>
     <div class="card"><small>📺 Lives</small><b id="cLives">0</b></div>
+    <div class="card" id="cardGR" style="display:none"><small>🎬 (LIVES GRAVADAS) · GR</small><b id="cGR" style="color:#a78bfa">R$ 0,00</b></div>
   </div>
 
   <div class="pessoas" id="pessoas"></div>
@@ -161,7 +162,7 @@
 
   function render(vendas, cores){
     // rótulos dos cartões voltam ao normal (o modo Metas troca eles)
-    $('cTotal').previousElementSibling.textContent='💰 Total no período';
+    $('cTotal').previousElementSibling.textContent=(visao==='vend')?'💰 Ao vivo':'💰 Total no período';
     $('cQtd').previousElementSibling.textContent='🛒 Vendas';
     $('cLives').previousElementSibling.textContent='📺 Lives';
     // LIVE 10K é evento TEMPORÁRIO: aparece nos períodos recentes (Hoje/7/Mês),
@@ -186,12 +187,16 @@
     });
     var lives=Object.keys(porLive).map(function(k){return porLive[k];}).sort(function(a,b){return a.ts-b.ts;});
 
-    $('cTotal').textContent=real(total);
+    // LIVES GRAVADAS (GR): na visão Vendedoras, separa a GRAVADA das ao vivo.
+    var grP=(visao==='vend' && porSig['GRAVADA'])?porSig['GRAVADA']:null;
+    var grTotal=grP?grP.total:0;
+    $('cTotal').textContent=real(visao==='vend'?(total-grTotal):total);
     $('cQtd').textContent=qtd;
     $('cLives').textContent=lives.length;
+    var cardGR=$('cardGR'); if(cardGR){ if(grP){ cardGR.style.display=''; $('cGR').textContent=real(grTotal); } else cardGR.style.display='none'; }
 
     // cartões por pessoa (ADM vê todas; vendedora vê só a dela). Ordena por total.
-    var pess=Object.keys(porSig).map(function(s){return porSig[s];}).sort(function(a,b){return b.total-a.total;});
+    var pess=Object.keys(porSig).map(function(s){return porSig[s];}).filter(function(p){return !(visao==='vend'&&p.sig==='GRAVADA');}).sort(function(a,b){return b.total-a.total;});
     var pe=$('pessoas'); pe.innerHTML='';
     pess.forEach(function(p){
       var cor=corDe(cores,p.sig);
@@ -203,7 +208,7 @@
 
     // ===== gráfico =====
     var barras=$('barras'); barras.innerHTML='';
-    var semDados = ehAdm ? !pess.length : !lives.length;
+    var semDados = ehAdm ? (!pess.length && !grTotal) : !lives.length;
     if(semDados){
       barras.style.display='none'; $('legenda').style.display='none';
       $('vazio').style.display='';
@@ -273,6 +278,7 @@
   }
   function renderMetas(d){
     var vend=d.vendedoras||[], metaMin=d.metaMin||240;
+    var _cg=$('cardGR'); if(_cg) _cg.style.display='none';
     var bateram=vend.filter(function(v){return (+v.minutos||0)>=metaMin;}).length;
     var somaMin=vend.reduce(function(a,v){return a+(+v.minutos||0);},0);
     $('cTotal').textContent=fmtH(metaMin); $('cTotal').previousElementSibling.textContent='🎯 Meta do período';
