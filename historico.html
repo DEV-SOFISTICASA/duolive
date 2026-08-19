@@ -71,7 +71,6 @@
     <div class="card"><small>💰 Total no período</small><b id="cTotal" style="color:var(--ok)">R$ 0,00</b></div>
     <div class="card"><small>🛒 Vendas</small><b id="cQtd">0</b></div>
     <div class="card"><small>📺 Lives</small><b id="cLives">0</b></div>
-    <div class="card" id="cardGR" style="display:none"><small>🎬 (LIVES GRAVADAS) · GR</small><b id="cGR" style="color:#a78bfa">R$ 0,00</b></div>
   </div>
 
   <div class="pessoas" id="pessoas"></div>
@@ -104,8 +103,9 @@
     d.setDate(d.getDate()-7); return d;                                    // 7 dias
   }
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
-  function nomeDe(cores,sig){ if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
+  function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; if(sig==='GRAVADA') return '#a78bfa'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
+  function nomeDe(cores,sig){ if(sig==='GRAVADA') return 'Lives Gravadas'; if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
+  function sigCurta(sig){ return sig==='GRAVADA'?'GR':(sig||''); }  // GRAVADA aparece como "GR" no gráfico/cartões
   function quando(ms){ var d=new Date(ms); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
 
   // quem está logado (nome + Sair)
@@ -162,7 +162,7 @@
 
   function render(vendas, cores){
     // rótulos dos cartões voltam ao normal (o modo Metas troca eles)
-    $('cTotal').previousElementSibling.textContent=(visao==='vend')?'💰 Ao vivo':'💰 Total no período';
+    $('cTotal').previousElementSibling.textContent='💰 Total no período';
     $('cQtd').previousElementSibling.textContent='🛒 Vendas';
     $('cLives').previousElementSibling.textContent='📺 Lives';
     // LIVE 10K é evento TEMPORÁRIO: aparece nos períodos recentes (Hoje/7/Mês),
@@ -187,28 +187,24 @@
     });
     var lives=Object.keys(porLive).map(function(k){return porLive[k];}).sort(function(a,b){return a.ts-b.ts;});
 
-    // LIVES GRAVADAS (GR): na visão Vendedoras, separa a GRAVADA das ao vivo.
-    var grP=(visao==='vend' && porSig['GRAVADA'])?porSig['GRAVADA']:null;
-    var grTotal=grP?grP.total:0;
-    $('cTotal').textContent=real(visao==='vend'?(total-grTotal):total);
+    $('cTotal').textContent=real(total);
     $('cQtd').textContent=qtd;
     $('cLives').textContent=lives.length;
-    var cardGR=$('cardGR'); if(cardGR){ if(grP){ cardGR.style.display=''; $('cGR').textContent=real(grTotal); } else cardGR.style.display='none'; }
 
     // cartões por pessoa (ADM vê todas; vendedora vê só a dela). Ordena por total.
-    var pess=Object.keys(porSig).map(function(s){return porSig[s];}).filter(function(p){return !(visao==='vend'&&p.sig==='GRAVADA');}).sort(function(a,b){return b.total-a.total;});
+    var pess=Object.keys(porSig).map(function(s){return porSig[s];}).sort(function(a,b){return b.total-a.total;});
     var pe=$('pessoas'); pe.innerHTML='';
     pess.forEach(function(p){
       var cor=corDe(cores,p.sig);
       var d=document.createElement('div'); d.className='pessoa'; d.style.borderLeftColor=cor;
-      d.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+nomeDe(cores,p.sig)+(p.sig?(' ('+p.sig+')'):'')+'</div>'
+      d.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+nomeDe(cores,p.sig)+(p.sig?(' ('+sigCurta(p.sig)+')'):'')+'</div>'
         +'<div class="vl">'+real(p.total)+'</div><div class="qt">'+p.qtd+' venda'+(p.qtd===1?'':'s')+'</div>';
       pe.appendChild(d);
     });
 
     // ===== gráfico =====
     var barras=$('barras'); barras.innerHTML='';
-    var semDados = ehAdm ? (!pess.length && !grTotal) : !lives.length;
+    var semDados = ehAdm ? !pess.length : !lives.length;
     if(semDados){
       barras.style.display='none'; $('legenda').style.display='none';
       $('vazio').style.display='';
@@ -230,7 +226,7 @@
         var col=document.createElement('div'); col.className='col';
         col.innerHTML='<div class="val">'+real(p.total).replace('R$ ','')+'</div>'
           +'<div class="stack" style="height:'+altura+'px"><div class="seg" style="height:'+altura+'px;background:'+cor+'"></div></div>'
-          +'<div class="hora">'+(p.sig||'sem vend.')+'</div>';
+          +'<div class="hora">'+(sigCurta(p.sig)||'sem vend.')+'</div>';
         col.title=nomeDe(cores,p.sig)+' · '+real(p.total)+' · '+p.qtd+' venda(s)';
         barras.appendChild(col);
       });
@@ -278,7 +274,6 @@
   }
   function renderMetas(d){
     var vend=d.vendedoras||[], metaMin=d.metaMin||240;
-    var _cg=$('cardGR'); if(_cg) _cg.style.display='none';
     var bateram=vend.filter(function(v){return (+v.minutos||0)>=metaMin;}).length;
     var somaMin=vend.reduce(function(a,v){return a+(+v.minutos||0);},0);
     $('cTotal').textContent=fmtH(metaMin); $('cTotal').previousElementSibling.textContent='🎯 Meta do período';
