@@ -30,6 +30,10 @@ function arg(nome) {
   const legendaArq = arg('--legenda-arquivo');
   if (!legenda && legendaArq && fs.existsSync(legendaArq)) legenda = fs.readFileSync(legendaArq, 'utf8').trim();
   const real = process.env.POSTAR_REAL === '1';
+  // --agendar HH:MM → programa no TikTok em vez de publicar agora
+  let agendar = null;
+  const mAg = /^(\d{1,2}):(\d{2})$/.exec(arg('--agendar') || '');
+  if (mAg) agendar = { hh: +mAg[1], mm: +mAg[2] };
 
   if (!video) {
     console.log('\n  Faltou o vídeo. Ex.:  npm run postar -- --conta ' + conta + ' --video "C:\\videos\\promo.mp4" --legenda "sua legenda"\n');
@@ -64,11 +68,12 @@ function arg(nome) {
   console.log('  Vídeo:   ' + video);
   console.log('  Legenda: ' + (legenda || '(vazia)'));
   console.log('  Modo:    ' + (real ? 'PUBLICAR DE VERDADE' : 'ENSAIO (não publica)'));
+  if (agendar) console.log('  Quando:  📅 programar para ' + String(agendar.hh).padStart(2, '0') + ':' + String(agendar.mm).padStart(2, '0'));
   console.log('');
 
   const context = await abrePerfil(C.pastaPerfil(conta), false); // visível: dá pra acompanhar / resolver verificação
   try {
-    const r = await postaVideo({ context, video, legenda, real, conta });
+    const r = await postaVideo({ context, video, legenda, real, conta, agendar });
     if (r.ensaio) console.log('\n  Pronto (ensaio). Quando estiver ok, publique com POSTAR_REAL=1.\n');
     else if (r.publicado) console.log('\n  Publicado ✅\n');
     else console.log('\n  ' + (r.aviso || 'Terminei, confira no app.') + '\n');

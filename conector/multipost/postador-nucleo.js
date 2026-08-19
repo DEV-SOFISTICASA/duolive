@@ -34,7 +34,10 @@ const SELETORES = {
   botaoPostar: [
     '[data-e2e="post_video_button"]',
     'button:has-text("Publicar")',
+    'button:has-text("Programar")',
+    'button:has-text("Agendar")',
     'button:has-text("Post")',
+    'button:has-text("Schedule")',
     'button:has-text("Postar")',
   ],
   sucesso: [
@@ -106,15 +109,64 @@ async function esperaSucesso(page, timeoutMs) {
   return false;
 }
 
+// -------------------------------------------------------------- AGENDAMENTO
+// O TikTok tem "Programar" na tela de upload: marca o radio e escolhe a hora
+// num seletor de 2 colunas (esquerda = horas 00–23, direita = minutos de 5 em 5).
+
+// clica no item do time-picker com o texto `valor`, na coluna certa
+// (esquerda=true → horas; false → minutos).
+async function escolheNoPicker(page, valor, esquerda) {
+  const opts = await page.locator('[class*="timepicker-option"]').all();
+  for (const o of opts) {
+    const t = ((await o.textContent().catch(() => '')) || '').trim();
+    if (t !== valor) continue;
+    const box = await o.boundingBox().catch(() => null);
+    if (!box) continue;
+    if ((box.x < 400) === esquerda) {
+      await o.scrollIntoViewIfNeeded().catch(() => {});
+      await o.click().catch(() => {});
+      return true;
+    }
+  }
+  return false;
+}
+
+// marca "Programar" e define a HORA (o minuto é arredondado pra múltiplo de 5,
+// que é o que o TikTok aceita). A DATA fica a que o TikTok já sugere (hoje/próxima
+// válida). Devolve a hora final do campo (ex.: "18:15") ou '' se não deu.
+async function agendaHorario(page, hh, mm) {
+  const HH = String(hh).padStart(2, '0');
+  const MM = String(Math.round((+mm || 0) / 5) * 5 % 60).padStart(2, '0');
+  for (let i = 0; i < 7; i++) { await page.mouse.wheel(0, 700); await page.waitForTimeout(300); }
+  try { await page.locator('input[type="radio"][value="schedule"]').first().click({ force: true, timeout: 5000 }); } catch (e) {}
+  await page.waitForTimeout(1500);
+  let campo = null;
+  for (const inp of await page.locator('input:visible').all()) {
+    const v = await inp.inputValue().catch(() => '');
+    if (/^\d{1,2}:\d{2}$/.test(v)) { campo = inp; break; }
+  }
+  if (!campo) return '';
+  await campo.click().catch(() => {});
+  await page.waitForTimeout(1000);
+  await escolheNoPicker(page, HH, true);
+  await page.waitForTimeout(500);
+  await escolheNoPicker(page, MM, false);
+  await page.waitForTimeout(500);
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(700);
+  return await campo.inputValue().catch(() => '');
+}
+
 // publica UM vídeo em UMA conta.
 //   context    perfil FIXO já aberto (navegador.js -> abrePerfil), já logado
 //   video      caminho do arquivo de vídeo
 //   legenda    texto da legenda (já variado)
 //   real       true = publica de verdade; false/omitido = ensaio
 //   conta      apelido (só para as mensagens e o nome do print)
-// devolve { ok, ensaio?, publicado?, aviso? } ou lança erro com mensagem clara.
+//   agendar    { hh, mm } pra PROGRAMAR no horário (em vez de publicar agora); ou null
+// devolve { ok, ensaio?, publicado?, agendado?, aviso? } ou lança erro claro.
 // Obs.: quem abriu o context é quem fecha; aqui a gente só fecha a aba (page).
-async function postaVideo({ context, video, legenda, real, conta }) {
+async function postaVideo({ context, video, legenda, real, conta, agendar }) {
   conta = conta || 'conta';
   if (!context) {
     throw new Error('Faltou abrir o perfil da conta "' + conta + '". Rode:  npm run login-postar -- --conta ' + conta);
@@ -167,18 +219,27 @@ async function postaVideo({ context, video, legenda, real, conta }) {
       console.log('  [' + conta + '] aviso: não consegui escrever a legenda (' + e.message + ')');
     }
 
+    // 📅 agendar? marca "Programar" e define a hora (a data fica a sugerida pelo TikTok)
+    let horaAgendada = '';
+    if (agendar && agendar.hh != null) {
+      horaAgendada = await agendaHorario(page, agendar.hh, agendar.mm || 0);
+      if (horaAgendada) console.log('  [' + conta + '] 📅 programado para as ' + horaAgendada);
+      else console.log('  [' + conta + '] aviso: não consegui marcar o horário — vai como "agora"');
+    }
+
     const botao = await achaPrimeiro(page, SELETORES.botaoPostar, 30000);
     if (!botao) {
       await print('sem-botao');
       throw new Error('Não achei o botão de publicar. Veja o print em ' + logDir);
     }
 
-    // ENSAIO: para aqui, sem publicar
+    // ENSAIO: para aqui, sem publicar/agendar
     if (!real) {
       await print('ensaio-pronto');
-      console.log('  [' + conta + '] ENSAIO ✅ tudo pronto — NÃO publiquei. Print em ' + logDir);
+      const oq = horaAgendada ? 'programaria para as ' + horaAgendada : 'publicaria agora';
+      console.log('  [' + conta + '] ENSAIO ✅ tudo pronto (' + oq + ') — NÃO mexi de verdade. Print em ' + logDir);
       await page.close().catch(() => {});
-      return { ok: true, ensaio: true };
+      return { ok: true, ensaio: true, horaAgendada };
     }
 
     // DE VERDADE: espera o botão habilitar (fica travado enquanto processa) e clica
@@ -194,7 +255,11 @@ async function postaVideo({ context, video, legenda, real, conta }) {
     return {
       ok: true,
       publicado,
-      aviso: publicado ? undefined : 'Cliquei em publicar mas não vi a confirmação na tela — confira no app do TikTok. Print em ' + logDir,
+      agendado: !!horaAgendada,
+      horaAgendada,
+      aviso: publicado ? undefined : (horaAgendada
+        ? 'Programei para as ' + horaAgendada + ' — confira em Publicações → Programados no TikTok. Print em ' + logDir
+        : 'Cliquei em publicar mas não vi a confirmação na tela — confira no app do TikTok. Print em ' + logDir),
     };
   } catch (e) {
     await print('erro');
