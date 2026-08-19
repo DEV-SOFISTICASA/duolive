@@ -96,17 +96,11 @@
     </div>
   </div>
 
-  <!-- COLUNA 2: contas + postar + progresso -->
+  <!-- COLUNA 2: conta + postar + progresso -->
   <div>
     <div class="card">
-      <h2><span class="n">3</span> Contas</h2>
-      <ul class="contas" id="listaContas"><li class="vazio">carregando…</li></ul>
-      <div class="obs" id="obsContas"></div>
-    </div>
-
-    <div class="card" style="margin-top:22px">
-      <h2>🔌 Conectar uma conta<span class="ajuda" tabindex="0">?<span class="balao">
-        <b>Como pegar os cookies (uma vez por conta):</b><br>
+      <h2><span class="n">3</span> A conta que vai postar<span class="ajuda" tabindex="0">?<span class="balao">
+        <b>Como pegar os cookies (a cada leva de postagem):</b><br>
         1. Instale a extensão <b>Cookie-Editor</b> no seu navegador (site: cookie-editor.com).<br>
         2. Abra o <b>tiktok.com</b> já logado na conta que vai postar.<br>
         3. Clique no ícone do Cookie-Editor → botão <b>Export</b> → <b>Export as JSON</b> (ele copia tudo).<br>
@@ -114,10 +108,10 @@
       </span></span></h2>
       <label class="campo">Apelido da conta (ex.: monaco, bellini)</label>
       <input type="text" id="ckConta" placeholder="apelido da conta">
-      <label class="campo">Coloque seu cookie aqui! 🍪</label>
+      <label class="campo">Coloque seu cookie aqui! 🍪 <span style="color:var(--suave)">(cole e clique em Conectar)</span></label>
       <textarea id="ckCookies" placeholder="Cole aqui os cookies (Cookie-Editor → Export as JSON)"></textarea>
       <div class="btns"><button class="b ensaio" id="btConectar">🔌 Conectar</button></div>
-      <div class="obs" id="ckResultado"></div>
+      <div class="obs" id="ckResultado">Cole os cookies e conecte — o robô vai postar nesta conta.</div>
     </div>
 
     <div class="card" style="margin-top:22px">
@@ -136,7 +130,7 @@
       </div>
       <div class="obs">O <b>Ensaio</b> faz tudo menos o clique final — ótimo pra conferir. Só publica/agenda de verdade no botão rosa (que pede confirmação).</div>
       <h2 style="margin-top:18px"><span class="pisca" id="pisca"></span> Progresso</h2>
-      <div class="console" id="console">Pronto. Escolha vídeos e contas, e mande ver. 🙂</div>
+      <div class="console" id="console">Pronto. Adicione vídeos, conecte a conta ali em cima, e mande ver. 🙂</div>
     </div>
   </div>
 </div>
@@ -147,9 +141,9 @@ let videos=[], contas=[], rodando=false;
 
 async function carregar(){
   const r = await fetch('/api/estado').then(x=>x.json());
-  videos = r.videos; contas = r.contas; rodando = r.rodando;
-  desenhaVideos(); desenhaContas();
-  $('#obsContas').textContent = r.temChave ? '' : '⚠ Falta a chave da IA (chave-ia.txt) — a legenda automática não vai funcionar até colar a chave do Gemini.';
+  videos = r.videos; rodando = r.rodando;
+  desenhaVideos();
+  if(!r.temChave) $('#ckResultado').textContent = '⚠ Falta a chave da IA (chave-ia.txt) — a legenda automática não vai funcionar até colar a chave do Gemini.';
 }
 
 function desenhaVideos(){
@@ -165,20 +159,8 @@ function desenhaVideos(){
   });
 }
 
-function desenhaContas(){
-  const ul = $('#listaContas');
-  if(!contas.length){ ul.innerHTML = '<li class="vazio">nenhuma conta logada. Rode: npm run login-postar -- --conta NOME</li>'; return; }
-  ul.innerHTML = '';
-  contas.forEach(c=>{
-    const li = document.createElement('li'); if(!c.logado) li.className='off';
-    const cb = document.createElement('input'); cb.type='checkbox'; cb.value=c.nome; cb.checked=c.logado; cb.disabled=!c.logado; cb.className='cbConta';
-    const nome = document.createElement('span'); nome.textContent = c.nome;
-    const tag = document.createElement('span'); tag.className='tag '+(c.logado?'on':'no'); tag.textContent = c.logado?'logada':'sem login';
-    li.appendChild(cb); li.appendChild(nome); li.appendChild(tag); ul.appendChild(li);
-  });
-}
-
-function contasMarcadas(){ return [...document.querySelectorAll('.cbConta:checked')].map(x=>x.value); }
+// a conta que vai postar = o apelido digitado na barra "A conta que vai postar"
+function contasMarcadas(){ const c = $('#ckConta').value.trim(); return c ? [c] : []; }
 
 // arrastar / escolher vídeos
 const solta = $('#solta');
@@ -202,11 +184,11 @@ async function manda(real){
   const vids = videos.map(v=>v.nome);
   const cts = contasMarcadas();
   if(!vids.length) return alert('Adicione pelo menos um vídeo.');
-  if(!cts.length) return alert('Marque pelo menos uma conta.');
+  if(!cts.length) return alert('Escreva o apelido da conta lá em cima (em "A conta que vai postar").');
   const programar = document.querySelector('input[name="quando"]:checked').value === 'programar';
   const agendar = programar ? $('#agHora').value : '';
   const acao = programar ? ('AGENDAR (a partir das '+agendar+')') : 'PUBLICAR AGORA';
-  if(real && !confirm(acao+' '+vids.length+' vídeo(s) em '+cts.length+' conta(s)?\n\nIsso mexe no TikTok de verdade. Tem certeza?')) return;
+  if(real && !confirm(acao+' '+vids.length+' vídeo(s) na conta "'+cts[0]+'"?\n\nIsso mexe no TikTok de verdade. Tem certeza?')) return;
   const body = {videos:vids, contas:cts, loja:$('#loja').value, dica:$('#dica').value, real, agendar};
   const r = await fetch('/api/postar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(x=>x.json());
   if(!r.ok) return alert(r.erro||'não deu pra começar');
