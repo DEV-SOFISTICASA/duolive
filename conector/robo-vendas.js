@@ -81,7 +81,7 @@ function leOfertaTxt() {
 const _of = leOfertaTxt();
 const OFERTA_ON = process.env.DUOLIVE_OFERTA === '1' || _of.modo === 'ensaio' || _of.modo === 'real';
 const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1' || _of.modo === 'real';
-const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);
+const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 900); // 900s = 15 min POR PRODUTO (era 10)
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
 const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
