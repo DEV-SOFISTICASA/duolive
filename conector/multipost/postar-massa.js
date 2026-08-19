@@ -31,6 +31,15 @@ const { legendaDoVideo } = require('./legenda-ia.js');
 function arg(nome) { const i = process.argv.indexOf(nome); return i >= 0 ? process.argv[i + 1] : ''; }
 function espera(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
+// soma `add` minutos a "HH:MM" e devolve { hh, mm } (mesmo dia; passou de 23:59 dá volta)
+function horaMais(base, add) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(base || '').trim());
+  if (!m) return null;
+  let total = (+m[1]) * 60 + (+m[2]) + (add || 0);
+  total = ((total % 1440) + 1440) % 1440;
+  return { hh: Math.floor(total / 60), mm: total % 60 };
+}
+
 // junta o que veio do arquivo de trabalho com o que veio na linha de comando
 function montaTrabalho() {
   let job = {};
@@ -47,6 +56,9 @@ function montaTrabalho() {
   if (arg('--loja')) job.loja = arg('--loja');
   if (arg('--dica')) job.dica = arg('--dica');
   if (process.argv.includes('--so-legenda')) job.soLegenda = true;
+  // 📅 --agendar HH:MM = horário da 1ª postagem; cada conta seguinte soma o intervalo
+  if (arg('--agendar')) job.agendar = arg('--agendar');
+  if (arg('--intervalo')) job.intervalo = Number(arg('--intervalo')) || 0;
 
   // contas: as pedidas, ou todas as que têm login
   const pedidas = Array.isArray(job.contas) && job.contas.length ? job.contas : C.contasComLogin();
@@ -74,6 +86,7 @@ function montaTrabalho() {
   console.log('  Contas:     ' + job.contas.join(', ') + '  (' + job.contas.length + ')');
   console.log('  Intervalo:  ' + job.intervaloMin + '–' + job.intervaloMax + ' min entre contas');
   console.log('  Modo:       ' + (job.soLegenda ? 'SÓ LEGENDA (não abre navegador)' : real ? 'PUBLICAR DE VERDADE' : 'ENSAIO (não publica)'));
+  if (job.agendar) console.log('  Quando:     📅 PROGRAMAR a partir de ' + job.agendar + ', de ' + (job.intervalo || 15) + ' em ' + (job.intervalo || 15) + ' min');
   console.log('');
 
   // 🧠 CÉREBRO: sem legenda no trabalho? A IA olha o vídeo e escreve uma.
@@ -144,15 +157,17 @@ function montaTrabalho() {
     const { legenda } = variaLegenda({
       legenda: job.legenda, legendas: job.legendas, hashtags: job.hashtags, conta, i,
     });
-    console.log('  (' + (i + 1) + '/' + fila.length + ') ' + conta);
+    // 📅 agendando? cada conta pega um horário: base + i × intervalo (padrão 15 min)
+    const agendar = job.agendar ? horaMais(job.agendar, i * (job.intervalo || 15)) : null;
+    console.log('  (' + (i + 1) + '/' + fila.length + ') ' + conta + (agendar ? '  📅 ' + String(agendar.hh).padStart(2, '0') + ':' + String(agendar.mm).padStart(2, '0') : ''));
     console.log('        legenda: ' + legenda);
 
     // perfil FIXO da conta = login próprio e bem separado (uma não contamina a outra)
     const context = await abrePerfil(C.pastaPerfil(conta), false);
     let res;
     try {
-      res = await postaVideo({ context, video: job.video, legenda, real, conta });
-      console.log('        ' + (res.ensaio ? 'ensaio ok ✅' : res.publicado ? 'publicado ✅' : 'feito (confira no app) ⚠'));
+      res = await postaVideo({ context, video: job.video, legenda, real, conta, agendar });
+      console.log('        ' + (res.ensaio ? 'ensaio ok ✅' : res.agendado ? ('agendado ' + res.horaAgendada + ' ✅') : res.publicado ? 'publicado ✅' : 'feito (confira no app) ⚠'));
     } catch (e) {
       res = { ok: false, erro: e.message };
       console.log('        ERRO: ' + e.message);
@@ -161,10 +176,11 @@ function montaTrabalho() {
     }
     relatorio.push({ conta, legenda, ...res });
 
-    // espaça para a próxima conta (curtinho no ensaio; de verdade no modo real)
+    // espaça para a próxima conta. AGENDANDO não precisa esperar no tempo real
+    // (o espaçamento já está nos horários agendados); publicando AGORA, espaça de verdade.
     if (i < fila.length - 1) {
       let ms = 1500;
-      if (real) {
+      if (real && !job.agendar) {
         const min = job.intervaloMin, max = job.intervaloMax;
         ms = Math.round((min + Math.random() * Math.max(0, max - min)) * 60000);
         console.log('        aguardando ' + Math.round(ms / 60000) + ' min até a próxima conta...');

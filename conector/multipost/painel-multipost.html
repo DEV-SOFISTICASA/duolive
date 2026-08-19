@@ -59,6 +59,11 @@
   .ajuda:hover .balao,.ajuda:focus .balao{display:block}
   .ajuda .balao b{color:var(--ciano)}
   .ajuda .balao code{background:var(--card2);padding:1px 5px;border-radius:5px;color:var(--rosa)}
+  /* quando publicar (agora / programar) */
+  .quando{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .quando label{display:flex;gap:6px;align-items:center;cursor:pointer;font-size:14px}
+  input[type=time]{background:var(--card2);border:1px solid var(--linha);border-radius:8px;padding:7px 10px;color:var(--texto);font-size:14px}
+  input[type=time]::-webkit-calendar-picker-indicator{filter:invert(1) opacity(.6)}
 </style>
 </head>
 <body>
@@ -117,12 +122,19 @@
 
     <div class="card" style="margin-top:22px">
       <h2><span class="n">4</span> Postar</h2>
-      <div class="btns">
+      <label class="campo">Quando publicar</label>
+      <div class="quando">
+        <label><input type="radio" name="quando" value="agora" checked> Agora</label>
+        <label><input type="radio" name="quando" value="programar"> 📅 Programar a partir de</label>
+        <input type="time" id="agHora" value="18:00" step="300">
+      </div>
+      <div class="obs">Programando, cada postagem é agendada de <b>15 em 15 min</b> (o TikTok publica sozinho). Por enquanto agenda pra <b>hoje</b>.</div>
+      <div class="btns" style="margin-top:12px">
         <button class="b ensaio" id="btEnsaio">▶ Ensaio (não publica)</button>
         <button class="b real" id="btReal">🚀 Publicar de verdade</button>
         <button class="b parar" id="btParar" disabled>■ Parar</button>
       </div>
-      <div class="obs">O <b>Ensaio</b> faz tudo menos o clique final — ótimo pra conferir. Só publica de verdade no botão rosa (que pede confirmação).</div>
+      <div class="obs">O <b>Ensaio</b> faz tudo menos o clique final — ótimo pra conferir. Só publica/agenda de verdade no botão rosa (que pede confirmação).</div>
       <h2 style="margin-top:18px"><span class="pisca" id="pisca"></span> Progresso</h2>
       <div class="console" id="console">Pronto. Escolha vídeos e contas, e mande ver. 🙂</div>
     </div>
@@ -191,8 +203,11 @@ async function manda(real){
   const cts = contasMarcadas();
   if(!vids.length) return alert('Adicione pelo menos um vídeo.');
   if(!cts.length) return alert('Marque pelo menos uma conta.');
-  if(real && !confirm('PUBLICAR DE VERDADE '+vids.length+' vídeo(s) em '+cts.length+' conta(s)?\n\nIsso vai postar no TikTok mesmo. Tem certeza?')) return;
-  const body = {videos:vids, contas:cts, loja:$('#loja').value, dica:$('#dica').value, real};
+  const programar = document.querySelector('input[name="quando"]:checked').value === 'programar';
+  const agendar = programar ? $('#agHora').value : '';
+  const acao = programar ? ('AGENDAR (a partir das '+agendar+')') : 'PUBLICAR AGORA';
+  if(real && !confirm(acao+' '+vids.length+' vídeo(s) em '+cts.length+' conta(s)?\n\nIsso mexe no TikTok de verdade. Tem certeza?')) return;
+  const body = {videos:vids, contas:cts, loja:$('#loja').value, dica:$('#dica').value, real, agendar};
   const r = await fetch('/api/postar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(x=>x.json());
   if(!r.ok) return alert(r.erro||'não deu pra começar');
   $('#console').textContent=''; puxaProgresso();

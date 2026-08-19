@@ -58,14 +58,25 @@ function estado() {
   return { contas, videos: listaVideos(), temChave: temChaveIA(), rodando: job.rodando };
 }
 
+// soma `add` minutos a "HH:MM" e devolve "HH:MM" (mesmo dia; passou de 23:59 dá volta)
+function horaMais(base, add) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(base || '').trim());
+  if (!m) return '';
+  let total = (+m[1]) * 60 + (+m[2]) + (add || 0);
+  total = ((total % 1440) + 1440) % 1440;
+  return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+}
+
 // ---- posta os vídeos escolhidos, um por vez, nas contas escolhidas ----
 // Reusa o postar-massa.js: pra cada vídeo, chama ele com as contas. O postar-massa
-// já cuida da legenda pela IA (quando não passamos --legenda), da variação por
-// conta e do espaçamento ENTRE contas. Aqui a gente espaça ENTRE vídeos.
-function postar({ videos, contas, loja, dica, real }) {
+// cuida da legenda pela IA, da variação por conta e do espaçamento entre contas.
+// Se `agendar` (HH:MM) vier, PROGRAMA cada postagem no TikTok, espaçada `intervalo`
+// min: vídeo j começa em agendar + j × (nº de contas × intervalo).
+function postar({ videos, contas, loja, dica, real, agendar, intervalo }) {
   if (job.rodando) return;
+  intervalo = intervalo || 15;
   job = { rodando: true, linhas: [], filho: null, comecou: Date.now(), real: !!real };
-  loga('== MultiPost ' + (real ? '· PUBLICANDO DE VERDADE' : '· ENSAIO (não publica)') + ' ==');
+  loga('== MultiPost ' + (real ? '· PUBLICANDO DE VERDADE' : '· ENSAIO (não publica)') + (agendar ? ' · 📅 PROGRAMANDO a partir de ' + agendar : '') + ' ==');
   loga('Vídeos: ' + videos.length + '   Contas: ' + contas.join(', '));
   loga('');
 
@@ -80,6 +91,7 @@ function postar({ videos, contas, loja, dica, real }) {
     const args = [massa, '--video', caminho, '--contas', contas.join(',')];
     if (loja) args.push('--loja', loja);
     if (dica) args.push('--dica', dica);
+    if (agendar) { args.push('--agendar', horaMais(agendar, i * contas.length * intervalo), '--intervalo', String(intervalo)); }
     const env = Object.assign({}, process.env);
     if (real) env.POSTAR_REAL = '1';
     const filho = spawn(process.execPath, args, { env, cwd: __dirname });
@@ -90,8 +102,9 @@ function postar({ videos, contas, loja, dica, real }) {
       job.filho = null;
       i++;
       if (!job.rodando) return;
-      if (i < videos.length && real) {
-        // espaça ENTRE vídeos no modo real (2–5 min) pra não parecer robô
+      if (i < videos.length && real && !agendar) {
+        // publicando AGORA: espaça ENTRE vídeos (2–5 min) pra não parecer robô.
+        // (agendando não precisa: o espaçamento já está nos horários programados)
         const min = 2, max = 5;
         const ms = Math.round((min + Math.random() * (max - min)) * 60000);
         loga('\naguardando ' + Math.round(ms / 60000) + ' min até o próximo vídeo...');
@@ -172,7 +185,9 @@ const server = http.createServer(async (req, res) => {
       const contas = (corpo.contas || []).map((s) => String(s).trim()).filter(Boolean);
       if (!videos.length) return json(res, { ok: false, erro: 'escolha pelo menos um vídeo' }, 400);
       if (!contas.length) return json(res, { ok: false, erro: 'escolha pelo menos uma conta' }, 400);
-      postar({ videos, contas, loja: corpo.loja || '', dica: corpo.dica || '', real: !!corpo.real });
+      // 📅 agendar: HH:MM válido liga o modo "Programar"; senão publica/ensaia agora
+      const agendar = /^\d{1,2}:\d{2}$/.test(String(corpo.agendar || '').trim()) ? corpo.agendar.trim() : '';
+      postar({ videos, contas, loja: corpo.loja || '', dica: corpo.dica || '', real: !!corpo.real, agendar });
       return json(res, { ok: true });
     }
     if (req.method === 'POST' && u.pathname === '/api/parar') {
