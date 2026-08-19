@@ -52,6 +52,13 @@
   .pisca.on{background:var(--ok);animation:p 1s infinite}
   @keyframes p{50%{opacity:.3}}
   .vazio{color:var(--suave);font-size:13px}
+  /* conectar conta: caixa de cookies + ajuda (?) */
+  textarea{width:100%;min-height:88px;background:var(--card2);border:1px solid var(--linha);border-radius:10px;padding:10px 12px;color:var(--texto);font-size:13px;font-family:inherit;resize:vertical}
+  .ajuda{position:relative;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--card2);border:1px solid var(--linha);color:var(--suave);font-size:12px;font-weight:700;cursor:help;margin-left:8px;vertical-align:middle}
+  .ajuda .balao{position:absolute;top:26px;right:-8px;width:290px;background:#08080c;border:1px solid var(--linha);border-radius:12px;padding:14px;font-size:12.5px;font-weight:400;color:var(--texto);line-height:1.6;text-align:left;z-index:20;display:none;box-shadow:0 10px 30px #000a}
+  .ajuda:hover .balao,.ajuda:focus .balao{display:block}
+  .ajuda .balao b{color:var(--ciano)}
+  .ajuda .balao code{background:var(--card2);padding:1px 5px;border-radius:5px;color:var(--rosa)}
 </style>
 </head>
 <body>
@@ -90,6 +97,22 @@
       <h2><span class="n">3</span> Contas</h2>
       <ul class="contas" id="listaContas"><li class="vazio">carregando…</li></ul>
       <div class="obs" id="obsContas"></div>
+    </div>
+
+    <div class="card" style="margin-top:22px">
+      <h2>🔌 Conectar uma conta<span class="ajuda" tabindex="0">?<span class="balao">
+        <b>Como pegar os cookies (uma vez por conta):</b><br>
+        1. Instale a extensão <b>Cookie-Editor</b> no seu navegador (site: cookie-editor.com).<br>
+        2. Abra o <b>tiktok.com</b> já logado na conta que vai postar.<br>
+        3. Clique no ícone do Cookie-Editor → botão <b>Export</b> → <b>Export as JSON</b> (ele copia tudo).<br>
+        4. Volte aqui, cole na caixinha e clique em <b>Conectar</b>. 🍪
+      </span></span></h2>
+      <label class="campo">Apelido da conta (ex.: monaco, bellini)</label>
+      <input type="text" id="ckConta" placeholder="apelido da conta">
+      <label class="campo">Coloque seu cookie aqui! 🍪</label>
+      <textarea id="ckCookies" placeholder="Cole aqui os cookies (Cookie-Editor → Export as JSON)"></textarea>
+      <div class="btns"><button class="b ensaio" id="btConectar">🔌 Conectar</button></div>
+      <div class="obs" id="ckResultado"></div>
     </div>
 
     <div class="card" style="margin-top:22px">
@@ -177,6 +200,22 @@ async function manda(real){
 $('#btEnsaio').onclick = ()=> manda(false);
 $('#btReal').onclick = ()=> manda(true);
 $('#btParar').onclick = ()=> fetch('/api/parar',{method:'POST'});
+
+// conectar conta (plantar cookies colados)
+$('#btConectar').onclick = async ()=>{
+  const conta = $('#ckConta').value.trim();
+  const cookies = $('#ckCookies').value.trim();
+  if(!conta) return alert('Escreva o apelido da conta (ex.: monaco).');
+  if(!cookies) return alert('Cole os cookies na caixinha.');
+  $('#ckResultado').textContent = '🔌 Conectando… abre uma janela por alguns segundos, aguarde.';
+  $('#btConectar').disabled = true;
+  try{
+    const r = await fetch('/api/plantar-cookies',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conta,cookies})}).then(x=>x.json());
+    $('#ckResultado').textContent = r.mensagem || (r.ok?'Conectada! ✅':'Não deu pra conectar.');
+    if(r.ok){ $('#ckCookies').value=''; carregar(); }
+  }catch(e){ $('#ckResultado').textContent = 'Erro: '+e.message; }
+  $('#btConectar').disabled = false;
+};
 
 function logaTela(t){ const c=$('#console'); c.textContent += (c.textContent?'\n':'')+t; c.scrollTop=c.scrollHeight; }
 

@@ -104,6 +104,31 @@ function postar({ videos, contas, loja, dica, real }) {
   proximo();
 }
 
+// ---- conectar uma conta: planta os cookies colados no perfil dela ----
+// Reusa o cookies-para-sessao.js (que abre o navegador, planta e valida).
+function plantarCookies(conta, textoCookies) {
+  return new Promise((resolve) => {
+    const tmp = path.join(os.tmpdir(), 'multipost-ck-' + conta + '-' + Date.now() + '.json');
+    try { fs.writeFileSync(tmp, textoCookies); }
+    catch (e) { return resolve({ ok: false, mensagem: 'Não consegui salvar os cookies aqui no PC.' }); }
+    const script = path.join(__dirname, 'cookies-para-sessao.js');
+    const filho = spawn(process.execPath, [script, '--conta', conta, '--arquivo', tmp], { cwd: __dirname });
+    let saida = '';
+    filho.stdout.on('data', (d) => { saida += d; });
+    filho.stderr.on('data', (d) => { saida += d; });
+    filho.on('close', () => {
+      try { fs.unlinkSync(tmp); } catch (e) {}
+      const logado = /ATIVO no perfil/.test(saida);
+      // pega a última linha útil pra mostrar no painel
+      const linhas = saida.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const msg = logado
+        ? 'Conta "' + conta + '" conectada e ativa! ✅'
+        : (linhas.reverse().find((l) => /😕|pediu login|sessionid|inválid|venc/i.test(l)) || 'Não deu pra conectar — confira os cookies.');
+      resolve({ ok: logado, mensagem: msg });
+    });
+  });
+}
+
 // ---- helpers HTTP ----
 function json(res, obj, codigo) { res.writeHead(codigo || 200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); }
 function lerCorpo(req) {
@@ -154,6 +179,15 @@ const server = http.createServer(async (req, res) => {
       job.rodando = false;
       if (job.filho) { try { job.filho.kill(); } catch (e) {} }
       return json(res, { ok: true });
+    }
+    if (req.method === 'POST' && u.pathname === '/api/plantar-cookies') {
+      const corpo = JSON.parse((await lerCorpo(req)).toString('utf8') || '{}');
+      const conta = nomeSeguro(corpo.conta);
+      const cookies = String(corpo.cookies || '').trim();
+      if (!conta) return json(res, { ok: false, mensagem: 'Escreva o apelido da conta (ex.: monaco).' }, 400);
+      if (!cookies) return json(res, { ok: false, mensagem: 'Cole os cookies na caixinha.' }, 400);
+      const r = await plantarCookies(conta, cookies);
+      return json(res, r);
     }
     res.writeHead(404); res.end('não achei');
   } catch (e) {
