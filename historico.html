@@ -103,8 +103,9 @@
     d.setDate(d.getDate()-7); return d;                                    // 7 dias
   }
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
-  function nomeDe(cores,sig){ if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
+  function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; if(sig==='GRAVADA') return '#a78bfa'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
+  function nomeDe(cores,sig){ if(sig==='GRAVADA') return 'Lives Gravadas'; if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
+  function sigCurta(sig){ return sig==='GRAVADA'?'GR':(sig||''); }  // GRAVADA aparece como "GR" no gráfico/cartões
   function quando(ms){ var d=new Date(ms); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
 
   // quem está logado (nome + Sair)
@@ -196,7 +197,7 @@
     pess.forEach(function(p){
       var cor=corDe(cores,p.sig);
       var d=document.createElement('div'); d.className='pessoa'; d.style.borderLeftColor=cor;
-      d.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+nomeDe(cores,p.sig)+(p.sig?(' ('+p.sig+')'):'')+'</div>'
+      d.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+nomeDe(cores,p.sig)+(p.sig?(' ('+sigCurta(p.sig)+')'):'')+'</div>'
         +'<div class="vl">'+real(p.total)+'</div><div class="qt">'+p.qtd+' venda'+(p.qtd===1?'':'s')+'</div>';
       pe.appendChild(d);
     });
@@ -225,7 +226,7 @@
         var col=document.createElement('div'); col.className='col';
         col.innerHTML='<div class="val">'+real(p.total).replace('R$ ','')+'</div>'
           +'<div class="stack" style="height:'+altura+'px"><div class="seg" style="height:'+altura+'px;background:'+cor+'"></div></div>'
-          +'<div class="hora">'+(p.sig||'sem vend.')+'</div>';
+          +'<div class="hora">'+(sigCurta(p.sig)||'sem vend.')+'</div>';
         col.title=nomeDe(cores,p.sig)+' · '+real(p.total)+' · '+p.qtd+' venda(s)';
         barras.appendChild(col);
       });

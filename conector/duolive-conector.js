@@ -25,6 +25,7 @@ const LD = require('./livedash.js');   // espelho do LiveDash (fonte do históri
 const OFERTAS = require('./ofertas.js');
 const CATALOGO = require('./catalogo.js'); // catálogo de produtos espelhado no banco (não zera em deploy)
 const AUTHORDB = require('./author-db.js'); // author_id (dono da live) no banco: 1 ⚡ manual por loja = pra sempre
+const VENDOFERTAS = require('./vendedora-ofertas.js'); // escolha de ofertas por vendedora (quais trabalhar + a fixada)
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
@@ -942,6 +943,34 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ESCOLHA da vendedora: quais ofertas ela trabalha na live + a FIXADA. É só a ESCOLHA,
+  // NUNCA preço (o preço é do ADM). A vendedora LOGADA salva a dela (POST, pela sigla da
+  // sessão dela); o robô e o painel leem (GET ?sigla=X). Nada aqui muda valor.
+  if (req.url.startsWith('/vendedora-ofertas')) {
+    if (req.method === 'POST') {
+      res.setHeader('content-type', 'application/json');
+      const sig = req.usuario && req.usuario.sigla;
+      if (!sig) { res.statusCode = 403; res.end('{"ok":false,"erro":"faca login como vendedora"}'); return; }
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 8192) req.destroy(); });
+      req.on('end', () => {
+        let b; try { b = JSON.parse(corpo); } catch (e) { b = null; }
+        if (!b) { res.statusCode = 400; res.end('{"ok":false,"erro":"corpo invalido"}'); return; }
+        VENDOFERTAS.salvar(sig, b.ofertas || [], b.fixada || null)
+          .then(() => res.end(JSON.stringify({ ok: true, sigla: sig })))
+          .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String((e && e.message) || e) })); });
+      });
+      return;
+    }
+    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
+    const sig = qs.get('sigla') || (req.usuario && req.usuario.sigla) || '';
+    res.setHeader('content-type', 'application/json');
+    VENDOFERTAS.daVendedora(sig)
+      .then((v) => res.end(JSON.stringify({ ok: true, sigla: sig, ofertas: (v && v.ofertas) || [], fixada: (v && v.fixada) || null })))
+      .catch(() => res.end('{"ok":false}'));
+    return;
+  }
+
   // o robo da oferta conta como foi (aplicada / ensaio / erro / restaurada)
   if (req.url.startsWith('/oferta-estado') && req.method === 'POST') {
     let corpo = '';
@@ -1058,6 +1087,8 @@ const server = http.createServer((req, res) => {
     '/historico.html': 'historico.html',
     '/conectar': 'conectar.html',
     '/conectar.html': 'conectar.html',
+    '/meus-fixados': 'meus-fixados.html',        // painel da vendedora: escolhe as ofertas + a fixada (nunca preco)
+    '/meus-fixados.html': 'meus-fixados.html',
     '/lib/xlsx.min.js': 'lib/xlsx.min.js',
   };
   const caminho = req.url.split('?')[0];

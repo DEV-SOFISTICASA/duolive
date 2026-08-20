@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DuoLive · Minhas ofertas</title>
+<style>
+  :root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:16px;max-width:520px;margin:0 auto}
+  .topo{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+  h1{font-size:17px;flex:1}
+  .eu{font-size:12px;color:var(--text-2);white-space:nowrap}
+  .sub{font-size:11.5px;color:var(--text-3);margin-bottom:14px;line-height:1.5}
+  .sub b{color:var(--text-2)}
+  .ofrow{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:9px}
+  .ofrow.fixada{border:2px solid var(--accent);padding:9px 11px}
+  .ofrow:not(.on){opacity:.5}
+  .chk{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--text-3);flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:transparent;font-size:14px;font-weight:800}
+  .ofrow.on .chk{background:var(--ok);border-color:var(--ok);color:#0d0d10}
+  .cnt{flex:1;min-width:0}
+  .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pr{font-size:12.5px;color:var(--ok);font-weight:700;margin-top:2px}
+  .fix{flex:none;background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;white-space:nowrap}
+  .ofrow.fixada .fix{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  .vazio{color:var(--text-3);font-size:12.5px;text-align:center;padding:30px 10px;line-height:1.6}
+  .rodape{font-size:11.5px;color:var(--text-2);margin-top:12px;display:flex;gap:7px;align-items:flex-start;line-height:1.5}
+  .rodape .r{color:var(--accent);font-size:15px;flex:none}
+</style>
+</head>
+<body>
+  <div class="topo">
+    <h1>🛍️ Minhas ofertas da live</h1>
+    <div class="eu" id="eu"></div>
+  </div>
+  <div class="sub">Escolha <b>com quais trabalhar</b> (o ✓ verde) e toque em <b>📌 Fixar</b> pra escolher a fixada. Os <b>preços são do ADM</b> — você só escolhe.</div>
+  <div id="lista"><div class="vazio">Carregando ofertas…</div></div>
+  <div class="rodape"><span class="r">⚡</span> A oferta relâmpago sai a cada 15 minutos, só das ligadas, enquanto a live estiver aberta.</div>
+<script>
+(function(){
+  var MASTER='mania';
+  var $=function(id){return document.getElementById(id);};
+  var offers=[], sel={ofertas:[],fixada:null};
+  function brl(n){ return (+n||0).toFixed(2).replace('.',','); }
+  function esc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+  function salvar(){ fetch('/vendedora-ofertas',{method:'POST',cache:'no-store',headers:{'content-type':'application/json'},body:JSON.stringify(sel)}).catch(function(){}); }
+  function toggle(id){ var i=sel.ofertas.indexOf(id); if(i>=0){ sel.ofertas.splice(i,1); if(sel.fixada===id) sel.fixada=null; } else { sel.ofertas.push(id); } render(); salvar(); }
+  function fixar(id){ if(sel.ofertas.indexOf(id)<0) sel.ofertas.push(id); sel.fixada=(sel.fixada===id?null:id); render(); salvar(); }
+  function render(){
+    var l=$('lista'); l.innerHTML='';
+    if(!offers.length){ l.innerHTML='<div class="vazio">Nenhuma oferta cadastrada pelo ADM ainda.<br>Peça pra quem tem o acesso do ADM.</div>'; return; }
+    offers.forEach(function(o){
+      var on=sel.ofertas.indexOf(o.id)>=0, fix=sel.fixada===o.id;
+      var row=document.createElement('div'); row.className='ofrow'+(on?' on':'')+(fix?' fixada':'');
+      row.innerHTML='<div class="chk">✓</div>'
+        +'<div class="cnt"><div class="nm">'+esc(o.nome)+'</div><div class="pr">R$ '+brl(o.preco)+'</div></div>'
+        +'<button class="fix">'+(fix?'📌 Fixada':'📌 Fixar')+'</button>';
+      row.querySelector('.chk').onclick=function(){ toggle(o.id); };
+      row.querySelector('.fix').onclick=function(){ fixar(o.id); };
+      l.appendChild(row);
+    });
+  }
+  Promise.all([
+    fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {};}),
+    fetch('/descontos?loja='+MASTER,{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {descontos:[]};}),
+    fetch('/vendedora-ofertas',{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {ofertas:[],fixada:null};})
+  ]).then(function(res){
+    var eu=res[0]||{}, desc=res[1]||{}, mine=res[2]||{};
+    $('eu').textContent = eu.nome ? ('👤 '+eu.nome+(eu.sigla?(' ('+eu.sigla+')'):'')) : '';
+    var byP={};
+    (desc.descontos||[]).forEach(function(x){ var id=String(x.produto_id); if(!byP[id]) byP[id]={id:id,nome:x.nome,preco:null}; if(!x.sku && x.valor_desconto!=null) byP[id].preco=x.valor_desconto; });
+    offers=Object.keys(byP).map(function(k){return byP[k];}).filter(function(o){return o.preco!=null;});
+    sel.ofertas=(mine.ofertas||[]).map(String); sel.fixada=mine.fixada?String(mine.fixada):null;
+    render();
+  });
+})();
+</script>
+</body>
+</html>
