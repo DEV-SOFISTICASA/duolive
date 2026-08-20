@@ -96,7 +96,7 @@
   <div class="grade">
     <div class="esq">
       <div class="caixa"><span class="rotulo">Analytics</span><iframe src="analytics.html" title="Analytics"></iframe></div>
-      <div class="caixa"><span class="rotulo">Ofertas</span><iframe src="sacolinha-controle.html" title="Ofertas"></iframe></div>
+      <div class="caixa"><span class="rotulo" id="rotOfertas">Ofertas</span><iframe id="ifOfertas" src="sacolinha-controle.html" title="Ofertas"></iframe></div>
     </div>
     <div id="divisor" title="Arraste para aumentar/diminuir o Multichat · 2 cliques: tamanho padrão"></div>
     <div class="caixa">
@@ -347,6 +347,11 @@
       var b=document.getElementById('euBarNome'); if(b) b.textContent=u.nome+(u.papel==='adm'?' · ADM':'');
       var e=document.getElementById('euBar'); if(e) e.style.display='flex';
       if(u.sigla) temaDoUsuario(u.sigla); // aplica o tema salvo DAQUELA pessoa (ex.: Alessandra = claro)
+    }
+    // VENDEDORA: a caixa "Ofertas" (editor do ADM) vira "Minhas ofertas" (a escolha dela).
+    if(u&&u.papel==='vendedora'){
+      var ro=document.getElementById('rotOfertas'); if(ro) ro.textContent='Minhas ofertas';
+      var io=document.getElementById('ifOfertas'); if(io && io.getAttribute('src')!=='meus-fixados.html') io.src='meus-fixados.html';
     }
   }).catch(function(){});
 
