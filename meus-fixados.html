@@ -30,20 +30,22 @@
 </head>
 <body>
   <div class="topo">
-    <h1>🛍️ Minhas ofertas da live</h1>
+    <h1>🛍️ Ofertas desta live</h1>
     <div class="eu" id="eu"></div>
   </div>
-  <div class="sub">Escolha <b>com quais trabalhar</b> (o ✓ verde) e toque em <b>📌 Fixar</b> pra escolher a fixada. Os <b>preços são do ADM</b> — você só escolhe.</div>
+  <div class="sub">Marque <b>os produtos que você vai trabalhar</b> nesta live (o ✓ verde) e toque em <b>📌 Fixar</b> pra escolher a fixada. Pode mudar na hora que quiser. Os <b>preços são do ADM</b> — aqui é só a escolha.</div>
   <div id="lista"><div class="vazio">Carregando ofertas…</div></div>
-  <div class="rodape"><span class="r">⚡</span> A oferta relâmpago sai a cada 15 minutos, só das ligadas, enquanto a live estiver aberta.</div>
+  <div class="rodape"><span class="r">⚡</span> A oferta relâmpago sai a cada 15 minutos, só dos produtos marcados, enquanto esta live estiver aberta.</div>
 <script>
 (function(){
   var MASTER='mania';
+  // a LOJA desta live vem na URL (?loja=bellini) — o painel principal manda sozinho
+  var LOJA=(new URLSearchParams(location.search).get('loja')||'').trim().toLowerCase();
   var $=function(id){return document.getElementById(id);};
   var offers=[], sel={ofertas:[],fixada:null};
   function brl(n){ return (+n||0).toFixed(2).replace('.',','); }
   function esc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
-  function salvar(){ fetch('/vendedora-ofertas',{method:'POST',cache:'no-store',headers:{'content-type':'application/json'},body:JSON.stringify(sel)}).catch(function(){}); }
+  function salvar(){ if(!LOJA) return; fetch('/vendedora-ofertas',{method:'POST',cache:'no-store',headers:{'content-type':'application/json'},body:JSON.stringify({loja:LOJA,ofertas:sel.ofertas,fixada:sel.fixada})}).catch(function(){}); }
   function toggle(id){ var i=sel.ofertas.indexOf(id); if(i>=0){ sel.ofertas.splice(i,1); if(sel.fixada===id) sel.fixada=null; } else { sel.ofertas.push(id); } render(); salvar(); }
   function fixar(id){ if(sel.ofertas.indexOf(id)<0) sel.ofertas.push(id); sel.fixada=(sel.fixada===id?null:id); render(); salvar(); }
   function render(){
@@ -60,13 +62,14 @@
       l.appendChild(row);
     });
   }
+  if(!LOJA){ $('lista').innerHTML='<div class="vazio">Abra pelo painel: a loja selecionada lá em cima é a desta live.</div>'; return; }
   Promise.all([
     fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {};}),
     fetch('/descontos?loja='+MASTER,{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {descontos:[]};}),
-    fetch('/vendedora-ofertas',{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {ofertas:[],fixada:null};})
+    fetch('/vendedora-ofertas?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {ofertas:[],fixada:null};})
   ]).then(function(res){
     var eu=res[0]||{}, desc=res[1]||{}, mine=res[2]||{};
-    $('eu').textContent = eu.nome ? ('👤 '+eu.nome+(eu.sigla?(' ('+eu.sigla+')'):'')) : '';
+    $('eu').textContent = '🏪 '+LOJA + (eu.nome?(' · 👤 '+eu.nome):'');
     var byP={};
     (desc.descontos||[]).forEach(function(x){ var id=String(x.produto_id); if(!byP[id]) byP[id]={id:id,nome:x.nome,preco:null}; if(!x.sku && x.valor_desconto!=null) byP[id].preco=x.valor_desconto; });
     offers=Object.keys(byP).map(function(k){return byP[k];}).filter(function(o){return o.preco!=null;});

@@ -943,30 +943,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ESCOLHA da vendedora: quais ofertas ela trabalha na live + a FIXADA. É só a ESCOLHA,
-  // NUNCA preço (o preço é do ADM). A vendedora LOGADA salva a dela (POST, pela sigla da
-  // sessão dela); o robô e o painel leem (GET ?sigla=X). Nada aqui muda valor.
+  // ESCOLHA da LIVE (painel "Minhas ofertas"): em cada live (loja), quem está nela
+  // escolhe NA HORA quais produtos trabalhar + a FIXADA. A escolha é POR LOJA — a
+  // live da Bellini tem a dela, a da Fast a dela (as opções são as mesmas, a seleção
+  // é de cada live). Qualquer pessoa logada marca. NUNCA muda preço (preço é do ADM).
   if (req.url.startsWith('/vendedora-ofertas')) {
     if (req.method === 'POST') {
       res.setHeader('content-type', 'application/json');
-      const sig = req.usuario && req.usuario.sigla;
-      if (!sig) { res.statusCode = 403; res.end('{"ok":false,"erro":"faca login como vendedora"}'); return; }
+      if (!req.usuario && AUTH.veioDeFora(req)) { res.statusCode = 403; res.end('{"ok":false,"erro":"faca login"}'); return; }
       let corpo = '';
       req.on('data', (d) => { corpo += d; if (corpo.length > 8192) req.destroy(); });
       req.on('end', () => {
         let b; try { b = JSON.parse(corpo); } catch (e) { b = null; }
         if (!b) { res.statusCode = 400; res.end('{"ok":false,"erro":"corpo invalido"}'); return; }
-        VENDOFERTAS.salvar(sig, b.ofertas || [], b.fixada || null)
-          .then(() => res.end(JSON.stringify({ ok: true, sigla: sig })))
+        const lj = String(b.loja || '').trim().toLowerCase();
+        if (!lj) { res.statusCode = 400; res.end('{"ok":false,"erro":"sem loja (selecione a loja no painel)"}'); return; }
+        VENDOFERTAS.salvar('LOJA:' + lj, b.ofertas || [], b.fixada || null)
+          .then(() => res.end('{"ok":true}'))
           .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String((e && e.message) || e) })); });
       });
       return;
     }
-    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
-    const sig = qs.get('sigla') || (req.usuario && req.usuario.sigla) || '';
     res.setHeader('content-type', 'application/json');
-    VENDOFERTAS.daVendedora(sig)
-      .then((v) => res.end(JSON.stringify({ ok: true, sigla: sig, ofertas: (v && v.ofertas) || [], fixada: (v && v.fixada) || null })))
+    const lj = String(new URLSearchParams((req.url.split('?')[1] || '')).get('loja') || '').trim().toLowerCase();
+    if (!lj) { res.end('{"ok":true,"ofertas":[],"fixada":null}'); return; }
+    VENDOFERTAS.daVendedora('LOJA:' + lj)
+      .then((v) => res.end(JSON.stringify({ ok: true, loja: lj, ofertas: (v && v.ofertas) || [], fixada: (v && v.fixada) || null })))
       .catch(() => res.end('{"ok":false}'));
     return;
   }

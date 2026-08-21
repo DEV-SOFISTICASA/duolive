@@ -228,6 +228,7 @@
     try{ localStorage.setItem('ld-loja-sel', loja); }catch(e){}
     postConta(ttDe(loja));
     postLoja(loja);
+    atualizaMinhasOfertas(); // vendedora: a caixa "Minhas ofertas" segue a loja selecionada
     var af=document.querySelector('.esq .caixa iframe');
     if(af) af.setAttribute('src','analytics.html?api='+encodeURIComponent(URL_MC)+'&loja='+encodeURIComponent(loja));
     // o multichat tambem e' POR loja: recarrega mostrando so' o chat desta loja
@@ -340,6 +341,17 @@
     try{ localStorage.removeItem('ld-painel-esq'); }catch(e){}
   });
 
+  // pra quem NÃO é ADM, a caixa "Ofertas" vira "Minhas ofertas" — a escolha da live
+  // da loja selecionada. Chamada no login e a cada troca de loja.
+  var souVendedora=false;
+  function atualizaMinhasOfertas(){
+    if(!souVendedora) return;
+    var ro=document.getElementById('rotOfertas'); if(ro) ro.textContent='Minhas ofertas';
+    var io=document.getElementById('ifOfertas'); if(!io) return;
+    var alvo='meus-fixados.html'+(lojaSel?('?loja='+encodeURIComponent(lojaSel)):'');
+    if(io.getAttribute('src')!==alvo) io.src=alvo;
+  }
+
   // mostra quem está logado (nome + Sair + link do Histórico). Só aparece quando
   // há login de verdade (ex.: na nuvem); no PC local sem senha, fica escondido.
   fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).then(function(u){
@@ -348,11 +360,9 @@
       var e=document.getElementById('euBar'); if(e) e.style.display='flex';
       if(u.sigla) temaDoUsuario(u.sigla); // aplica o tema salvo DAQUELA pessoa (ex.: Alessandra = claro)
     }
-    // VENDEDORA: a caixa "Ofertas" (editor do ADM) vira "Minhas ofertas" (a escolha dela).
-    if(u&&u.papel==='vendedora'){
-      var ro=document.getElementById('rotOfertas'); if(ro) ro.textContent='Minhas ofertas';
-      var io=document.getElementById('ifOfertas'); if(io && io.getAttribute('src')!=='meus-fixados.html') io.src='meus-fixados.html';
-    }
+    // VENDEDORA: a caixa "Ofertas" (editor do ADM) vira "Minhas ofertas" — a escolha
+    // DESTA live (a loja selecionada lá em cima). Troca de loja = troca a escolha junto.
+    if(u&&u.papel&&u.papel!=='adm'){ souVendedora=true; atualizaMinhasOfertas(); }
   }).catch(function(){});
 
   // ===== alarme "COMPRA!" em TELA INTEIRA: o Multichat (iframe) avisa por postMessage

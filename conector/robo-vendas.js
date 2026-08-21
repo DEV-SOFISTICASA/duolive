@@ -81,7 +81,7 @@ function leOfertaTxt() {
 const _of = leOfertaTxt();
 const OFERTA_ON = process.env.DUOLIVE_OFERTA === '1' || _of.modo === 'ensaio' || _of.modo === 'real';
 const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1' || _of.modo === 'real';
-const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);
+const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 900); // 900s = 15 min POR PRODUTO (era 10)
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
 const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
@@ -190,8 +190,28 @@ async function rodaOferta(conta) {
   if (!_ofCfg._master || agora - (_ofCfgTs._master || 0) > 120000) { // recarrega a lista mestre a cada ~2 min
     try { _ofCfg._master = await OFERTA.configDoPainel(CONECTOR, TOKEN, OFERTA_MASTER); _ofCfgTs._master = agora; } catch (e) {}
   }
-  const ofertas = _ofCfg._master || [];
+  let ofertas = _ofCfg._master || [];
   if (!ofertas.length) return;               // lista mestre vazia
+  // ESCOLHA desta LIVE (painel "Minhas ofertas"): quem está nesta loja escolhe NA HORA
+  // quais produtos trabalhar — a ⚡ sai SÓ dos marcados (FIXADA na frente da fila).
+  // Cada live tem a sua escolha. Nada marcado (ou conector antigo)? Segue como
+  // sempre: todas as ofertas. Só a escolha muda aqui — o PREÇO é sempre o do ADM.
+  try {
+    const esc = await OFERTA.escolhaDaLive(CONECTOR, TOKEN, conta.loja);
+    if (esc && esc.ofertas.length) {
+      const ids = new Set(esc.ofertas);
+      const marcadas = ofertas.filter((o) => ids.has(String(o.produto_id)));
+      if (marcadas.length) {
+        if (esc.fixada) marcadas.sort((a, b) => (String(b.produto_id) === esc.fixada ? 1 : 0) - (String(a.produto_id) === esc.fixada ? 1 : 0));
+        const chave = marcadas.length + '/' + ofertas.length + ':' + (esc.fixada || '');
+        if (conta._escolhaLog !== chave) {
+          conta._escolhaLog = chave;
+          console.log('  ⚡' + conta.loja + ': escolha DESTA live — ' + marcadas.length + ' de ' + ofertas.length + ' oferta(s)' + (esc.fixada ? ' · fixada na frente' : ''));
+        }
+        ofertas = marcadas;
+      }
+    }
+  } catch (e) {}
   if (!conta.authorId) { const s = authorSalvo(conta.loja); if (s) { conta.authorId = s; console.log('  ⚡' + conta.loja + ': author_id lembrado de antes (' + s + ') ✓'); } }
   if (!conta.authorId) { const s = await authorDoConector(conta.loja); if (s) { conta.authorId = s; salvaAuthorId(conta.loja, s); console.log('  ⚡' + conta.loja + ': author_id lembrado do BANCO (' + s + ') ✓'); } }
   if (!conta.authorId) { garanteAuthorId(conta); return; } // ainda não tem: captura (precisa de ⚡ ativa 1x)
@@ -765,6 +785,19 @@ async function vigiarAtividade(conta) {
   if (OFERTA_ON) conta.page.on('request', (req) => {
     if (conta.authorId) return;
     try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') conta.authorId = String(m.author_id); } } catch (e) {}
+  });
+  // 📌 GRAVADOR do "fixar": quando alguém FIXA um produto NA JANELA deste robô
+  // (Gerenciador de LIVE), a chamada do TikTok fica gravada em pin-capturado.log.
+  // É só pra DESCOBRIR a API do fixar — não mexe em nada, só anota.
+  if (OFERTA_ON) conta.page.on('request', (req) => {
+    try {
+      const u = req.url();
+      if (!/\/api\//.test(u) || !/(pin|top_|_top|sticky|highlight|explain|feature)/i.test(u)) return;
+      if (/user_activity_history|flash_sale|shop_product|live_product\/list/i.test(u)) return; // já conhecidas
+      const linha = new Date().toISOString() + ' [' + conta.loja + '] ' + req.method() + ' ' + u + '\n  corpo: ' + String(req.postData() || '(vazio)').slice(0, 1500) + '\n';
+      fs.appendFileSync(path.join(__dirname, 'pin-capturado.log'), linha);
+      console.log('  📌 ' + conta.loja + ': chamada de FIXAR capturada! (gravei em pin-capturado.log)');
+    } catch (e) {}
   });
   console.log('  ' + nome(conta) + ': vigiando as vendas da LIVE (feed de atividade)...');
   await abrirLive(conta);

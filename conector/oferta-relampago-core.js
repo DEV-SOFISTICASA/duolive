@@ -39,7 +39,7 @@ function montaCorpo(authorId, prod, skus, dur) {
     rel.push({ spu_id: prod.produto_id, sku_id: s.sku_id, promotion_benefit: { benefit_type: 1, benefit_value: { value: (+preco).toFixed(2), display_price: brl(preco) } } });
   });
   if (!rel.length) return null;
-  return { corpo: { promotion: [{ promotion_base: { promotion_meta: { title: ('DuoLive ' + (prod.nome || '')).slice(0, 30), launch_mode: 1 }, promotion_type: 3, promotion_level: 2, promotion_time: { duration: dur || 600, preheat_duration: 10 } }, sku_promotion_relation_list: rel, spu_promotion_relation: { spu_id: prod.produto_id } }], author_id: authorId, device_type_code: 2 }, rel: rel };
+  return { corpo: { promotion: [{ promotion_base: { promotion_meta: { title: ('DuoLive ' + (prod.nome || '')).slice(0, 30), launch_mode: 1 }, promotion_type: 3, promotion_level: 2, promotion_time: { duration: dur || 900, preheat_duration: 10 } }, sku_promotion_relation_list: rel, spu_promotion_relation: { spu_id: prod.produto_id } }], author_id: authorId, device_type_code: 2 }, rel: rel };
 }
 // cria UMA ⚡ (ensaio se opts.real for falso). opts: {real, dur, tag, log}
 async function criar(page, authorId, prod, opts) {
@@ -156,10 +156,22 @@ async function autoLigada(conector, token, loja) {
   const r = await pega(base + '/oferta-auto?loja=' + encodeURIComponent(loja), token);
   return !!(r && r.ligado);
 }
+// a ESCOLHA desta LIVE (painel "Minhas ofertas"): quais produtos a vendedora que está
+// NESTA loja marcou pra trabalhar agora + a fixada. Cada live tem a sua escolha, feita
+// na hora. Só a escolha — o PREÇO é sempre o do ADM.
+// Devolve { ofertas:[produto_ids], fixada } ou null (nada marcado / conector antigo).
+async function escolhaDaLive(conector, token, loja) {
+  const base = String(conector || '').replace(/\/+$/, '');
+  const r = await pega(base + '/vendedora-ofertas?loja=' + encodeURIComponent(loja), token);
+  if (!r || !r.ok) return null;
+  const ofertas = (r.ofertas || []).map(String);
+  if (!ofertas.length) return null;
+  return { ofertas: ofertas, fixada: r.fixada ? String(r.fixada) : null };
+}
 async function liveNoAr(conector, token, loja) {
   const base = String(conector || '').replace(/\/+$/, '');
   const r = await pega(base + '/ao-vivo?loja=' + encodeURIComponent(loja), token);
   return !!(r && r.aoVivo);
 }
 
-module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, reporOfertasGlobal, catalogoDaLoja, acheId, configDoPainel, autoLigada, liveNoAr, slug, brl };
+module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, reporOfertasGlobal, catalogoDaLoja, acheId, configDoPainel, autoLigada, escolhaDaLive, liveNoAr, slug, brl };
