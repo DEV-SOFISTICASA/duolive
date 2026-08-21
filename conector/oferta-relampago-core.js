@@ -156,6 +156,15 @@ async function autoLigada(conector, token, loja) {
   const r = await pega(base + '/oferta-auto?loja=' + encodeURIComponent(loja), token);
   return !!(r && r.ligado);
 }
+// TRAVA DE PREÇOS: os valores atuais conferem com o selo do ADM? Se não conferem,
+// a ⚡ é BLOQUEADA (ninguém cria nada até o ADM aprovar no painel). Conector antigo
+// (sem a rota) = sem trava — devolve ok pra não parar o mundo.
+async function precosConferem(conector, token) {
+  const base = String(conector || '').replace(/\/+$/, '');
+  const r = await pega(base + '/precos-conferencia', token);
+  if (!r || !r.ok) return { confere: true, divergencias: [] };
+  return { confere: r.confere !== false, divergencias: r.divergencias || [] };
+}
 // a ESCOLHA desta LIVE (painel "Minhas ofertas"): quais produtos a vendedora que está
 // NESTA loja marcou pra trabalhar agora + a fixada. Cada live tem a sua escolha, feita
 // na hora. Só a escolha — o PREÇO é sempre o do ADM.
@@ -174,4 +183,4 @@ async function liveNoAr(conector, token, loja) {
   return !!(r && r.aoVivo);
 }
 
-module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, reporOfertasGlobal, catalogoDaLoja, acheId, configDoPainel, autoLigada, escolhaDaLive, liveNoAr, slug, brl };
+module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, reporOfertasGlobal, catalogoDaLoja, acheId, configDoPainel, autoLigada, precosConferem, escolhaDaLive, liveNoAr, slug, brl };

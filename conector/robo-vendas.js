@@ -190,6 +190,21 @@ async function rodaOferta(conta) {
   if (!_ofCfg._master || agora - (_ofCfgTs._master || 0) > 120000) { // recarrega a lista mestre a cada ~2 min
     try { _ofCfg._master = await OFERTA.configDoPainel(CONECTOR, TOKEN, OFERTA_MASTER); _ofCfgTs._master = agora; } catch (e) {}
   }
+  // 🔒 TRAVA DE PREÇOS (o conferente): antes de QUALQUER ⚡, os valores atuais têm
+  // que conferir com o selo do ADM. Não conferem = BLOQUEIA tudo e grita no log.
+  try {
+    const tp = await OFERTA.precosConferem(CONECTOR, TOKEN);
+    if (!tp.confere) {
+      if (conta._travaLog !== 'travado') {
+        conta._travaLog = 'travado';
+        console.log('  🚨 ' + conta.loja + ': PREÇOS NÃO CONFEREM com o aprovado do ADM — ⚡ BLOQUEADA!');
+        (tp.divergencias || []).slice(0, 6).forEach((d) => console.log('     · ' + (d.nome || '?') + ': aprovado ' + (d.aprovado == null ? '(não existia)' : 'R$' + d.aprovado) + ' → atual ' + (d.atual == null ? '(sumiu)' : 'R$' + d.atual)));
+        console.log('     Só o ADM libera: painel de Ofertas → "Aprovar preços" (ou corrija os valores).');
+      }
+      return;
+    }
+    if (conta._travaLog === 'travado') { conta._travaLog = 'ok'; console.log('  ✅ ' + conta.loja + ': preços conferem de novo — ⚡ liberada.'); }
+  } catch (e) {}
   let ofertas = _ofCfg._master || [];
   if (!ofertas.length) return;               // lista mestre vazia
   // ESCOLHA desta LIVE (painel "Minhas ofertas"): quem está nesta loja escolhe NA HORA

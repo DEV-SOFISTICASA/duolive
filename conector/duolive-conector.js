@@ -26,6 +26,7 @@ const OFERTAS = require('./ofertas.js');
 const CATALOGO = require('./catalogo.js'); // catálogo de produtos espelhado no banco (não zera em deploy)
 const AUTHORDB = require('./author-db.js'); // author_id (dono da live) no banco: 1 ⚡ manual por loja = pra sempre
 const VENDOFERTAS = require('./vendedora-ofertas.js'); // escolha de ofertas por vendedora (quais trabalhar + a fixada)
+const SELO = require('./precos-selo.js'); // TRAVA DE SEGURANÇA: preços só valem se conferirem com o selo do ADM
 
 // PORT e' o padrao da nuvem (Render/Railway); DUOLIVE_PORTA e' o local
 const PORTA = +(process.env.PORT || process.env.DUOLIVE_PORTA || 9797);
@@ -863,9 +864,36 @@ const server = http.createServer((req, res) => {
     const loja = qs.get('loja') || lojaAtual || '';
     const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
     res.setHeader('content-type', 'application/json');
-    OFERTAS.listar(loja)
-      .then((l) => res.end(JSON.stringify({ ok: true, loja: loja, ehAdm: ehAdm, descontos: l })))
-      .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
+    // TRAVA: pro ROBÔ (crachá) pedindo a lista mestre, os preços têm que CONFERIR
+    // com o selo do ADM. Não conferem? Entrega a lista VAZIA = nenhuma ⚡ sai.
+    // (O ADM logado continua vendo tudo, pra poder corrigir/aprovar no painel.)
+    const eRoboPedindo = AUTH.temTokenValido(req) && !req.usuario;
+    const trava = (eRoboPedindo && loja === SELO.MASTER) ? SELO.conferir().catch(() => ({ confere: true })) : Promise.resolve({ confere: true });
+    trava.then((c) => {
+      if (c && c.temSelo && c.confere === false) {
+        res.end(JSON.stringify({ ok: true, loja: loja, ehAdm: ehAdm, descontos: [], travado: true, motivo: 'precos nao conferem com o aprovado do ADM' }));
+        return null;
+      }
+      return OFERTAS.listar(loja).then((l) => res.end(JSON.stringify({ ok: true, loja: loja, ehAdm: ehAdm, descontos: l })));
+    }).catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
+    return;
+  }
+
+  // TRAVA DE PREÇOS: conferência (qualquer um lê) + aprovação (SÓ o ADM).
+  if (req.url.startsWith('/precos-conferencia') && req.method === 'GET') {
+    res.setHeader('content-type', 'application/json');
+    SELO.conferir()
+      .then((c) => res.end(JSON.stringify({ ok: true, temSelo: !!c.temSelo, confere: c.confere !== false, divergencias: c.divergencias || [] })))
+      .catch(() => res.end('{"ok":false}'));
+    return;
+  }
+  if (req.url.startsWith('/precos-aprovar') && req.method === 'POST') {
+    const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
+    res.setHeader('content-type', 'application/json');
+    if (!ehAdm) { res.statusCode = 403; res.end('{"ok":false,"erro":"So o ADM aprova os precos."}'); return; }
+    SELO.selar('ADM aprovou')
+      .then(() => res.end('{"ok":true}'))
+      .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String((e && e.message) || e) })); });
     return;
   }
   if ((req.url.startsWith('/desconto-salvar') || req.url.startsWith('/desconto-remover')) && req.method === 'POST') {
@@ -879,7 +907,10 @@ const server = http.createServer((req, res) => {
       res.setHeader('content-type', 'application/json');
       if (!b || !b.loja || !b.produto_id) { res.statusCode = 400; res.end('{"ok":false,"erro":"faltou loja/produto"}'); return; }
       const acao = remover ? OFERTAS.remover(b) : OFERTAS.salvar(b);
-      acao.then(() => res.end('{"ok":true}'))
+      // depois de salvar PELO PAINEL (porta do ADM), SELA o novo estado — é o que
+      // separa "o ADM mudou" (ok) de "mudou por fora" (⚡ bloqueada).
+      acao.then(() => SELO.selar('ADM painel').catch(() => {}))
+        .then(() => res.end('{"ok":true}'))
         .catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
     });
     return;

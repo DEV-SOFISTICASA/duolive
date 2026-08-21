@@ -112,6 +112,15 @@
       <b style="font-size:12.5px">💾 Ofertas da live <span style="color:var(--text-3);font-weight:400">— 🌐 valem para TODAS as lojas</span></b>
       <span id="fixQuem" style="font-size:10.5px;color:var(--text-3)"></span>
     </div>
+    <!-- 🔒 TRAVA DE PREÇOS: aparece quando os valores NÃO conferem com o selo do ADM -->
+    <div id="travaPrecos" style="display:none;margin-top:8px;background:#3d0f14;border:1px solid #b91c1c;border-radius:10px;padding:9px 11px">
+      <b style="color:#fca5a5;font-size:12px">🚨 PREÇOS NÃO CONFEREM com o aprovado — ⚡ BLOQUEADA</b>
+      <div id="travaLista" style="font-size:11px;color:#fecaca;margin-top:5px;line-height:1.6"></div>
+      <div style="margin-top:7px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn mini" id="btnAprovarPrecos" style="background:#b91c1c;color:#fff">✅ Aprovar preços atuais (ADM)</button>
+        <span style="font-size:10.5px;color:#fca5a5">ou corrija os valores acima — salvar pelo painel já libera</span>
+      </div>
+    </div>
     <div id="fixLista" style="margin-top:8px"></div>
     <div id="fixAdd" style="margin-top:10px;display:none">
       <button class="btn mini" id="btnFixAdd" style="background:var(--ok);color:#04120a">🛍️ Escolher produtos</button>
@@ -825,6 +834,34 @@
   if($('btnFixManual')) $('btnFixManual').onclick=addManual;
   carregaFixas();
   setInterval(function(){ if(!fixEditando) carregaFixas(); }, 12000);
+
+  // ======== 🔒 TRAVA DE PREÇOS: confere o selo do ADM e mostra o alarme ========
+  function brlT(n){ return n==null?null:('R$ '+(+n).toFixed(2).replace('.',',')); }
+  function checaTrava(){
+    fetch('/precos-conferencia',{cache:'no-store'}).then(function(r){return r.json();}).then(function(c){
+      var box=$('travaPrecos'); if(!box) return;
+      var quebrou = c && c.ok && c.temSelo && c.confere===false;
+      box.style.display = quebrou ? '' : 'none';
+      if(!quebrou) return;
+      var l=$('travaLista');
+      l.innerHTML=(c.divergencias||[]).slice(0,8).map(function(d){
+        var de=brlT(d.aprovado), pa=brlT(d.atual);
+        return '· <b>'+String(d.nome||'?').replace(/</g,'&lt;').slice(0,60)+'</b>: '
+          +(de==null?'(não existia)':('aprovado '+de))+' → '+(pa==null?'(sumiu)':('agora '+pa));
+      }).join('<br>');
+      var b=$('btnAprovarPrecos'); if(b) b.style.display = fixEhAdm ? '' : 'none';
+    }).catch(function(){});
+  }
+  (function(){
+    var b=$('btnAprovarPrecos');
+    if(b) b.onclick=function(){
+      if(!confirm('Aprovar os preços ATUAIS como corretos?\nA ⚡ volta a sair com estes valores.')) return;
+      fetch('/precos-aprovar',{method:'POST',cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+        if(j&&j.ok){ checaTrava(); } else alert((j&&j.erro)||'Não deu — só o ADM aprova.');
+      }).catch(function(){ alert('Não deu pra falar com o conector.'); });
+    };
+  })();
+  checaTrava(); setInterval(checaTrava, 60000);
 
   // ======== Automação da ⚡ (liga/desliga por loja; só o ADM) ========
   var autoLig=false;
