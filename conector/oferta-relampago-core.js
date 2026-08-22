@@ -115,14 +115,21 @@ async function reporOfertasGlobal(page, authorId, ofertas, opts) {
   diz('  ⚡' + (opts.tag || '') + 'catálogo da loja: ' + cat.length + ' produtos (ex.: "' + String((cat[0] && cat[0].nome) || '').slice(0, 34) + '")');
   let ativos = [];
   try { ativos = (await listarAtivas(page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
-  let criadas = 0;
+  // separa ANTES: o que não casou, o que já tem ⚡ ativa (inclusive as criadas NA MÃO —
+  // o robô nunca substitui uma ativa) e o que está pendente de criar.
+  const pendentes = []; let naoCasou = 0, jaAtivas = 0;
   for (const of of (ofertas || [])) {
     const id = acheId(porNome, of.nome);
-    if (!id) { diz('  ·  ' + (opts.tag || '') + '"' + String(of.nome).slice(0, 30) + '" não existe nesta loja — pulei'); continue; }
-    if (ativos.includes(String(id))) continue; // já tem ⚡ ativa
-    await criar(page, authorId, { produto_id: id, nome: of.nome, conjunto: of.conjunto, excecoes: of.excecoes }, opts);
+    if (!id) { naoCasou++; diz('  ·  ' + (opts.tag || '') + '"' + String(of.nome).slice(0, 30) + '" não existe nesta loja — pulei'); continue; }
+    if (ativos.includes(String(id))) { jaAtivas++; continue; }
+    pendentes.push({ produto_id: id, nome: of.nome, conjunto: of.conjunto, excecoes: of.excecoes });
+  }
+  diz('  ⚡' + (opts.tag || '') + 'resumo: ' + (ofertas || []).length + ' na lista · ' + jaAtivas + ' já com ⚡ ativa (inclui manuais) · ' + naoCasou + ' não casou o nome · ' + pendentes.length + ' pra criar agora');
+  let criadas = 0;
+  for (let i = 0; i < pendentes.length; i++) {
+    await criar(page, authorId, pendentes[i], opts);
     criadas++;
-    if (opts.stagger) await new Promise((r) => setTimeout(r, opts.stagger));
+    if (opts.stagger && i < pendentes.length - 1) await new Promise((r) => setTimeout(r, opts.stagger)); // não dorme depois da última
   }
   return criadas;
 }

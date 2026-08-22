@@ -72,17 +72,19 @@ const OFERTA = require('./oferta-relampago-core.js');
 //        ensaio  -> liga em ENSAIO (só loga, não cria)
 //        real    -> liga de VERDADE (cria a ⚡)
 //      2ª linha (opcional) = loja mestre das ofertas (padrão: mania)
+//      3ª linha (opcional) = segundos de espera ENTRE uma criação e a próxima (padrão: 60)
 function leOfertaTxt() {
   try {
     const l = fs.readFileSync(path.join(__dirname, 'oferta.txt'), 'utf8').split('\n').map((x) => x.trim().toLowerCase()).filter((x) => x && !x.startsWith('#'));
-    return { modo: l[0] || '', master: l[1] || '' };
-  } catch (e) { return { modo: '', master: '' }; }
+    return { modo: l[0] || '', master: l[1] || '', stagger: l[2] || '' };
+  } catch (e) { return { modo: '', master: '', stagger: '' }; }
 }
 const _of = leOfertaTxt();
 const OFERTA_ON = process.env.DUOLIVE_OFERTA === '1' || _of.modo === 'ensaio' || _of.modo === 'real';
 const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1' || _of.modo === 'real';
 const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 900); // 900s = 15 min POR PRODUTO (era 10)
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
+const OFERTA_STAGGER = Math.max(3, +(process.env.DUOLIVE_OFERTA_STAGGER || _of.stagger || 60)); // seg. entre criações
 const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
 // acha o 1º id longo (>=8 dígitos) num campo cujo nome tem "id" — recursivo
@@ -178,14 +180,30 @@ async function garanteAuthorId(conta) {
 }
 // ofertas GLOBAIS: a lista mestre (loja OFERTA_MASTER) vale pra TODAS as lojas, casada
 // pelo NOME do produto. O robô pega o catálogo da loja AO VIVO e aplica os mesmos preços.
+// fala UMA vez por situação (e repete a cada 10 min se continuar igual) — pra janela
+// do robô NUNCA ficar muda: sempre dá pra saber em qual portão a ⚡ está parada.
+function ofLog(conta, chave, msg) {
+  const agora = Date.now();
+  if (conta._ofUlt === chave && agora - (conta._ofUltTs || 0) < 10 * 60000) return;
+  conta._ofUlt = chave; conta._ofUltTs = agora;
+  console.log(msg);
+}
+// TRAVA DE REENTRÂNCIA: o relógio chama a cada 45s, mas uma passada pode levar
+// minutos (espera entre criações). Sem isto as passadas empilhavam e tentavam
+// criar a MESMA ⚡ duas vezes. Agora: se já tem uma passada rodando, esta pula.
 async function rodaOferta(conta) {
+  if (!conta || conta._ofRodando) return;
+  conta._ofRodando = true;
+  try { await rodaOfertaPasso(conta); } finally { conta._ofRodando = false; }
+}
+async function rodaOfertaPasso(conta) {
   if (!OFERTA_ON || !conta || !conta.page || !conta.loja) return;
   // "live no ar" = o PRÓPRIO robô de vendas achou e está lendo o feed desta loja.
   // NÃO uso /ao-vivo do conector: ele reflete o robô de CHAT, que pode nem estar rodando.
-  if (!conta.urlAtividade || (Date.now() - (conta.ultimaOk || 0)) > 120000) return;
+  if (!conta.urlAtividade || (Date.now() - (conta.ultimaOk || 0)) > 120000) { ofLog(conta, 'semfeed', '  ⚡' + conta.loja + ': em espera — não estou lendo live nesta loja agora (sem live aberta ou feed parado).'); return; }
   // No REAL só cria na loja com a automação LIGADA no painel. No ENSAIO roda em TODAS
   // as lojas ao vivo (pra você comparar o casamento de todas de uma vez, sem ligar cada).
-  if (OFERTA_REAL) { let ligada = false; try { ligada = await OFERTA.autoLigada(CONECTOR, TOKEN, conta.loja); } catch (e) {} if (!ligada) return; }
+  if (OFERTA_REAL) { let ligada = false; try { ligada = await OFERTA.autoLigada(CONECTOR, TOKEN, conta.loja); } catch (e) {} if (!ligada) { ofLog(conta, 'autooff', '  ⚡' + conta.loja + ': automação DESLIGADA no painel desta loja — não crio ⚡ (ligue em Ofertas > Automação).'); return; } }
   const agora = Date.now();
   if (!_ofCfg._master || agora - (_ofCfgTs._master || 0) > 120000) { // recarrega a lista mestre a cada ~2 min
     try { _ofCfg._master = await OFERTA.configDoPainel(CONECTOR, TOKEN, OFERTA_MASTER); _ofCfgTs._master = agora; } catch (e) {}
@@ -206,7 +224,8 @@ async function rodaOferta(conta) {
     if (conta._travaLog === 'travado') { conta._travaLog = 'ok'; console.log('  ✅ ' + conta.loja + ': preços conferem de novo — ⚡ liberada.'); }
   } catch (e) {}
   let ofertas = _ofCfg._master || [];
-  if (!ofertas.length) return;               // lista mestre vazia
+  if (!ofertas.length) { ofLog(conta, 'vazia', '  ⚡' + conta.loja + ': lista mestre VAZIA (nenhuma oferta com preço no painel do ADM, ou lista travada) — nada pra criar.'); return; }
+  ofLog(conta, 'ok', '  ⚡' + conta.loja + ': portões abertos — live lida, automação ligada, ' + ofertas.length + ' oferta(s) na lista. Conferindo a cada ' + OFERTA_CHECK + 's.');
   // ESCOLHA desta LIVE (painel "Minhas ofertas"): quem está nesta loja escolhe NA HORA
   // quais produtos trabalhar — a ⚡ sai SÓ dos marcados (FIXADA na frente da fila).
   // Cada live tem a sua escolha. Nada marcado (ou conector antigo)? Segue como
@@ -230,7 +249,7 @@ async function rodaOferta(conta) {
   if (!conta.authorId) { const s = authorSalvo(conta.loja); if (s) { conta.authorId = s; console.log('  ⚡' + conta.loja + ': author_id lembrado de antes (' + s + ') ✓'); } }
   if (!conta.authorId) { const s = await authorDoConector(conta.loja); if (s) { conta.authorId = s; salvaAuthorId(conta.loja, s); console.log('  ⚡' + conta.loja + ': author_id lembrado do BANCO (' + s + ') ✓'); } }
   if (!conta.authorId) { garanteAuthorId(conta); return; } // ainda não tem: captura (precisa de ⚡ ativa 1x)
-  try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: 60000 }); } catch (e) {}
+  try { await OFERTA.reporOfertasGlobal(conta.page, conta.authorId, ofertas, { real: OFERTA_REAL, dur: OFERTA_DUR, tag: '⚡' + conta.loja + ' · ', log: (m) => console.log(m), stagger: OFERTA_STAGGER * 1000 }); } catch (e) { console.log('  ⚠️  ⚡' + conta.loja + ': erro na passada de ofertas: ' + ((e && e.message) || e)); }
 }
 const INICIO = Date.now();
 // conta pedidos feitos até 20 min antes de ligar (ou de se recuperar de uma
@@ -896,7 +915,16 @@ async function principal() {
   else console.log('  🏪 Vigiando TODAS as lojas com login AO MESMO TEMPO: ' + (vigiadas.join(', ') || '(nenhuma — faca os logins)') + '.');
   console.log('  Cada venda aparece SO na loja onde aconteceu.');
   console.log('  Mandando as vendas para: ' + CONECTOR + '\n');
-  if (OFERTA_ON) console.log('  ⚡ Oferta Relâmpago pelo robô de vendas: LIGADA · GLOBAL (lista mestre = "' + OFERTA_MASTER + '", casa por nome em todas as lojas) · ' + (OFERTA_REAL ? 'MODO REAL (cria de verdade)' : 'ENSAIO (só loga, não cria)') + ' · confere a cada ' + OFERTA_CHECK + 's.\n');
+  if (OFERTA_ON) console.log('  ⚡ Oferta Relâmpago pelo robô de vendas: LIGADA · GLOBAL (lista mestre = "' + OFERTA_MASTER + '", casa por nome em todas as lojas) · ' + (OFERTA_REAL ? 'MODO REAL (cria de verdade)' : 'ENSAIO (só loga, não cria)') + ' · confere a cada ' + OFERTA_CHECK + 's · ' + OFERTA_STAGGER + 's entre criações · ' + Math.round(OFERTA_DUR / 60) + ' min por produto.\n');
+  // AVISO ALTO quando a ⚡ está desligada/ensaio — pra NUNCA mais passar despercebido
+  // (um robô sem oferta.txt lê as vendas normalmente e fica mudo sobre a ⚡).
+  if (!OFERTA_ON) {
+    const aviso = () => { console.log('\n  ⚠️⚠️⚠️  OFERTA RELÂMPAGO DESLIGADA NESTE ROBÔ — ele lê as vendas, mas NÃO VAI CRIAR ⚡ NENHUMA!'); console.log('           Pra ligar: crie o arquivo conector\\oferta.txt com "real" na 1ª linha (e "mania" na 2ª) e RELIGUE o robô.\n'); };
+    aviso(); setInterval(aviso, 10 * 60000);
+  } else if (!OFERTA_REAL) {
+    const aviso = () => console.log('  ⚠️  ⚡ em ENSAIO: só escreve no log, NÃO cria de verdade. Pra valer: 1ª linha do conector\\oferta.txt = real (e religar).\n');
+    aviso(); setInterval(aviso, 10 * 60000);
+  }
 
   const browser = await abreNavegador(true);
 
