@@ -675,10 +675,67 @@
   function iconeVazio(){ var e=document.createElement('div'); e.className='th'; e.textContent='🛍️'; return e; }
   function atualizaPct(lin,de,por){ var p=lin.querySelector('[data-pct]'); if(p) p.textContent=pctOff(de,por); }
 
+  // ===== ZOOM da oferta: mouse na foto -> foto GRANDE + preço de TODAS as variações,
+  //       com a(s) mais barata(s) em destaque. No celular: toque na foto liga/desliga. =====
+  (function(){
+    var css=document.createElement('style');
+    css.textContent='#zoomCard{display:none;position:fixed;z-index:99999;width:272px;background:#101014;border:1px solid #34343e;border-radius:14px;padding:12px;box-shadow:0 14px 44px rgba(0,0,0,.7);pointer-events:none}'
+      +'#zoomCard .zimg{width:100%;height:190px;object-fit:cover;border-radius:10px;background:#1a1a20;display:block}'
+      +'#zoomCard .ztit{font-size:12px;font-weight:700;margin-top:8px;line-height:1.35;color:#ececf1}'
+      +'#zoomCard .znorm{font-size:11px;color:#8b8b95;text-decoration:line-through;margin-top:2px}'
+      +'#zoomCard .zconj{font-size:12px;color:#c9c9d2;margin-top:4px}'
+      +'#zoomCard .zconj b{color:#ececf1}'
+      +'#zoomCard .zvs{margin-top:7px;display:flex;flex-direction:column;gap:3px;max-height:168px;overflow:auto}'
+      +'#zoomCard .zv{font-size:11.5px;color:#a9a9b2;display:flex;gap:8px;align-items:center;justify-content:space-between}'
+      +'#zoomCard .zv b{color:#e8e8ee;white-space:nowrap}'
+      +'#zoomCard .zbest,#zoomCard .zbest b{color:#4ade80;font-weight:700}'
+      +'#zoomCard .ztag{font-size:9px;background:#14532d;color:#86efac;padding:1px 6px;border-radius:99px;font-weight:800;white-space:nowrap}';
+    document.head.appendChild(css);
+  })();
+  var zoomCard=null;
+  function zoomEl(){ if(!zoomCard){ zoomCard=document.createElement('div'); zoomCard.id='zoomCard'; document.body.appendChild(zoomCard); } return zoomCard; }
+  function zEsc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+  function posZoom(x,y){
+    var z=zoomEl(), W=window.innerWidth, H=window.innerHeight, w=z.offsetWidth||272, h=z.offsetHeight||300;
+    var L=x+18; if(L+w>W-8) L=Math.max(8,x-w-18);
+    var T=y-40; if(T+h>H-8) T=Math.max(8,H-8-h); if(T<8) T=8;
+    z.style.left=L+'px'; z.style.top=T+'px';
+  }
+  function mostraZoom(gp,x,y){
+    var c=gp.conj||{}, conj=(c.valor_desconto!=null?+c.valor_desconto:null);
+    // preço efetivo de cada variação: a exceção dela, senão herda o conjunto
+    var vs=(gp.estampas||[]).map(function(es){
+      return { nome:(es.variacao_nome||es.sku||'—'), v:(es.valor_desconto!=null?+es.valor_desconto:conj) };
+    });
+    var precos=vs.map(function(v){return v.v;}).filter(function(v){return v!=null;});
+    if(conj!=null) precos.push(conj);
+    var menor=precos.length?Math.min.apply(null,precos):null;
+    var html=(c.imagem?('<img class="zimg" src="'+zEsc(c.imagem)+'">'):'')
+      +'<div class="ztit">'+zEsc(c.nome||'(produto)')+'</div>'
+      +(c.valor_normal!=null?('<div class="znorm">de R$ '+brl(c.valor_normal)+'</div>'):'')
+      +(conj!=null?('<div class="zconj">Conjunto (todas as cores): <b>R$ '+brl(conj)+'</b></div>'):'');
+    if(vs.length){
+      html+='<div class="zvs">'+vs.map(function(v){
+        var best=(menor!=null&&v.v!=null&&+v.v===+menor);
+        return '<div class="zv'+(best?' zbest':'')+'"><span>'+(best?'⭐ ':'')+zEsc(v.nome)+'</span><span><b>'+(v.v!=null?('R$ '+brl(v.v)):'—')+'</b>'+(best?' <span class="ztag">MAIS BARATA</span>':'')+'</span></div>';
+      }).join('')+'</div>';
+    }
+    var z=zoomEl(); z.innerHTML=html; z.style.display='block'; posZoom(x,y);
+  }
+  function escondeZoom(){ if(zoomCard) zoomCard.style.display='none'; }
+  function ligaZoom(el,gp){
+    el.style.cursor='zoom-in';
+    el.addEventListener('mouseenter',function(ev){ mostraZoom(gp,ev.clientX,ev.clientY); });
+    el.addEventListener('mousemove',function(ev){ posZoom(ev.clientX,ev.clientY); });
+    el.addEventListener('mouseleave',escondeZoom);
+    el.addEventListener('click',function(ev){ var z=zoomEl(); if(z.style.display==='block'){ escondeZoom(); } else { mostraZoom(gp,ev.clientX,ev.clientY); } ev.stopPropagation(); });
+  }
+
   function linhaConjunto(gp){
     var c=gp.conj||{produto_id:gp.id};
     var d=document.createElement('div'); d.className='fix';
     var th; if(c.imagem){ th=document.createElement('img'); th.className='th'; th.src=c.imagem; th.onerror=function(){ this.replaceWith(iconeVazio()); }; } else th=iconeVazio();
+    ligaZoom(th,gp); // 🔍 mouse na foto = foto grande + todas as variações + a mais barata
     d.appendChild(th);
     var cnt=document.createElement('div'); cnt.className='cnt';
     var nm=document.createElement('div'); nm.className='nm'; nm.textContent=c.nome||'(produto)'; cnt.appendChild(nm);
