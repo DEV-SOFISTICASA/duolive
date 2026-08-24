@@ -140,7 +140,7 @@ async function garanteAuthorId(conta) {
       const u = new URL(conta.urlAtividade);
       for (const k of ['author_id', 'anchor_id', 'owner_id', 'host_id', 'sec_author_id', 'to_user_id']) {
         const v = u.searchParams.get(k);
-        if (v && /^\d{6,}$/.test(v)) { conta.authorId = v; console.log('  ⚡' + conta.loja + ': author_id do feed (' + v + ') via ' + k + ' ✓'); conta._pegandoAuthor = false; return; }
+        if (v && /^\d{6,}$/.test(v)) { conta.authorId = v; salvaAuthorId(conta.loja, v); console.log('  ⚡' + conta.loja + ': author_id do feed (' + v + ') via ' + k + ' ✓'); conta._pegandoAuthor = false; return; }
       }
     }
   } catch (e) {}
