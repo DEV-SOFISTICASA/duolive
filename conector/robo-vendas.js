@@ -87,6 +87,30 @@ const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
 const OFERTA_STAGGER = Math.max(3, +(process.env.DUOLIVE_OFERTA_STAGGER || _of.stagger || 60)); // seg. entre criações
 const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
+// ---- MAPA DE SKUs da loja MESTRE: o fim do casamento por nome (que chutava) ----
+// mapa-produtos.json: { produto_id_da_mestre: { nome, skus:[SELLER-SKUs...] } }.
+// Vem pronto no pacote e a conta da loja mestre RENOVA sozinha a cada 15 min.
+const ARQ_MAPA = path.join(__dirname, 'mapa-produtos.json');
+let MAPA = {};
+try { MAPA = JSON.parse(fs.readFileSync(ARQ_MAPA, 'utf8')); console.log('  ⚡ mapa de SKUs carregado: ' + Object.keys(MAPA).length + ' produtos da loja mestre.'); } catch (e) { console.log('  ⚠️  ⚡ sem mapa-produtos.json — fora da loja mestre, NADA será criado (sem chute por nome).'); }
+async function atualizaMapaMaster(conta) {
+  try {
+    const cat = await OFERTA.catalogoComSkus(conta.page);
+    if (!cat || cat.length < 5) return; // leitura falhou/curta demais: mantém o mapa que já temos
+    const novo = {};
+    cat.forEach((p) => { novo[p.id] = { nome: p.nome, skus: p.skus }; });
+    MAPA = novo;
+    fs.writeFileSync(ARQ_MAPA, JSON.stringify(MAPA, null, 1));
+    console.log('  ⚡' + conta.loja + ': mapa de SKUs da loja mestre RENOVADO (' + cat.length + ' produtos).');
+  } catch (e) {}
+}
+// fala 1x por assunto (e repete só depois de 30 min) — pros "pulei" não virarem spam
+function ofDiz1x(conta, chave, msg) {
+  conta._ditos = conta._ditos || {};
+  if (conta._ditos[chave] && Date.now() - conta._ditos[chave] < 30 * 60000) return;
+  conta._ditos[chave] = Date.now();
+  console.log(msg);
+}
 // acha o 1º id longo (>=8 dígitos) num campo cujo nome tem "id" — recursivo
 function achaIdEm(obj) {
   if (!obj || typeof obj !== 'object') return '';
@@ -246,6 +270,37 @@ async function rodaOfertaPasso(conta) {
       }
     }
   } catch (e) {}
+  // ---- CASAMENTO EXATO POR SKU (acabou o chute por nome entre lojas) ----
+  if (conta.loja === OFERTA_MASTER) {
+    // na própria loja mestre o produto_id da lista JÁ é o da loja: usa direto
+    ofertas = ofertas.map((o) => Object.assign({}, o, { id_exato: String(o.produto_id) }));
+  } else {
+    // nas outras lojas: traduz cada produto pelo SELLER SKU (índice fresco da loja)
+    if (!conta._skuIdx || Date.now() - (conta._skuIdxTs || 0) > 10 * 60000) {
+      try {
+        const cat = await OFERTA.catalogoComSkus(conta.page);
+        if (cat && cat.length) {
+          const ix = {};
+          cat.forEach((p) => p.skus.forEach((k) => { ix[k] = (ix[k] && ix[k] !== p.id) ? 'AMBIGUO' : p.id; }));
+          conta._skuIdx = ix; conta._skuIdxTs = Date.now();
+        }
+      } catch (e) {}
+    }
+    const ix = conta._skuIdx || {};
+    if (!Object.keys(ix).length) { ofLog(conta, 'semidx', '  ⚡' + conta.loja + ': ainda não li os SKUs desta loja — sem casamento, nada criado nesta passada.'); return; }
+    const traduzidas = []; let semCasar = 0;
+    for (const o of ofertas) {
+      const ent = MAPA[String(o.produto_id)];
+      const skus = (ent && ent.skus) || [];
+      if (!skus.length) { semCasar++; ofDiz1x(conta, 'mapa:' + o.produto_id, '  ·  ⚡' + conta.loja + ' · "' + String(o.nome).slice(0, 36) + '": sem SKUs no mapa da mestre — pulei (mapa renova sozinho em ~15 min)'); continue; }
+      const ids = Array.from(new Set(skus.map((k) => ix[k]).filter((x) => x && x !== 'AMBIGUO')));
+      if (ids.length === 1) traduzidas.push(Object.assign({}, o, { id_exato: ids[0] }));
+      else { semCasar++; ofDiz1x(conta, 'sku:' + o.produto_id, '  ·  ⚡' + conta.loja + ' · "' + String(o.nome).slice(0, 36) + '": ' + (ids.length ? 'SKUs apontam pra ' + ids.length + ' produtos (ambíguo)' : 'NENHUM SKU casa nesta loja (produto irmão, não igual)') + ' — NÃO crio no chute'); }
+    }
+    if (!traduzidas.length) { ofLog(conta, 'semtrad', '  ⚡' + conta.loja + ': 0 de ' + ofertas.length + ' casaram por SKU nesta loja — nada criado (sem chute).'); return; }
+    if (semCasar) ofLog(conta, 'trad' + traduzidas.length + ':' + semCasar, '  ⚡' + conta.loja + ': casadas por SKU ' + traduzidas.length + ' de ' + ofertas.length + ' (as outras ' + semCasar + ' não têm par exato aqui).');
+    ofertas = traduzidas;
+  }
   if (!conta.authorId) { const s = authorSalvo(conta.loja); if (s) { conta.authorId = s; console.log('  ⚡' + conta.loja + ': author_id lembrado de antes (' + s + ') ✓'); } }
   if (!conta.authorId) { const s = await authorDoConector(conta.loja); if (s) { conta.authorId = s; salvaAuthorId(conta.loja, s); console.log('  ⚡' + conta.loja + ': author_id lembrado do BANCO (' + s + ') ✓'); } }
   if (!conta.authorId) { garanteAuthorId(conta); return; } // ainda não tem: captura (precisa de ⚡ ativa 1x)
@@ -847,6 +902,11 @@ async function vigiarAtividade(conta) {
   ];
   // ⚡ cria/renova as ofertas relâmpago desta loja NA MESMA sessão (só com DUOLIVE_OFERTA=1)
   if (OFERTA_ON) conta.relogios.push(setInterval(() => { rodaOferta(conta).catch(() => {}); }, OFERTA_CHECK * 1000));
+  // a conta da loja MESTRE renova o mapa de SKUs (base do casamento exato) sozinha
+  if (OFERTA_ON && conta.loja === OFERTA_MASTER) {
+    conta.relogios.push(setInterval(() => { atualizaMapaMaster(conta).catch(() => {}); }, 15 * 60000));
+    setTimeout(() => { atualizaMapaMaster(conta).catch(() => {}); }, 90 * 1000);
+  }
 }
 
 // ---------- sessoes SEMPRE FRESCAS (cura do "some venda depois de horas") ----------

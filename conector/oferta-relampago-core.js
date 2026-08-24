@@ -85,6 +85,23 @@ async function catalogoDaLoja(page) {
   }
   return out;
 }
+// catálogo COM os Seller SKUs (skus[].name) — a base do casamento EXATO entre lojas.
+// O SKU é o mesmo código nas lojas-espelho; casar por ele acabou com o chute por nome
+// (que já aplicou preço no produto errado — o caso do 24,99 de 2026-08-24).
+async function catalogoComSkus(page) {
+  const out = [];
+  for (let pg = 1; pg <= 4; pg++) {
+    const r = await api(page, '/api/v1/streamer_desktop/shop_product/search?page_number=' + pg + '&page_size=50&use_streamer_products=false&is_not_for_sale_status=1', 'GET', null);
+    const arr = (r.json && r.json.data && (r.json.data.streamer_products || r.json.data.products)) || [];
+    arr.forEach((p) => out.push({
+      id: String(p.product_id),
+      nome: String(p.title || ''),
+      skus: Array.from(new Set((p.skus || []).map((s) => String((s && s.name) || '').trim().toUpperCase()).filter(Boolean))),
+    }));
+    if (arr.length < 50) break;
+  }
+  return out;
+}
 // NÚCLEO do nome: primeiras N palavras significativas (tira "de/com/para" e palavras de 1 letra).
 // Assim "Kit Cozinha Desenhos 3P – Tear Boho, Tapete…" e "Kit Cozinha Desenhos 3P Bohochic…"
 // casam pelo começo, mesmo com descrições diferentes no fim.
@@ -119,7 +136,9 @@ async function reporOfertasGlobal(page, authorId, ofertas, opts) {
   // o robô nunca substitui uma ativa) e o que está pendente de criar.
   const pendentes = []; let naoCasou = 0, jaAtivas = 0;
   for (const of of (ofertas || [])) {
-    const id = acheId(porNome, of.nome);
+    // id_exato = casamento por SKU feito no robô (sem chute). O acheId por nome só
+    // sobrevive como reserva pra chamadas antigas que não mandam id_exato.
+    const id = of.id_exato || acheId(porNome, of.nome);
     if (!id) { naoCasou++; diz('  ·  ' + (opts.tag || '') + '"' + String(of.nome).slice(0, 30) + '" não existe nesta loja — pulei'); continue; }
     if (ativos.includes(String(id))) { jaAtivas++; continue; }
     pendentes.push({ produto_id: id, nome: of.nome, conjunto: of.conjunto, excecoes: of.excecoes });
@@ -190,4 +209,4 @@ async function liveNoAr(conector, token, loja) {
   return !!(r && r.aoVivo);
 }
 
-module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, reporOfertasGlobal, catalogoDaLoja, acheId, configDoPainel, autoLigada, precosConferem, escolhaDaLive, liveNoAr, slug, brl };
+module.exports = { api, skusDe, montaCorpo, criar, listarAtivas, reporOfertas, reporOfertasGlobal, catalogoDaLoja, catalogoComSkus, acheId, configDoPainel, autoLigada, precosConferem, escolhaDaLive, liveNoAr, slug, brl };
