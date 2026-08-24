@@ -707,6 +707,8 @@
     var vs=(gp.estampas||[]).map(function(es){
       return { nome:(es.variacao_nome||es.sku||'—'), v:(es.valor_desconto!=null?+es.valor_desconto:conj) };
     });
+    // MAIS BARATA PRIMEIRO: ordena por preço (menor em cima) — sem scroll pra achar a verde
+    vs.sort(function(a,b){ return (a.v!=null?+a.v:Infinity)-(b.v!=null?+b.v:Infinity); });
     var precos=vs.map(function(v){return v.v;}).filter(function(v){return v!=null;});
     if(conj!=null) precos.push(conj);
     var menor=precos.length?Math.min.apply(null,precos):null;
