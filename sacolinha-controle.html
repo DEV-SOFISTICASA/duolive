@@ -679,17 +679,17 @@
   //       com a(s) mais barata(s) em destaque. No celular: toque na foto liga/desliga. =====
   (function(){
     var css=document.createElement('style');
-    css.textContent='#zoomCard{display:none;position:fixed;z-index:99999;width:272px;background:#101014;border:1px solid #34343e;border-radius:14px;padding:12px;box-shadow:0 14px 44px rgba(0,0,0,.7);pointer-events:none}'
-      +'#zoomCard .zimg{width:100%;height:190px;object-fit:cover;border-radius:10px;background:#1a1a20;display:block}'
-      +'#zoomCard .ztit{font-size:12px;font-weight:700;margin-top:8px;line-height:1.35;color:#ececf1}'
-      +'#zoomCard .znorm{font-size:11px;color:#8b8b95;text-decoration:line-through;margin-top:2px}'
-      +'#zoomCard .zconj{font-size:12px;color:#c9c9d2;margin-top:4px}'
-      +'#zoomCard .zconj b{color:#ececf1}'
-      +'#zoomCard .zvs{margin-top:7px;display:flex;flex-direction:column;gap:3px;max-height:168px;overflow:auto}'
-      +'#zoomCard .zv{font-size:11.5px;color:#a9a9b2;display:flex;gap:8px;align-items:center;justify-content:space-between}'
-      +'#zoomCard .zv b{color:#e8e8ee;white-space:nowrap}'
+    css.textContent='#zoomCard{display:none;position:fixed;z-index:99999;width:400px;max-width:94vw;background:#101014;border:1px solid #34343e;border-radius:16px;padding:16px;box-shadow:0 18px 60px rgba(0,0,0,.75);pointer-events:none}'
+      +'#zoomCard .zimg{width:100%;height:300px;object-fit:cover;border-radius:12px;background:#1a1a20;display:block}'
+      +'#zoomCard .ztit{font-size:15px;font-weight:700;margin-top:10px;line-height:1.35;color:#ececf1}'
+      +'#zoomCard .znorm{font-size:13px;color:#8b8b95;text-decoration:line-through;margin-top:3px}'
+      +'#zoomCard .zconj{font-size:14px;color:#c9c9d2;margin-top:5px}'
+      +'#zoomCard .zconj b{color:#ececf1;font-size:15px}'
+      +'#zoomCard .zvs{margin-top:9px;display:flex;flex-direction:column;gap:5px;max-height:240px;overflow:auto}'
+      +'#zoomCard .zv{font-size:13.5px;color:#a9a9b2;display:flex;gap:10px;align-items:center;justify-content:space-between}'
+      +'#zoomCard .zv b{color:#e8e8ee;white-space:nowrap;font-size:14px}'
       +'#zoomCard .zbest,#zoomCard .zbest b{color:#4ade80;font-weight:700}'
-      +'#zoomCard .ztag{font-size:9px;background:#14532d;color:#86efac;padding:1px 6px;border-radius:99px;font-weight:800;white-space:nowrap}';
+      +'#zoomCard .ztag{font-size:11px;background:#14532d;color:#86efac;padding:2px 8px;border-radius:99px;font-weight:800;white-space:nowrap}';
     document.head.appendChild(css);
   })();
   var zoomCard=null;
