@@ -879,6 +879,29 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---------- Mapa de SKUs da loja MESTRE (casamento exato entre lojas) ----------
+  // Serve o mapa-produtos.json que vem no pacote (o robô do PC reserva renova o dele
+  // a cada ~15 min; o daqui é a foto do último deploy — produto novo só entra no mapa
+  // da nuvem no próximo deploy). É o que o LivePilot (Observador) usa pra casar a
+  // lista mestre com a loja da live SEM chute por nome: SKU prova, nome não.
+  // Formato: { produto_id_da_mestre: { nome, skus:[SELLER-SKUs], monaco, fast, bellini } }
+  if (req.url.startsWith('/mapa-produtos') && req.method === 'GET') {
+    res.setHeader('content-type', 'application/json');
+    try {
+      const arq = path.join(__dirname, 'mapa-produtos.json');
+      const st = fs.statSync(arq);
+      if (!global._mapaCache || global._mapaCacheMs !== st.mtimeMs) {
+        global._mapaCache = JSON.parse(fs.readFileSync(arq, 'utf8'));
+        global._mapaCacheMs = st.mtimeMs;
+      }
+      const m = global._mapaCache;
+      res.end(JSON.stringify({ ok: true, total: Object.keys(m).length, atualizado_em: new Date(st.mtimeMs).toISOString(), produtos: m }));
+    } catch (e) {
+      res.end(JSON.stringify({ ok: false, erro: 'sem mapa-produtos.json neste deploy', detalhe: String((e && e.message) || e) }));
+    }
+    return;
+  }
+
   // TRAVA DE PREÇOS: conferência (qualquer um lê) + aprovação (SÓ o ADM).
   if (req.url.startsWith('/precos-conferencia') && req.method === 'GET') {
     res.setHeader('content-type', 'application/json');
