@@ -51,8 +51,8 @@ async function criar(page, authorId, prod, opts) {
   const m = montaCorpo(authorId, prod, skus, opts.dur);
   if (!m || m.vazio) {
     const motivo = (m && m.semEstoque && !m.semPreco)
-      ? 'todas as ' + m.semEstoque + ' variações SEM ESTOQUE neste anúncio — pulei (preço está ok)'
-      : 'nenhum preço aplicável' + (m ? ' (' + m.semPreco + ' variações sem preço, ' + m.semEstoque + ' sem estoque)' : '');
+      ? 'sem estoque LIVRE nas ' + m.semEstoque + ' variações — ou estoque real zerado, ou PRESO numa promoção antiga ativa (confira em Seller Center > Promoções e encerre as velhas)'
+      : 'nenhum preço aplicável' + (m ? ' (' + m.semPreco + ' variações sem preço, ' + m.semEstoque + ' sem estoque livre)' : '');
     diz('  ⚠️  ' + tag + (prod.nome || prod.produto_id) + ': ' + motivo);
     return null;
   }
