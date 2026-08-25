@@ -32,13 +32,15 @@ async function skusDe(page, produtoId) {
 }
 function montaCorpo(authorId, prod, skus, dur) {
   const rel = [];
+  let semEstoque = 0, semPreco = 0;
   skus.forEach((s) => {
-    if (!s.estoque) return;
+    if (!s.estoque) { semEstoque++; return; }
     const preco = (prod.excecoes[slug(s.nome)] != null) ? prod.excecoes[slug(s.nome)] : prod.conjunto;
-    if (preco == null) return;
+    if (preco == null) { semPreco++; return; }
     rel.push({ spu_id: prod.produto_id, sku_id: s.sku_id, promotion_benefit: { benefit_type: 1, benefit_value: { value: (+preco).toFixed(2), display_price: brl(preco) } } });
   });
-  if (!rel.length) return null;
+  // vazio: diz o MOTIVO real (antes tudo virava "falta o conjunto?" e enganava o diagnóstico)
+  if (!rel.length) return { vazio: true, semEstoque: semEstoque, semPreco: semPreco };
   return { corpo: { promotion: [{ promotion_base: { promotion_meta: { title: ('DuoLive ' + (prod.nome || '')).slice(0, 30), launch_mode: 1 }, promotion_type: 3, promotion_level: 2, promotion_time: { duration: dur || 900, preheat_duration: 10 } }, sku_promotion_relation_list: rel, spu_promotion_relation: { spu_id: prod.produto_id } }], author_id: authorId, device_type_code: 2 }, rel: rel };
 }
 // cria UMA ⚡ (ensaio se opts.real for falso). opts: {real, dur, tag, log}
@@ -47,11 +49,22 @@ async function criar(page, authorId, prod, opts) {
   const skus = await skusDe(page, prod.produto_id);
   if (!skus.length) { diz('  ⚠️  ' + tag + (prod.nome || prod.produto_id) + ': sem SKUs (a live está no ar?)'); return null; }
   const m = montaCorpo(authorId, prod, skus, opts.dur);
-  if (!m) { diz('  ⚠️  ' + tag + (prod.nome || prod.produto_id) + ': nenhum preço aplicável (falta o conjunto?)'); return null; }
+  if (!m || m.vazio) {
+    const motivo = (m && m.semEstoque && !m.semPreco)
+      ? 'todas as ' + m.semEstoque + ' variações SEM ESTOQUE neste anúncio — pulei (preço está ok)'
+      : 'nenhum preço aplicável' + (m ? ' (' + m.semPreco + ' variações sem preço, ' + m.semEstoque + ' sem estoque)' : '');
+    diz('  ⚠️  ' + tag + (prod.nome || prod.produto_id) + ': ' + motivo);
+    return null;
+  }
   const precos = m.rel.map((r) => r.promotion_benefit.benefit_value.display_price);
   if (!opts.real) { diz('  🧪 ' + tag + (prod.nome || prod.produto_id) + ' → ' + m.rel.length + ' variações (' + precos.join(' / ') + ') — ENSAIO, não enviei'); return { ensaio: true }; }
   const r = await api(page, '/api/v1/live_promotion/flash_sale/create', 'POST', m.corpo);
-  if (r.json && r.json.code === 0) { const pid = r.json.data && r.json.data.product_to_promotion_id_map && r.json.data.product_to_promotion_id_map[prod.produto_id]; diz('  ⚡ ' + tag + (prod.nome || prod.produto_id) + ' → CRIADA (' + pid + ')'); return { promotion_id: pid }; }
+  if (r.json && r.json.code === 0) {
+    const pid = r.json.data && r.json.data.product_to_promotion_id_map && r.json.data.product_to_promotion_id_map[prod.produto_id];
+    if (!pid) { diz('  ⚠️  ' + tag + (prod.nome || prod.produto_id) + ': o TikTok disse OK mas NÃO pendurou a ⚡ — provável promoção ANTIGA de loja ocupando o produto (encerre no Seller Center). resp=' + String(r.texto || '').slice(0, 180)); return null; }
+    diz('  ⚡ ' + tag + (prod.nome || prod.produto_id) + ' → CRIADA (' + pid + ')');
+    return { promotion_id: pid };
+  }
   diz('  ❌ ' + tag + (prod.nome || prod.produto_id) + ': falhou — code=' + (r.json && r.json.code) + ' msg="' + (r.json ? r.json.message : (r.erro || '')) + '" resp=' + String(r.texto || '').slice(0, 160));
   return null;
 }

@@ -878,19 +878,42 @@ async function vigiarAtividade(conta) {
   // ⚡ captura o author_id das próprias chamadas da página (necessário pro create da ⚡)
   if (OFERTA_ON) conta.page.on('request', (req) => {
     if (conta.authorId) return;
-    try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') conta.authorId = String(m.author_id); } } catch (e) {}
+    try { const b = req.postData(); if (b && /author_id/.test(b)) { const m = JSON.parse(b); if (m.author_id && String(m.author_id) !== '0') { conta.authorId = String(m.author_id); salvaAuthorId(conta.loja, m.author_id); } } } catch (e) {}
   });
-  // 📌 GRAVADOR do "fixar": quando alguém FIXA um produto NA JANELA deste robô
-  // (Gerenciador de LIVE), a chamada do TikTok fica gravada em pin-capturado.log.
-  // É só pra DESCOBRIR a API do fixar — não mexe em nada, só anota.
+  // 📌 GRAVADOR do "fixar" v2: filtro CIRÚRGICO — só a família /pin/ no CAMINHO da
+  // URL (o v1 pegava "pin" até dentro de tokens aleatórios = 2000 linhas de ruído).
+  // Grava requisição (com corpo) E resposta. Pra capturar o POST que FIXA: alguém
+  // clica em Fixar UMA vez NA JANELA deste robô durante uma live.
   if (OFERTA_ON) conta.page.on('request', (req) => {
     try {
       const u = req.url();
-      if (!/\/api\//.test(u) || !/(pin|top_|_top|sticky|highlight|explain|feature)/i.test(u)) return;
-      if (/user_activity_history|flash_sale|shop_product|live_product\/list/i.test(u)) return; // já conhecidas
-      const linha = new Date().toISOString() + ' [' + conta.loja + '] ' + req.method() + ' ' + u + '\n  corpo: ' + String(req.postData() || '(vazio)').slice(0, 1500) + '\n';
+      const caminho = u.split('?')[0];
+      const ePin = /\/api\/v1\/streamer_desktop\/pin\//.test(caminho);
+      // FAMÍLIA DA OFERTA: create/start/end feitos NA JANELA do robô — é assim que a
+      // gente aprende o "Iniciar" (e o launch_mode do "iniciar agora") pra automatizar.
+      const eFlash = /\/api\/v1\/live_promotion\/flash_sale\//.test(caminho);
+      if (!ePin && !eFlash) return;
+      const eSet = req.method() !== 'GET';
+      if (eFlash && !eSet) return;                       // GETs da oferta são o polling do próprio robô — ruído
+      if (ePin && !eSet) {                               // pin/get: 1 amostra a cada 10 min basta
+        conta._pinGetTs = conta._pinGetTs || 0;
+        if (Date.now() - conta._pinGetTs < 10 * 60000) return;
+        conta._pinGetTs = Date.now();
+      }
+      const linha = new Date().toISOString() + ' [' + conta.loja + '] ' + req.method() + ' ' + caminho + '\n  query: ' + (u.split('?')[1] || '').slice(0, 300) + '\n  corpo: ' + String(req.postData() || '(vazio)').slice(0, 2500) + '\n';
       fs.appendFileSync(path.join(__dirname, 'pin-capturado.log'), linha);
-      console.log('  📌 ' + conta.loja + ': chamada de FIXAR capturada! (gravei em pin-capturado.log)');
+      if (eSet && ePin) console.log('  📌📌 ' + conta.loja + ': CHAMADA DE FIXAR (POST) CAPTURADA! É ESSA! (pin-capturado.log)');
+      if (eSet && eFlash && !/\/flash_sale\/(create|product_list|get_params)$/.test(caminho)) console.log('  🎓🎓 ' + conta.loja + ': CHAMADA DE OFERTA CAPTURADA (' + caminho.split('/').pop() + ') — aprendendo! (pin-capturado.log)');
+    } catch (e) {}
+  });
+  if (OFERTA_ON) conta.page.on('response', async (resp) => {
+    try {
+      const u = resp.url();
+      if (!/\/api\/v1\/streamer_desktop\/pin\//.test(u.split('?')[0])) return;
+      const corpo = await resp.text().catch(() => '');
+      if (!corpo || conta._pinRespLog === corpo.slice(0, 200)) return; // não repete resposta igual
+      conta._pinRespLog = corpo.slice(0, 200);
+      fs.appendFileSync(path.join(__dirname, 'pin-capturado.log'), new Date().toISOString() + ' [' + conta.loja + '] RESPOSTA ' + u.split('?')[0] + '\n  ' + corpo.slice(0, 2000) + '\n');
     } catch (e) {}
   });
   console.log('  ' + nome(conta) + ': vigiando as vendas da LIVE (feed de atividade)...');
