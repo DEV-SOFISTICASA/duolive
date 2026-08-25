@@ -3,29 +3,57 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DuoLive · Minhas ofertas</title>
+<title>DuoLive · Ofertas desta live</title>
 <style>
   :root{--bg:#0d0d10;--card:#16161b;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:16px;max-width:520px;margin:0 auto}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:14px;max-width:560px;margin:0 auto}
   .topo{display:flex;align-items:center;gap:10px;margin-bottom:3px}
-  h1{font-size:17px;flex:1}
-  .eu{font-size:12px;color:var(--text-2);white-space:nowrap}
-  .sub{font-size:11.5px;color:var(--text-3);margin-bottom:14px;line-height:1.5}
+  h1{font-size:16px;flex:1}
+  .eu{font-size:11.5px;color:var(--text-2);white-space:nowrap}
+  .sub{font-size:11px;color:var(--text-3);margin-bottom:12px;line-height:1.5}
   .sub b{color:var(--text-2)}
-  .ofrow{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:9px}
-  .ofrow.fixada{border:2px solid var(--accent);padding:9px 11px}
-  .ofrow:not(.on){opacity:.5}
+  /* linha da oferta — MESMO visual do painel do ADM, sem campos de edição */
+  .fix{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:9px}
+  .fix.fixada{border:2px solid var(--accent);padding:9px 11px}
+  .fix:not(.on){opacity:.55}
+  .linha1{display:flex;align-items:center;gap:10px}
   .chk{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--text-3);flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:transparent;font-size:14px;font-weight:800}
-  .ofrow.on .chk{background:var(--ok);border-color:var(--ok);color:#0d0d10}
+  .fix.on .chk{background:var(--ok);border-color:var(--ok);color:#0d0d10}
+  .th{width:46px;height:46px;border-radius:9px;object-fit:cover;background:#1e1e24;flex:none;display:flex;align-items:center;justify-content:center;font-size:19px;cursor:zoom-in}
   .cnt{flex:1;min-width:0}
-  .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .pr{font-size:12.5px;color:var(--ok);font-weight:700;margin-top:2px}
-  .fix{flex:none;background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;white-space:nowrap}
-  .ofrow.fixada .fix{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  .nm{font-size:12.5px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .lin{display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap}
+  .lin s{color:var(--text-3);font-size:11.5px}
+  .pr{color:var(--ok);font-weight:800;font-size:14px}
+  .pct{font-size:10.5px;color:#fca5a5;font-weight:700}
+  .fixbt{flex:none;background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;white-space:nowrap}
+  .fix.fixada .fixbt{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  /* variações (só leitura) */
+  .vtog{margin-top:7px;margin-left:34px;font-size:11px;color:#7ab8ff;cursor:pointer;user-select:none}
+  .vlist{display:none;margin:6px 0 2px 34px;flex-direction:column;gap:4px}
+  .fix.vaberto .vlist{display:flex}
+  .vv{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-2)}
+  .vv b{color:var(--text);font-weight:700}
+  .vv.best,.vv.best b{color:var(--ok)}
+  .vtag{font-size:9px;background:#14532d;color:#86efac;padding:1px 6px;border-radius:99px;font-weight:800}
+  .sw{width:13px;height:13px;border-radius:4px;background:#3a3a44;flex:none;border:1px solid rgba(255,255,255,.14)}
+  .vth{width:18px;height:18px;border-radius:5px;object-fit:cover;flex:none}
   .vazio{color:var(--text-3);font-size:12.5px;text-align:center;padding:30px 10px;line-height:1.6}
-  .rodape{font-size:11.5px;color:var(--text-2);margin-top:12px;display:flex;gap:7px;align-items:flex-start;line-height:1.5}
+  .rodape{font-size:11px;color:var(--text-2);margin-top:12px;display:flex;gap:7px;align-items:flex-start;line-height:1.5}
   .rodape .r{color:var(--accent);font-size:15px;flex:none}
+  /* zoom da foto — igual ao painel do ADM */
+  #zoomCard{display:none;position:fixed;z-index:99999;width:min(400px,94vw);background:#101014;border:1px solid #34343e;border-radius:16px;padding:16px;box-shadow:0 18px 60px rgba(0,0,0,.75);pointer-events:none}
+  #zoomCard .zimg{width:100%;height:300px;object-fit:cover;border-radius:12px;background:#1a1a20;display:block}
+  #zoomCard .ztit{font-size:15px;font-weight:700;margin-top:10px;line-height:1.35;color:#ececf1}
+  #zoomCard .znorm{font-size:13px;color:#8b8b95;text-decoration:line-through;margin-top:3px}
+  #zoomCard .zconj{font-size:14px;color:#c9c9d2;margin-top:5px}
+  #zoomCard .zconj b{color:#ececf1;font-size:15px}
+  #zoomCard .zvs{margin-top:9px;display:flex;flex-direction:column;gap:5px;max-height:240px;overflow:auto}
+  #zoomCard .zv{font-size:13.5px;color:#a9a9b2;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  #zoomCard .zv b{color:#e8e8ee;white-space:nowrap;font-size:14px}
+  #zoomCard .zbest,#zoomCard .zbest b{color:#4ade80;font-weight:700}
+  #zoomCard .ztag{font-size:11px;background:#14532d;color:#86efac;padding:2px 8px;border-radius:99px;font-weight:800;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -33,35 +61,99 @@
     <h1>🛍️ Ofertas desta live</h1>
     <div class="eu" id="eu"></div>
   </div>
-  <div class="sub">Marque <b>os produtos que você vai trabalhar</b> nesta live (o ✓ verde) e toque em <b>📌 Fixar</b> pra escolher a fixada. Pode mudar na hora que quiser. Os <b>preços são do ADM</b> — aqui é só a escolha.</div>
+  <div class="sub">Marque <b>os produtos que você vai trabalhar</b> (✓) e toque em <b>📌 Fixar</b> na principal. Pode mudar na hora. Os <b>preços são do ADM</b> — aqui ninguém edita valor.</div>
   <div id="lista"><div class="vazio">Carregando ofertas…</div></div>
-  <div class="rodape"><span class="r">⚡</span> A oferta relâmpago sai a cada 15 minutos, só dos produtos marcados, enquanto esta live estiver aberta.</div>
+  <div class="rodape"><span class="r">⚡</span> A oferta relâmpago sai sozinha, a cada 15 minutos, só dos produtos marcados, enquanto esta live estiver aberta.</div>
 <script>
 (function(){
   var MASTER='mania';
-  // a LOJA desta live vem na URL (?loja=bellini) — o painel principal manda sozinho
   var LOJA=(new URLSearchParams(location.search).get('loja')||'').trim().toLowerCase();
   var $=function(id){return document.getElementById(id);};
-  var offers=[], sel={ofertas:[],fixada:null};
+  var grupos=[], sel={ofertas:[],fixada:null};
   function brl(n){ return (+n||0).toFixed(2).replace('.',','); }
   function esc(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+  function pct(de,por){ if(de==null||por==null||!(+de>0))return ''; var p=Math.round((1-(+por)/(+de))*100); return p>0?('−'+p+'%'):''; }
   function salvar(){ if(!LOJA) return; fetch('/vendedora-ofertas',{method:'POST',cache:'no-store',headers:{'content-type':'application/json'},body:JSON.stringify({loja:LOJA,ofertas:sel.ofertas,fixada:sel.fixada})}).catch(function(){}); }
   function toggle(id){ var i=sel.ofertas.indexOf(id); if(i>=0){ sel.ofertas.splice(i,1); if(sel.fixada===id) sel.fixada=null; } else { sel.ofertas.push(id); } render(); salvar(); }
   function fixar(id){ if(sel.ofertas.indexOf(id)<0) sel.ofertas.push(id); sel.fixada=(sel.fixada===id?null:id); render(); salvar(); }
+
+  // ===== zoom da foto (idêntico ao painel do ADM) =====
+  var zoomCard=null;
+  function zoomEl(){ if(!zoomCard){ zoomCard=document.createElement('div'); zoomCard.id='zoomCard'; document.body.appendChild(zoomCard); } return zoomCard; }
+  function posZoom(x,y){ var z=zoomEl(),W=innerWidth,H=innerHeight,w=z.offsetWidth||400,h=z.offsetHeight||320; var L=x+18; if(L+w>W-8)L=Math.max(8,x-w-18); var T=y-40; if(T+h>H-8)T=Math.max(8,H-8-h); if(T<8)T=8; z.style.left=L+'px'; z.style.top=T+'px'; }
+  function variacoesDe(g){
+    var conj=(g.conj&&g.conj.valor_desconto!=null)?+g.conj.valor_desconto:null;
+    return (g.estampas||[]).map(function(es){ return {nome:es.variacao_nome||es.sku||'—', foto:es.imagem||'', v:(es.valor_desconto!=null?+es.valor_desconto:conj), herda:(es.valor_desconto==null)}; });
+  }
+  function menorDe(g){
+    var vs=variacoesDe(g).map(function(x){return x.v;}).filter(function(x){return x!=null;});
+    var conj=(g.conj&&g.conj.valor_desconto!=null)?+g.conj.valor_desconto:null;
+    if(conj!=null)vs.push(conj);
+    return vs.length?Math.min.apply(null,vs):null;
+  }
+  function mostraZoom(g,x,y){
+    var c=g.conj||{}, conj=(c.valor_desconto!=null?+c.valor_desconto:null);
+    var vs=variacoesDe(g).sort(function(a,b){return (a.v!=null?a.v:1e9)-(b.v!=null?b.v:1e9);});
+    var menor=menorDe(g);
+    var html=(c.imagem?('<img class="zimg" src="'+esc(c.imagem)+'">'):'')
+      +'<div class="ztit">'+esc(c.nome||'')+'</div>'
+      +(c.valor_normal!=null?('<div class="znorm">de R$ '+brl(c.valor_normal)+'</div>'):'')
+      +(conj!=null?('<div class="zconj">Conjunto (todas as cores): <b>R$ '+brl(conj)+'</b></div>'):'');
+    if(vs.length){ html+='<div class="zvs">'+vs.map(function(v){ var best=(menor!=null&&v.v!=null&&+v.v===+menor);
+      return '<div class="zv'+(best?' zbest':'')+'"><span>'+(best?'⭐ ':'')+esc(v.nome)+'</span><span><b>'+(v.v!=null?('R$ '+brl(v.v)):'—')+'</b>'+(best?' <span class="ztag">MAIS BARATA</span>':'')+'</span></div>'; }).join('')+'</div>'; }
+    var z=zoomEl(); z.innerHTML=html; z.style.display='block'; posZoom(x,y);
+  }
+  function escondeZoom(){ if(zoomCard) zoomCard.style.display='none'; }
+
   function render(){
     var l=$('lista'); l.innerHTML='';
-    if(!offers.length){ l.innerHTML='<div class="vazio">Nenhuma oferta cadastrada pelo ADM ainda.<br>Peça pra quem tem o acesso do ADM.</div>'; return; }
-    offers.forEach(function(o){
-      var on=sel.ofertas.indexOf(o.id)>=0, fix=sel.fixada===o.id;
-      var row=document.createElement('div'); row.className='ofrow'+(on?' on':'')+(fix?' fixada':'');
-      row.innerHTML='<div class="chk">✓</div>'
-        +'<div class="cnt"><div class="nm">'+esc(o.nome)+'</div><div class="pr">R$ '+brl(o.preco)+'</div></div>'
-        +'<button class="fix">'+(fix?'📌 Fixada':'📌 Fixar')+'</button>';
-      row.querySelector('.chk').onclick=function(){ toggle(o.id); };
-      row.querySelector('.fix').onclick=function(){ fixar(o.id); };
-      l.appendChild(row);
+    if(!grupos.length){ l.innerHTML='<div class="vazio">Nenhuma oferta cadastrada pelo ADM ainda.</div>'; return; }
+    grupos.forEach(function(g){
+      var c=g.conj||{}, id=String(g.id);
+      var on=sel.ofertas.indexOf(id)>=0, fix=sel.fixada===id;
+      var vs=variacoesDe(g), menor=menorDe(g);
+      var box=document.createElement('div'); box.className='fix'+(on?' on':'')+(fix?' fixada':'');
+
+      var l1=document.createElement('div'); l1.className='linha1';
+      var chk=document.createElement('div'); chk.className='chk'; chk.textContent='✓'; chk.onclick=function(){toggle(id);};
+      var th; if(c.imagem){ th=document.createElement('img'); th.className='th'; th.src=c.imagem; th.onerror=function(){this.replaceWith(thVazio());}; } else th=thVazio();
+      function thVazio(){ var e=document.createElement('div'); e.className='th'; e.textContent='🛍️'; return e; }
+      th.addEventListener('mouseenter',function(ev){mostraZoom(g,ev.clientX,ev.clientY);});
+      th.addEventListener('mousemove',function(ev){posZoom(ev.clientX,ev.clientY);});
+      th.addEventListener('mouseleave',escondeZoom);
+      th.addEventListener('click',function(ev){ var z=zoomEl(); if(z.style.display==='block')escondeZoom(); else mostraZoom(g,ev.clientX,ev.clientY); ev.stopPropagation(); });
+      var cnt=document.createElement('div'); cnt.className='cnt';
+      var nm=document.createElement('div'); nm.className='nm'; nm.textContent=c.nome||'(produto)';
+      var lin=document.createElement('div'); lin.className='lin';
+      if(c.valor_normal!=null){ var s=document.createElement('s'); s.textContent='R$ '+brl(c.valor_normal); lin.appendChild(s); }
+      if(c.valor_desconto!=null){ var pr=document.createElement('span'); pr.className='pr'; pr.textContent='R$ '+brl(c.valor_desconto); lin.appendChild(pr);
+        var pc=document.createElement('span'); pc.className='pct'; pc.textContent=pct(c.valor_normal,c.valor_desconto); lin.appendChild(pc); }
+      cnt.appendChild(nm); cnt.appendChild(lin);
+      var bt=document.createElement('button'); bt.className='fixbt'; bt.textContent=fix?'📌 Fixada':'📌 Fixar'; bt.onclick=function(){fixar(id);};
+      l1.appendChild(chk); l1.appendChild(th); l1.appendChild(cnt); l1.appendChild(bt);
+      box.appendChild(l1);
+
+      if(vs.length){
+        var tg=document.createElement('div'); tg.className='vtog'; tg.textContent='▸ variações ('+vs.length+')';
+        tg.onclick=function(){ box.classList.toggle('vaberto'); tg.textContent=(box.classList.contains('vaberto')?'▾':'▸')+' variações ('+vs.length+')'; };
+        box.appendChild(tg);
+        var vl=document.createElement('div'); vl.className='vlist';
+        vs.slice().sort(function(a,b){return (a.v!=null?a.v:1e9)-(b.v!=null?b.v:1e9);}).forEach(function(v){
+          var best=(menor!=null&&v.v!=null&&+v.v===+menor);
+          var row=document.createElement('div'); row.className='vv'+(best?' best':'');
+          var mini; if(v.foto){ mini=document.createElement('img'); mini.className='vth'; mini.src=v.foto; mini.onerror=function(){var sw=document.createElement('span');sw.className='sw';this.replaceWith(sw);}; } else { mini=document.createElement('span'); mini.className='sw'; }
+          var nomeV=document.createElement('span'); nomeV.textContent=(best?'⭐ ':'')+v.nome; nomeV.style.flex='1';
+          var pv=document.createElement('b'); pv.textContent=(v.v!=null?('R$ '+brl(v.v)):'—');
+          row.appendChild(mini); row.appendChild(nomeV); row.appendChild(pv);
+          if(best){ var tag=document.createElement('span'); tag.className='vtag'; tag.textContent='MAIS BARATA'; row.appendChild(tag); }
+          vl.appendChild(row);
+        });
+        box.appendChild(vl);
+      }
+      l.appendChild(box);
     });
   }
+
   if(!LOJA){ $('lista').innerHTML='<div class="vazio">Abra pelo painel: a loja selecionada lá em cima é a desta live.</div>'; return; }
   Promise.all([
     fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {};}),
@@ -69,10 +161,14 @@
     fetch('/vendedora-ofertas?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return {ofertas:[],fixada:null};})
   ]).then(function(res){
     var eu=res[0]||{}, desc=res[1]||{}, mine=res[2]||{};
-    $('eu').textContent = '🏪 '+LOJA + (eu.nome?(' · 👤 '+eu.nome):'');
-    var byP={};
-    (desc.descontos||[]).forEach(function(x){ var id=String(x.produto_id); if(!byP[id]) byP[id]={id:id,nome:x.nome,preco:null}; if(!x.sku && x.valor_desconto!=null) byP[id].preco=x.valor_desconto; });
-    offers=Object.keys(byP).map(function(k){return byP[k];}).filter(function(o){return o.preco!=null;});
+    $('eu').textContent='🏪 '+LOJA+(eu.nome?(' · 👤 '+eu.nome):'');
+    var g={}, ordem=[];
+    (desc.descontos||[]).forEach(function(o){
+      var k=String(o.produto_id||'');
+      if(!g[k]){ g[k]={id:k,conj:null,estampas:[]}; ordem.push(k); }
+      if(o.sku) g[k].estampas.push(o); else g[k].conj=o;
+    });
+    grupos=ordem.map(function(k){return g[k];}).filter(function(x){return x.conj&&x.conj.valor_desconto!=null;});
     sel.ofertas=(mine.ofertas||[]).map(String); sel.fixada=mine.fixada?String(mine.fixada):null;
     render();
   });
