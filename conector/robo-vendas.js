@@ -275,31 +275,36 @@ async function rodaOfertaPasso(conta) {
     // na própria loja mestre o produto_id da lista JÁ é o da loja: usa direto
     ofertas = ofertas.map((o) => Object.assign({}, o, { id_exato: String(o.produto_id) }));
   } else {
-    // nas outras lojas: traduz cada produto pelo SELLER SKU (índice fresco da loja)
-    if (!conta._skuIdx || Date.now() - (conta._skuIdxTs || 0) > 10 * 60000) {
-      try {
-        const cat = await OFERTA.catalogoComSkus(conta.page);
-        if (cat && cat.length) {
-          const ix = {};
-          cat.forEach((p) => p.skus.forEach((k) => { ix[k] = (ix[k] && ix[k] !== p.id) ? 'AMBIGUO' : p.id; }));
-          conta._skuIdx = ix; conta._skuIdxTs = Date.now();
-        }
-      } catch (e) {}
+    // nas outras lojas: traduz pelo SELLER SKU olhando ANÚNCIO por ANÚNCIO (v2).
+    // A mesma mercadoria pode estar em VÁRIOS anúncios (duplicados) ou REPARTIDA
+    // (cores divididas em anúncios) — a ⚡ sai em CADA anúncio que os SKUs provarem
+    // ser da oferta. Anúncio que cruza SKUs de 2 ofertas diferentes = pulado (aviso).
+    if (!conta._skuCat || Date.now() - (conta._skuCatTs || 0) > 10 * 60000) {
+      try { const cat = await OFERTA.catalogoComSkus(conta.page); if (cat && cat.length) { conta._skuCat = cat; conta._skuCatTs = Date.now(); } } catch (e) {}
     }
-    const ix = conta._skuIdx || {};
-    if (!Object.keys(ix).length) { ofLog(conta, 'semidx', '  ⚡' + conta.loja + ': ainda não li os SKUs desta loja — sem casamento, nada criado nesta passada.'); return; }
-    const traduzidas = []; let semCasar = 0;
-    for (const o of ofertas) {
-      const ent = MAPA[String(o.produto_id)];
-      const skus = (ent && ent.skus) || [];
-      if (!skus.length) { semCasar++; ofDiz1x(conta, 'mapa:' + o.produto_id, '  ·  ⚡' + conta.loja + ' · "' + String(o.nome).slice(0, 36) + '": sem SKUs no mapa da mestre — pulei (mapa renova sozinho em ~15 min)'); continue; }
-      const ids = Array.from(new Set(skus.map((k) => ix[k]).filter((x) => x && x !== 'AMBIGUO')));
-      if (ids.length === 1) traduzidas.push(Object.assign({}, o, { id_exato: ids[0] }));
-      else { semCasar++; ofDiz1x(conta, 'sku:' + o.produto_id, '  ·  ⚡' + conta.loja + ' · "' + String(o.nome).slice(0, 36) + '": ' + (ids.length ? 'SKUs apontam pra ' + ids.length + ' produtos (ambíguo)' : 'NENHUM SKU casa nesta loja (produto irmão, não igual)') + ' — NÃO crio no chute'); }
+    const cat = conta._skuCat || [];
+    if (!cat.length) { ofLog(conta, 'semidx', '  ⚡' + conta.loja + ': ainda não li os SKUs desta loja — sem casamento, nada criado nesta passada.'); return; }
+    const comSkus = ofertas.map((o) => ({ o: o, skus: new Set(((MAPA[String(o.produto_id)] || {}).skus) || []) }));
+    comSkus.filter((e) => !e.skus.size).forEach((e) => ofDiz1x(conta, 'mapa:' + e.o.produto_id, '  ·  ⚡' + conta.loja + ' · "' + String(e.o.nome).slice(0, 36) + '": sem SKUs no mapa da mestre — pulei (mapa renova sozinho em ~15 min)'));
+    const alvos = [];                      // 1 alvo por ANÚNCIO da loja provado por SKU
+    for (const p of cat) {
+      const donos = comSkus.filter((e) => e.skus.size && p.skus.some((k) => e.skus.has(k)));
+      if (!donos.length) continue;
+      if (donos.length > 1) { ofDiz1x(conta, 'conf:' + p.id, '  ·  ⚡' + conta.loja + ' · anúncio "' + String(p.nome).slice(0, 36) + '" cruza SKUs de ' + donos.length + ' ofertas — pulei este anúncio'); continue; }
+      alvos.push(Object.assign({}, donos[0].o, { id_exato: p.id }));
     }
-    if (!traduzidas.length) { ofLog(conta, 'semtrad', '  ⚡' + conta.loja + ': 0 de ' + ofertas.length + ' casaram por SKU nesta loja — nada criado (sem chute).'); return; }
-    if (semCasar) ofLog(conta, 'trad' + traduzidas.length + ':' + semCasar, '  ⚡' + conta.loja + ': casadas por SKU ' + traduzidas.length + ' de ' + ofertas.length + ' (as outras ' + semCasar + ' não têm par exato aqui).');
-    ofertas = traduzidas;
+    const porOferta = {};
+    alvos.forEach((a) => { porOferta[String(a.produto_id)] = (porOferta[String(a.produto_id)] || 0) + 1; });
+    let semCasar = 0;
+    comSkus.forEach((e) => {
+      if (!e.skus.size) { semCasar++; return; }
+      const n = porOferta[String(e.o.produto_id)] || 0;
+      if (!n) { semCasar++; ofDiz1x(conta, 'sku:' + e.o.produto_id, '  ·  ⚡' + conta.loja + ' · "' + String(e.o.nome).slice(0, 36) + '": nenhum anúncio com esses SKUs nesta loja — NÃO crio no chute'); }
+      else if (n > 1) ofDiz1x(conta, 'multi:' + e.o.produto_id + ':' + n, '  ·  ⚡' + conta.loja + ' · "' + String(e.o.nome).slice(0, 36) + '": ' + n + ' anúncios desta loja recebem a ⚡ (duplicado/repartido)');
+    });
+    if (!alvos.length) { ofLog(conta, 'semtrad', '  ⚡' + conta.loja + ': 0 de ' + ofertas.length + ' ofertas casaram por SKU nesta loja — nada criado (sem chute).'); return; }
+    ofLog(conta, 'trad' + alvos.length + ':' + semCasar, '  ⚡' + conta.loja + ': ' + (ofertas.length - semCasar) + ' de ' + ofertas.length + ' ofertas casadas por SKU → ' + alvos.length + ' anúncio(s) desta loja' + (semCasar ? ' (' + semCasar + ' sem par exato aqui)' : '') + '.');
+    ofertas = alvos;
   }
   if (!conta.authorId) { const s = authorSalvo(conta.loja); if (s) { conta.authorId = s; console.log('  ⚡' + conta.loja + ': author_id lembrado de antes (' + s + ') ✓'); } }
   if (!conta.authorId) { const s = await authorDoConector(conta.loja); if (s) { conta.authorId = s; salvaAuthorId(conta.loja, s); console.log('  ⚡' + conta.loja + ': author_id lembrado do BANCO (' + s + ') ✓'); } }
