@@ -50,7 +50,7 @@
   #menuLojas .add:hover{color:var(--text)}
   /* o template do desenho: esquerda = Analytics em cima + Ofertas embaixo; direita = Multichat inteiro */
   .grade{display:grid;flex:1;min-height:0;gap:0;padding:6px;grid-template-columns:minmax(300px,var(--esq,46%)) 10px 1fr}
-  .esq{display:grid;gap:6px;grid-template-rows:46% 1fr;min-width:0}  /* Analytics em cima, Ofertas embaixo */
+  .esq{display:grid;gap:6px;grid-template-rows:1fr;min-width:0}  /* TEMPORÁRIO: Ofertas escondida — Analytics ocupa tudo (era 46% 1fr) */
   /* a barrinha do meio: segure e arraste para aumentar/diminuir o Multichat
      (2 cliques rápidos voltam ao tamanho padrão) */
   #divisor{cursor:col-resize;display:flex;align-items:center;justify-content:center;border-radius:6px;touch-action:none}
@@ -96,7 +96,10 @@
   <div class="grade">
     <div class="esq">
       <div class="caixa"><span class="rotulo">Analytics</span><iframe src="analytics.html" title="Analytics"></iframe></div>
-      <div class="caixa"><span class="rotulo" id="rotOfertas">Ofertas</span><iframe id="ifOfertas" src="sacolinha-controle.html" title="Ofertas"></iframe></div>
+      <!-- TEMPORÁRIO (2026-08-31, pedido do usuário): caixa de Ofertas ESCONDIDA
+           enquanto focamos na Shopee. Pra voltar: troque display:none por display:flex
+           e devolva o grid-template-rows pra 46% 1fr no .esq (marcado abaixo). -->
+      <div class="caixa" style="display:none"><span class="rotulo" id="rotOfertas">Ofertas</span><iframe id="ifOfertas" src="sacolinha-controle.html" title="Ofertas"></iframe></div>
     </div>
     <div id="divisor" title="Arraste para aumentar/diminuir o Multichat · 2 cliques: tamanho padrão"></div>
     <div class="caixa">
