@@ -264,6 +264,7 @@
   })();
   var compraTimer=null;
   function mostraCompra(quem, texto, plat){
+    if(!filtros.venda) return; // 🛒 "Vendas" desligado no filtro = SEM alarme "COMPRA!" (nem o splash daqui, nem a tela cheia do painel)
     // dentro do painel (iframe): quem mostra é a TELA INTEIRA (a página pai)
     if(window.parent && window.parent!==window){
       try{ window.parent.postMessage({tipo:'ld-compra', quem:quem, texto:texto, plat:plat}, '*'); }catch(e){}
