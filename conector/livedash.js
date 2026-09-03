@@ -82,7 +82,7 @@ let _dados = null, _dadosTs = 0;
 async function dados() {
   if (_dados && Date.now() - _dadosTs < 180000) return _dados;
   const c = config();
-  const r = await fetch(c.url + '/rest/v1/livedash_state?or=(key.like.tts_lives:*,key.eq.shared)&select=key,data', {
+  const r = await fetch(c.url + '/rest/v1/livedash_state?or=(key.like.tts_lives:*,key.like.shp_lives:*,key.eq.shared)&select=key,data', {
     headers: { apikey: c.key, Authorization: 'Bearer ' + c.key },
   });
   if (!r.ok) { if (_dados) return _dados; throw new Error('livedash ' + r.status); }
@@ -106,25 +106,32 @@ async function dados() {
   const overrides = Object.assign({}, premio.overrides || {});
   Object.keys(EXCECOES).forEach((id) => { overrides[id] = EXCECOES[id].ov; });
 
-  // lives de todas as lojas
-  const porLoja = {};
-  rows.forEach((row) => {
-    if (!String(row.key).startsWith('tts_lives:')) return;
-    const lojaLD = String((row.data && row.data.loja) || String(row.key).replace('tts_lives:', '')).toLowerCase().trim();
-    const loja = NOME_LOJA[lojaLD] || lojaLD;
-    const lista = porLoja[loja] = porLoja[loja] || [];
-    ((row.data && row.data.lives) || []).forEach((l) => {
-      const ini = Date.parse(l.started_at || 0);
-      if (!ini || isNaN(ini)) return;
-      lista.push({
-        room_id: String(l.room_id || ''), titulo: String(l.title || ''),
-        ts: new Date(ini).toISOString(), dia: new Date(ini - 3 * 3600000).toISOString().slice(0, 10),
-        gmv: +l.gmv || 0, pedidos: +l.orders || 0, duracao: +l.duration_min || 0,
+  // lives de todas as lojas, por plataforma. O prefixo da chave diz a plataforma:
+  //   tts_lives:<loja> = TikTok      shp_lives:<loja> = Shopee
+  // Ficam SEPARADAS pra a herança de vizinha (mesma loja/dia) não misturar as duas.
+  function coletaLives(prefixo) {
+    const mapa = {};
+    rows.forEach((row) => {
+      if (!String(row.key).startsWith(prefixo)) return;
+      const lojaLD = String((row.data && row.data.loja) || String(row.key).replace(prefixo, '')).toLowerCase().trim();
+      const loja = NOME_LOJA[lojaLD] || lojaLD;
+      const lista = mapa[loja] = mapa[loja] || [];
+      ((row.data && row.data.lives) || []).forEach((l) => {
+        const ini = Date.parse(l.started_at || 0);
+        if (!ini || isNaN(ini)) return;
+        lista.push({
+          room_id: String(l.room_id || ''), titulo: String(l.title || ''),
+          ts: new Date(ini).toISOString(), dia: new Date(ini - 3 * 3600000).toISOString().slice(0, 10),
+          gmv: +l.gmv || 0, pedidos: +l.orders || 0, duracao: +l.duration_min || 0,
+        });
       });
     });
-  });
+    return mapa;
+  }
+  const porLoja = coletaLives('tts_lives:');        // TikTok
+  const porLojaShopee = coletaLives('shp_lives:');  // Shopee (vendas realizadas do LiveDash)
 
-  _dados = { porLoja, resp, aliasMap, tags, overrides, viraISO: premio.viraISO || '' };
+  _dados = { porLoja, porLojaShopee, resp, aliasMap, tags, overrides, viraISO: premio.viraISO || '' };
   _dadosTs = Date.now();
   return _dados;
 }
@@ -139,11 +146,12 @@ function analisaTitulo(titulo, aliasMap, tags) {
   }
   return { ids, grav };
 }
-function resolveTodas(d) {
+function resolveTodas(d, mapa) {
+  mapa = mapa || d.porLoja; // qual plataforma resolver (porLoja = TikTok, porLojaShopee = Shopee)
   const ehDona = {}; d.resp.forEach((p) => { ehDona[p.id] = !!p.dona; });
   const out = []; // {loja, live, pids[]}  (pids = ids de pessoas, ou ['__sem__'])
-  Object.keys(d.porLoja).forEach((loja) => {
-    const regs = d.porLoja[loja].slice().sort((a, b) => (a.ts < b.ts ? -1 : 1));
+  Object.keys(mapa).forEach((loja) => {
+    const regs = mapa[loja].slice().sort((a, b) => (a.ts < b.ts ? -1 : 1));
     // herança da vizinha do mesmo dia/loja (o _vizMap do LiveDash)
     const ultimo = {}, pend = {}, viz = {};
     regs.forEach((r) => {
@@ -197,29 +205,33 @@ async function espelho(siglasNossas) {
   d.resp.forEach((p) => { if (!APAGADAS[p.id]) cores[siglaDe(p, siglasNossas)] = { nome: p.nome, cor: p.cor || '#8b8b95' }; });
 
   const vendas = [];
-  resolveTodas(d).forEach((x) => {
-    const l = x.live;
-    if (l.gmv <= 0) return; // live sem venda não vira linha
-    const exc = EXCECOES[l.room_id];
-    const produto = (exc && exc.produto) || l.titulo || 'LIVE';
-    const base = { quem: null, produto: produto, plataforma: 'tiktok', loja: x.loja, ts: l.ts };
-    const siglas = x.pids.map((pid) => ({
-      apagada: !!APAGADAS[pid],
-      sigla: (pid === '__sem__' || !porId[pid]) ? GRAVADA : siglaDe(porId[pid], siglasNossas),
-    }));
-    const n = siglas.length; // a divisão usa TODOS (a parte de quem foi apagada só não é emitida)
-    const parteG = Math.floor((l.gmv / n) * 100) / 100;
-    const parteQ = Math.floor(l.pedidos / n);
-    siglas.forEach((s, i) => {
-      if (s.apagada) return;
-      const fim = i === n - 1;
-      vendas.push(Object.assign({
-        sigla: s.sigla,
-        valor: fim ? +(l.gmv - parteG * (n - 1)).toFixed(2) : parteG,
-        qtd: fim ? (l.pedidos - parteQ * (n - 1)) : parteQ,
-      }, base));
+  function emitir(resolvido, plataforma) {
+    resolvido.forEach((x) => {
+      const l = x.live;
+      if (l.gmv <= 0) return; // live sem venda não vira linha
+      const exc = EXCECOES[l.room_id];
+      const produto = (exc && exc.produto) || l.titulo || 'LIVE';
+      const base = { quem: null, produto: produto, plataforma: plataforma, loja: x.loja, ts: l.ts };
+      const siglas = x.pids.map((pid) => ({
+        apagada: !!APAGADAS[pid],
+        sigla: (pid === '__sem__' || !porId[pid]) ? GRAVADA : siglaDe(porId[pid], siglasNossas),
+      }));
+      const n = siglas.length; // a divisão usa TODOS (a parte de quem foi apagada só não é emitida)
+      const parteG = Math.floor((l.gmv / n) * 100) / 100;
+      const parteQ = Math.floor(l.pedidos / n);
+      siglas.forEach((s, i) => {
+        if (s.apagada) return;
+        const fim = i === n - 1;
+        vendas.push(Object.assign({
+          sigla: s.sigla,
+          valor: fim ? +(l.gmv - parteG * (n - 1)).toFixed(2) : parteG,
+          qtd: fim ? (l.pedidos - parteQ * (n - 1)) : parteQ,
+        }, base));
+      });
     });
-  });
+  }
+  emitir(resolveTodas(d, d.porLoja), 'tiktok');        // TikTok
+  emitir(resolveTodas(d, d.porLojaShopee), 'shopee');  // Shopee (realizadas, do LiveDash)
   vendas.sort((a, b) => (a.ts < b.ts ? 1 : -1)); // mais novas primeiro, como o banco
   return { vendas: vendas, cores: cores };
 }

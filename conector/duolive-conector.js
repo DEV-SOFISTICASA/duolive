@@ -412,17 +412,6 @@ const server = http.createServer((req, res) => {
           const esp = await LD.espelho(siglas);
           coresLD = esp.cores;
           vendas = esp.vendas.filter((v) => v.ts >= corte && (!soSigla || v.sigla === soSigla));
-          // O LiveDash so' enxerga o TikTok. As vendas da Shopee ficam no NOSSO banco
-          // (Supabase `vendas`, plataforma=shopee) — busca e JUNTA aqui, senao o
-          // historico esconde tudo que vendeu na Shopee. TikTok=LiveDash, Shopee=banco.
-          try {
-            if (SB.ativo()) {
-              let fSho = 'ts=gte.' + corte + '&plataforma=eq.shopee&select=sigla,quem,produto,valor,plataforma,loja,ts&order=ts.desc&limit=5000';
-              if (soSigla) fSho += '&sigla=eq.' + encodeURIComponent(soSigla);
-              const vendasShopee = (await SB.seleciona('vendas', fSho)) || [];
-              if (vendasShopee.length) vendas = vendas.concat(vendasShopee);
-            }
-          } catch (eSho) { console.log('  (nao consegui juntar a Shopee no historico: ' + ((eSho && eSho.message) || eSho) + ')'); }
         } catch (e) { console.log('  (espelho LiveDash falhou: ' + ((e && e.message) || e) + ' — usando o banco proprio)'); vendas = null; }
       }
       if (!vendas) { // reserva: nosso banco proprio
