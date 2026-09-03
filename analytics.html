@@ -149,8 +149,9 @@
 
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function inteiro(n){ return (n||0).toLocaleString('pt-BR'); }
-  function ddmm(d){ return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)
-    +' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+  // horário de Brasília FIXO (igual o LiveDash) — não depende do fuso do aparelho que abre o painel
+  var _fmtBRT=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  function ddmm(d){ var p={}; _fmtBRT.formatToParts(d).forEach(function(x){p[x.type]=x.value;}); return p.day+'/'+p.month+' '+p.hour+':'+p.minute; }
 
   function chip(txt, ligado, classe, aoClicar){
     var c=document.createElement('span');

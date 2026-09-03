@@ -106,7 +106,9 @@
   function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; if(sig==='GRAVADA') return '#a78bfa'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
   function nomeDe(cores,sig){ if(sig==='GRAVADA') return 'Lives Gravadas'; if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
   function sigCurta(sig){ return sig==='GRAVADA'?'GR':(sig||''); }  // GRAVADA aparece como "GR" no gráfico/cartões
-  function quando(ms){ var d=new Date(ms); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+  // horário de Brasília FIXO (igual o LiveDash) — não depende do fuso do aparelho que abre o painel
+  var _fmtBRT=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  function quando(ms){ var p={}; _fmtBRT.formatToParts(new Date(ms)).forEach(function(x){p[x.type]=x.value;}); return p.day+'/'+p.month+' '+p.hour+':'+p.minute; }
 
   // quem está logado (nome + Sair)
   fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).then(function(u){
