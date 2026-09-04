@@ -27,13 +27,17 @@
   }
 </script>
 <style>
-  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--border-hi:rgba(139,92,246,.38);--glow:rgba(139,92,246,.14);--money:#4ade80;--live:#f43f5e;--shopee:#ee4d2d}
-  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--border-hi:rgba(236,72,153,.32);--glow:rgba(236,72,153,.12)}
+  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--border-hi:rgba(139,92,246,.38);--glow:rgba(139,92,246,.14);--glow-a:rgba(139,92,246,.30);--glow-b:rgba(192,132,252,.14);--money:#4ade80;--live:#f43f5e;--shopee:#ee4d2d}
+  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--border-hi:rgba(236,72,153,.32);--glow:rgba(236,72,153,.12);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.20)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);overflow:hidden;display:flex;flex-direction:column;font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text)}
   /* seletor de lojas (dropdown) — um botao que abre a lista */
-  .barraLojas{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);flex:none;font:12px 'Manrope',system-ui,sans-serif;position:relative;background:linear-gradient(180deg,var(--glow),transparent)}
+  .barraLojas{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);flex:none;font:12px 'Manrope',system-ui,sans-serif;position:relative;z-index:2;background:linear-gradient(180deg,var(--glow),transparent)}
+  .glow{position:fixed;inset:-8% 0 auto 0;height:38vh;z-index:0;pointer-events:none;background:radial-gradient(50% 60% at 25% 0%,var(--glow-a),transparent 70%),radial-gradient(45% 50% at 82% 4%,var(--glow-b),transparent 70%)}
+  .marca{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:16px;letter-spacing:-.4px;color:var(--text);margin-right:4px}
+  .marca em{color:var(--accent-2);font-style:normal}
+  .marca .mdot{width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 0 14px var(--glow-a)}
   .barraLojas .titulo{color:var(--text-3);font-size:11px;flex:none}
   #btnLoja{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:12.5px;min-width:180px}
   #btnLoja .nome{font-weight:600}
@@ -51,7 +55,7 @@
   #menuLojas .add{color:var(--text-3);border-top:1px solid var(--line);margin-top:4px;padding:8px 9px;cursor:pointer;font-size:12px}
   #menuLojas .add:hover{color:var(--text)}
   /* o template do desenho: esquerda = Analytics em cima + Ofertas embaixo; direita = Multichat inteiro */
-  .grade{display:grid;flex:1;min-height:0;gap:0;padding:6px;grid-template-columns:minmax(300px,var(--esq,46%)) 10px 1fr}
+  .grade{display:grid;flex:1;min-height:0;gap:0;padding:6px;grid-template-columns:minmax(300px,var(--esq,46%)) 10px 1fr;position:relative;z-index:1}
   .esq{display:grid;gap:6px;grid-template-rows:1fr;min-width:0}  /* TEMPORÁRIO: Ofertas escondida — Analytics ocupa tudo (era 46% 1fr) */
   /* a barrinha do meio: segure e arraste para aumentar/diminuir o Multichat
      (2 cliques rápidos voltam ao tamanho padrão) */
@@ -80,7 +84,9 @@
 </style>
 </head>
 <body>
+  <div class="glow"></div>
   <div class="barraLojas" id="barraLojas">
+    <span class="marca"><span class="mdot"></span>Duo<em>Live</em></span>
     <span class="titulo">🏪 Loja:</span>
     <button id="btnLoja">
       <span class="nome" id="lojaNome">escolher…</span>

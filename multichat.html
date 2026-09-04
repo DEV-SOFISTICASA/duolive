@@ -8,11 +8,14 @@
 <title>DuoLive · Multichat da live</title>
 <script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
 <style>
-  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--border-hi:rgba(139,92,246,.38);--ok:#4ade80;--warn:#fbbf24;--azul:#38bdf8;--rosa:#f472b6;--shopee:#ee4d2d}
-  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--border-hi:rgba(236,72,153,.32)}
+  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--glow-a:rgba(139,92,246,.30);--glow-b:rgba(192,132,252,.14);--petal-a:#a78bfa;--petal-b:#8b5cf6;--border-hi:rgba(139,92,246,.38);--ok:#4ade80;--warn:#fbbf24;--azul:#38bdf8;--rosa:#f472b6;--shopee:#ee4d2d}
+  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.20);--petal-a:#f9a8d4;--petal-b:#fbcfe8;--border-hi:rgba(236,72,153,.32)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column}
+  #petals{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .glow{position:fixed;inset:-15% 0 auto 0;height:55vh;z-index:0;pointer-events:none;background:radial-gradient(55% 60% at 28% 0%,var(--glow-a),transparent 70%),radial-gradient(45% 50% at 82% 4%,var(--glow-b),transparent 70%)}
+  body > :not(#petals):not(.glow){position:relative;z-index:1}
   header{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none}
   .st{width:9px;height:9px;border-radius:50%;background:#f87171;flex:none}
   .st.on{background:var(--ok);box-shadow:0 0 8px rgba(74,222,128,.7)}
@@ -66,6 +69,7 @@
 </style>
 </head>
 <body>
+  <canvas id="petals"></canvas><div class="glow"></div>
   <header>
     <span class="st" id="st"></span>
     <div><b>💬 Multichat da live</b><br><small id="quem">ligando…</small></div>
@@ -317,6 +321,19 @@
     setTimeout(conecta,3000);
   }
   conecta();
+
+  // ===== pétalas caindo no fundo (igual à prévia; sempre animam) =====
+  (function(){
+    var cv=document.getElementById('petals'); if(!cv) return; var ctx=cv.getContext('2d');
+    var root=document.documentElement, W,H,DPR, N=18, ps=[], colA='#a78bfa', colB='#8b5cf6';
+    function lerCores(){ var cs=getComputedStyle(root); colA=(cs.getPropertyValue('--petal-a')||colA).trim(); colB=(cs.getPropertyValue('--petal-b')||colB).trim(); (ps||[]).forEach(function(p){ p.c=Math.random()<.5?colA:colB; }); }
+    function resize(){ DPR=Math.min(window.devicePixelRatio||1,2); W=innerWidth; H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+'px'; cv.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
+    function mk(ini){ return {x:Math.random()*W,y:ini?Math.random()*H:-16,s:6+Math.random()*9,r:Math.random()*6.28,vr:-.02+Math.random()*.04,vy:.35+Math.random()*.85,sway:.4+Math.random()*.7,ph:Math.random()*6.28,vph:.008+Math.random()*.02,a:.4+Math.random()*.4,c:Math.random()<.5?colA:colB}; }
+    function petala(s){ ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(s*.55,-s*.42,0,-s); ctx.quadraticCurveTo(-s*.55,-s*.42,0,0); ctx.fill(); }
+    function frame(){ ctx.clearRect(0,0,W,H); for(var i=0;i<ps.length;i++){ var p=ps[i]; p.y+=p.vy; p.ph+=p.vph; p.x+=Math.sin(p.ph)*p.sway; p.r+=p.vr; if(p.y>H+18||p.x<-30||p.x>W+30){ ps[i]=mk(false); continue; } ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.globalAlpha=p.a; ctx.fillStyle=p.c; petala(p.s); ctx.restore(); } ctx.globalAlpha=1; requestAnimationFrame(frame); }
+    resize(); ps=[]; for(var i=0;i<N;i++) ps.push(mk(true)); lerCores(); frame();
+    addEventListener('resize', resize); window.__petalCores=lerCores;
+  })();
 })();
 </script>
 </body>
