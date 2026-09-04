@@ -178,7 +178,7 @@
   }
 
   function daLoja(){
-    return todasLives.filter(function(l){ return lojaSel==='(todas)'||l.loja===lojaSel; });
+    return todasLives.filter(function(l){ return lojaSel==='(todas)'||String(l.loja).toLowerCase()===String(lojaSel).toLowerCase(); });
   }
 
   var shoLives=null;   // registro das lives da Shopee (chat/vendas, vem do conector)
