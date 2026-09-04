@@ -144,7 +144,7 @@
   var $=function(id){return document.getElementById(id)};
   // loja escolhida no seletor do painel chega por ?loja=
   var lojaInicial='(todas)'; try{ var lq=new URLSearchParams(location.search).get('loja'); if(lq) lojaInicial=lq; }catch(e){}
-  var lojas=[], lojaSel=lojaInicial, dias=30, modo='aovivo', todasLives=[];
+  var lojas=[], lojaSel=lojaInicial, dias=30, modo='aovivo', todasLives=[], todasLivesSho=[];
   var liveNoAr=false;  // a live esta acontecendo agora? (pergunta ao conector)
 
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -179,6 +179,9 @@
 
   function daLoja(){
     return todasLives.filter(function(l){ return lojaSel==='(todas)'||String(l.loja).toLowerCase()===String(lojaSel).toLowerCase(); });
+  }
+  function shDaLoja(){ // lives da SHOPEE da loja (pra somar no GMV/Pedidos da "Numeros da live")
+    return todasLivesSho.filter(function(l){ return lojaSel==='(todas)'||String(l.loja).toLowerCase()===String(lojaSel).toLowerCase(); });
   }
 
   var shoLives=null;   // registro das lives da Shopee (chat/vendas, vem do conector)
@@ -245,8 +248,11 @@
     $('liTitulo').textContent = l.title||'(sem título)';
     $('liMeta').textContent = '['+l.loja+'] começou '+ddmm(new Date(l.started_at));
     $('liveInfo').style.display='block';
-    $('tGmv').textContent=real(l.gmv);
-    $('tPed').textContent=inteiro(l.orders);
+    // GMV/Pedidos = TikTok (l) + Shopee (a shp_live mais recente da loja). Senao o GMV fica
+    // ~R$0 nas lojas que vendem na Shopee (Monaco/Bellini) e nao faz sentido.
+    var _sh=shDaLoja().sort(function(a,b){ return new Date(b.started_at)-new Date(a.started_at); })[0]||{};
+    $('tGmv').textContent=real((+l.gmv||0)+(+_sh.gmv||0));
+    $('tPed').textContent=inteiro((+l.orders||0)+(+_sh.orders||0));
     $('tViews').textContent=inteiro(l.views);
     $('tHorasLbl').textContent='⏱️ Tempo de live';
     $('tHoras').textContent=(l.duration_min||0)+' min';
@@ -291,14 +297,15 @@
 
   var jaCarregou=false;
   function carregar(){
-    fetch(SB+'/rest/v1/livedash_state?key=like.tts_lives:*&select=key,data',{
+    fetch(SB+'/rest/v1/livedash_state?or=(key.like.tts_lives:*,key.like.shp_lives:*)&select=key,data',{
       headers:{ apikey:ANON, Authorization:'Bearer '+ANON }
     }).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(rows){
-      lojas=[]; todasLives=[];
+      lojas=[]; todasLives=[]; todasLivesSho=[];
       rows.forEach(function(r){
-        var loja=(r.data&&r.data.loja)||String(r.key).replace('tts_lives:','');
-        if(lojas.indexOf(loja)<0) lojas.push(loja);
-        ((r.data&&r.data.lives)||[]).forEach(function(l){ todasLives.push(l); });
+        var ehSho=String(r.key).indexOf('shp_lives:')===0;   // TikTok (tts) ou Shopee (shp)
+        var loja=(r.data&&r.data.loja)||String(r.key).replace(ehSho?'shp_lives:':'tts_lives:','');
+        if(!ehSho && lojas.indexOf(loja)<0) lojas.push(loja);
+        ((r.data&&r.data.lives)||[]).forEach(function(l){ (ehSho?todasLivesSho:todasLives).push(l); });
       });
       lojas.sort();
       jaCarregou=true; $('erro').style.display='none';
