@@ -86,6 +86,11 @@
       <span class="seta">▼</span>
     </button>
     <div id="menuLojas"></div>
+    <span class="titulo" style="margin-left:12px">🧡 Shopee:</span>
+    <select id="selShopee" style="padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:12.5px" title="Qual Shopee mostrar. Padrao = a mesma loja. Da pra parear a live do TikTok de uma loja com a Shopee de OUTRA.">
+      <option value="">= a loja</option>
+    </select>
+    <span id="meninasAoVivo" style="display:flex;gap:6px;margin-left:14px;align-items:center"></span>
     <button id="btnTema" onclick="alternaTema()" title="Alternar claro/escuro" style="margin-left:auto;background:var(--card);border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:14px;line-height:1">🌗</button>
     <span id="euBar" style="margin-left:10px;display:none;align-items:center;gap:9px;font-size:12px;color:var(--text-2)">
       <a href="/historico" target="_blank" style="color:var(--text-2);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px">📈 Histórico</a>
@@ -150,7 +155,7 @@
       if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta(ttDe(lojaSel)); }catch(e){} }
     }
     fetch(URL_MC+'/', {mode:'no-cors', cache:'no-store'}).then(function(){
-      if(!ligado){ ligado=true; mc.src=URL_MC+'/'+((typeof lojaSel!=='undefined'&&lojaSel)?'?loja='+encodeURIComponent(lojaSel):''); aviso.style.display='none'; }
+      if(!ligado){ ligado=true; mc.src=URL_MC+'/?loja='+encodeURIComponent((typeof lojaSel!=='undefined'&&lojaSel)||'')+'&shopeeLoja='+encodeURIComponent((typeof shopeeLojaAtual==='function'?shopeeLojaAtual():'')||''); aviso.style.display='none'; }
       // o servidor reiniciou (deploy)? religa sozinho o chat da loja escolhida
       if(typeof lojaSel!=='undefined' && lojaSel && ttDe(lojaSel)){
         fetch(URL_MC+'/conta?loja='+encodeURIComponent(lojaSel),{cache:'no-store'}).then(function(r){return r.json();})
@@ -187,8 +192,18 @@
   var fixas={};               // { nome: {tiktok, shopee} }
   var lojaSel='';             // loja ativa
   var ehAdm=false;            // só o ADM pode editar/adicionar lojas
+  var shopeeSel='';           // Shopee escolhida À PARTE (vazio = segue a loja do TikTok)
   function ttDe(l){ return (fixas[l]&&fixas[l].tiktok)||''; }
   function shDe(l){ return (fixas[l]&&fixas[l].shopee)||''; }
+  function shopeeLojaAtual(){ return shopeeSel || lojaSel; }   // qual loja da Shopee mostrar
+  function recarregaMc(){ // recarrega o Multichat: loja do TikTok + a loja da Shopee (podem ser diferentes)
+    try{ if(ligado) mc.src=URL_MC+'/?loja='+encodeURIComponent(lojaSel||'')+'&shopeeLoja='+encodeURIComponent(shopeeLojaAtual()||''); }catch(e){}
+  }
+  function renderShopeeSel(){ // preenche o seletor da Shopee com as lojas
+    var sel=document.getElementById('selShopee'); if(!sel) return;
+    sel.innerHTML='<option value="">= a loja</option>'+lojas.map(function(l){return '<option value="'+l+'">🧡 '+l+'</option>';}).join('');
+    sel.value=shopeeSel||'';
+  }
 
   function postConta(tt){
     // manda o @ (chat) e a loja (numeros do console) juntos
@@ -235,7 +250,7 @@
     var af=document.querySelector('.esq .caixa iframe');
     if(af) af.setAttribute('src','analytics.html?api='+encodeURIComponent(URL_MC)+'&loja='+encodeURIComponent(loja));
     // o multichat tambem e' POR loja: recarrega mostrando so' o chat desta loja
-    try{ if(ligado) mc.src=URL_MC+'/'+(loja?'?loja='+encodeURIComponent(loja):''); }catch(e){}
+    recarregaMc(); // Multichat: loja do TikTok + a Shopee escolhida (podem ser lojas diferentes)
     fechaMenu();
     renderLojas();
   }
@@ -277,6 +292,8 @@
     ev.stopPropagation();
     document.getElementById('menuLojas').classList.toggle('aberto');
   };
+  // seletor da Shopee À PARTE: troca só qual Shopee aparece no Multichat (padrão = a loja)
+  (function(){ var s=document.getElementById('selShopee'); if(s) s.onchange=function(){ shopeeSel=this.value; try{localStorage.setItem('ld-shopee-sel',shopeeSel);}catch(e){} recarregaMc(); }; })();
   document.addEventListener('click', function(ev){
     if(!document.getElementById('barraLojas').contains(ev.target)) fechaMenu();
   });
@@ -289,6 +306,8 @@
         var arr=(d&&d.lojas)||[]; lojas=[]; fixas={};
         arr.forEach(function(l){ lojas.push(l.nome); fixas[l.nome]={tiktok:l.tiktok||'',shopee:l.shopee||''}; });
         renderLojas();
+        try{ shopeeSel=localStorage.getItem('ld-shopee-sel')||''; }catch(e){}
+        renderShopeeSel();
         var salva=''; try{ salva=localStorage.getItem('ld-loja-sel')||''; }catch(e){}
         if(salva && lojas.indexOf(salva)>=0) selecionar(salva, true);       // restaura a sua escolha
         else if(!lojaSel && lojas.length===1) selecionar(lojas[0], true);   // só uma loja: já entra nela
@@ -300,11 +319,24 @@
   // ===== detecta sozinho qual loja esta em live e foca nela =====
   var lojasLive=[];        // nomes das lojas ao vivo (do robo do console)
   var escolhaManual=false; // se voce escolheu na mao, nao troco sozinho
+  // botoes das meninas AO VIVO no topo (loja · sigla). Clicar troca a loja do TikTok e mostra o chat dela.
+  function renderMeninas(v){
+    var box=document.getElementById('meninasAoVivo'); if(!box) return;
+    var vivas=(v||[]).filter(function(x){return x.live;});
+    box.innerHTML=vivas.map(function(x){
+      var sig=x.sigla||''; var lab=(x.loja||'')+(sig?(' · '+sig):''); var on=(x.loja===lojaSel);
+      var est='padding:5px 11px;border-radius:8px;border:1px solid #f43f5e;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:'+(on?'#f43f5e':'rgba(244,63,94,.12)')+';color:'+(on?'#fff':'#f43f5e');
+      var tit=((x.nome?sig+' — '+x.nome+' · ':'')+'loja '+(x.loja||'')+' — clique pra ver o chat dela').replace(/"/g,'');
+      return '<button data-loja="'+(x.loja||'')+'" style="'+est+'" title="'+tit+'">🔴 '+lab+'</button>';
+    }).join('');
+    Array.prototype.forEach.call(box.children,function(b){ b.onclick=function(){ var l=this.getAttribute('data-loja'); if(l) selecionar(l); }; });
+  }
   function pegaLojasLive(){
     fetch(URL_MC+'/lojas-live',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
       if(!Array.isArray(v)) return;
       lojasLive=v.filter(function(x){return x.live;}).map(function(x){return x.loja;});
       renderLojas(); // atualiza os pontinhos 🔴 no menu
+      renderMeninas(v); // botoes das meninas ao vivo (loja · sigla) no topo
       // foca sozinho na loja em live (se voce nao escolheu na mao e ela tem @ cadastrado)
       if(!escolhaManual && lojasLive.length){
         var alvo=lojasLive[0];
@@ -374,7 +406,8 @@
     var css=document.createElement('style');
     css.textContent="#compraFull{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .25s}"
       +"#compraFull.on{opacity:1}"
-      +"#compraFull .raios{position:absolute;width:160vmax;height:160vmax;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,214,0,0) 0deg 6deg,rgba(255,214,0,.30) 6deg 12deg,rgba(255,0,0,0) 12deg 18deg,rgba(255,70,70,.24) 18deg 24deg);animation:ldGiraF 9s linear infinite}"
+      +"#compraFull .raios{position:absolute;width:160vmax;height:160vmax;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,214,0,0) 0deg 6deg,rgba(255,214,0,.30) 6deg 12deg,rgba(255,0,0,0) 12deg 18deg,rgba(255,70,70,.24) 18deg 24deg)}"
+      +"#compraFull.on .raios{animation:ldGiraF 9s linear infinite}"
       +"#compraFull .miolo{position:relative;text-align:center;padding:0 16px}"
       +"#compraFull.on .miolo{animation:ldPopF .5s cubic-bezier(.2,1.4,.4,1)}"
       +"#compraFull .bang{font-family:'Arial Black',Arial,sans-serif;font-weight:900;font-size:min(24vw,300px);line-height:.9;color:#b00020;-webkit-text-stroke:8px #ffd600;text-shadow:0 8px 0 rgba(0,0,0,.15),0 0 40px rgba(255,70,70,.6);letter-spacing:-3px}"

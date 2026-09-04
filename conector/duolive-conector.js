@@ -64,6 +64,18 @@ function comLoja(k, ev) { if (k) ev.loja = k; return ev; }
 // numeros oficiais do console de lives (Compass) por loja, lidos por cookies como no LiveDash
 const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
 let lojaAtual = '';        // ultima loja escolhida (reserva p/ chamadas antigas sem ?loja)
+// anti-duplicata do CHAT da Shopee: se DOIS robos leem a MESMA live, os dois postam o mesmo
+// comentario (2x). Ignora o repetido que chegar em ate 15s (loja+pessoa+texto).
+const _chatRecente = new Map();
+function chatRepetido(quem, texto, loja) {
+  const chave = (loja || '') + '|' + quem + '|' + texto;
+  const agora = Date.now();
+  const visto = _chatRecente.get(chave);
+  if (visto && agora - visto < 15000) return true;
+  _chatRecente.set(chave, agora);
+  if (_chatRecente.size > 800) { for (const [k, t] of _chatRecente) { if (agora - t > 60000) _chatRecente.delete(k); } }
+  return false;
+}
 
 // horario da LIVE atual (o grafico usa isto): a 1a venda, ou a volta depois de
 // +40 min parado, abre uma live nova. Se o chat da loja estiver conectado, usa o inicio dele.
@@ -504,8 +516,9 @@ const server = http.createServer((req, res) => {
         const ev = JSON.parse(corpo);
         const texto = String(ev.texto || '').slice(0, 300).trim();
         const quem = String(ev.quem || '').slice(0, 60).trim();
-        if (texto) {
-          emitir({ tipo: 'mensagem', quem: quem, texto: texto, plataforma: 'shopee' });
+        const ljEv = ev.loja ? L.limpaNome(ev.loja) : ''; // marca a loja da Shopee p/ o painel filtrar
+        if (texto && !chatRepetido(quem, texto, ljEv)) {
+          emitir(comLoja(ljEv, { tipo: 'mensagem', quem: quem, texto: texto, plataforma: 'shopee' }));
           liveShopeeAtual().mensagens++;
         }
       } catch (e) {}
@@ -602,14 +615,19 @@ const server = http.createServer((req, res) => {
 
   // quais lojas estao em live agora (o robo do console marca) — o painel usa para focar sozinho
   if (req.url.split('?')[0] === '/lojas-live') {
-    const agora = Date.now();
-    const lista = Object.keys(compassPorLoja).map((loja) => {
-      const c = compassPorLoja[loja];
-      const fresco = c.ts && (agora - c.ts < 15 * 60000);
-      return { loja: loja, live: !!(fresco && c.live), gmv: c.gmv, orders: c.orders, views: c.views };
-    });
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify(lista));
+    (async () => {
+      let norm = {}; // sigla/nome da menina AO VIVO por loja (do LiveDash), case-insensitive
+      if (LD.ativo()) { try { const sig = SB.ativo() ? await siglasConhecidas() : []; const m = await LD.aoVivoPorLoja(sig); Object.keys(m).forEach((k) => { norm[String(k).toLowerCase()] = m[k]; }); } catch (e) {} }
+      const agora = Date.now();
+      const lista = Object.keys(compassPorLoja).map((loja) => {
+        const c = compassPorLoja[loja];
+        const fresco = c.ts && (agora - c.ts < 15 * 60000);
+        const s = norm[String(loja).toLowerCase()] || {};
+        return { loja: loja, live: !!(fresco && c.live), gmv: c.gmv, orders: c.orders, views: c.views, sigla: s.sigla || '', nome: s.nome || '' };
+      });
+      res.end(JSON.stringify(lista));
+    })().catch(() => { res.end('[]'); });
     return;
   }
 

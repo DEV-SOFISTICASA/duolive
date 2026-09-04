@@ -282,4 +282,19 @@ async function horasPeriodo(siglasNossas, periodo) {
 // atalho: só de hoje (usado pelo painel AO VIVO)
 async function horasHoje(siglasNossas) { return horasPeriodo(siglasNossas, 'hoje'); }
 
-module.exports = { config, ativo, dados, espelho, horasHoje, horasPeriodo };
+// quem esta AO VIVO em cada loja (pela sigla do TITULO da live mais recente de cada loja).
+// Usado pelo painel do ADM pra mostrar "Monaco · TS" nos botoes das meninas ao vivo.
+async function aoVivoPorLoja(siglasNossas) {
+  const d = await dados();
+  const porId = {}; d.resp.forEach((p) => { porId[p.id] = p; });
+  const res = {}; // { loja: {sigla, nome, ts} } — a live MAIS RECENTE de cada loja
+  resolveTodas(d).forEach((x) => {
+    const l = x.live;
+    if (res[x.loja] && l.ts <= res[x.loja].ts) return; // fica com a mais recente
+    const pid = (x.pids && x.pids[0]) || '__sem__';
+    const p = (pid !== '__sem__') ? porId[pid] : null;
+    res[x.loja] = { ts: l.ts, sigla: p ? (SIGLA_EXIBE[p.id] || siglaDe(p, siglasNossas)) : '', nome: p ? p.nome : '' };
+  });
+  return res;
+}
+module.exports = { config, ativo, dados, espelho, horasHoje, horasPeriodo, aoVivoPorLoja };

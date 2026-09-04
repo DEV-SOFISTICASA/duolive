@@ -212,10 +212,14 @@
   // ---- eventos que chegam do conector (TikTok) ----
   // este multichat pode ser de UMA loja (?loja=monaco na URL): com 4 lojas abertas
   // ao mesmo tempo, cada evento vem carimbado e so' mostramos o que e' nosso.
-  var MINHA_LOJA='';
-  try{ MINHA_LOJA=String(new URLSearchParams(location.search).get('loja')||'').toLowerCase(); }catch(e){}
+  var MINHA_LOJA='', SHOPEE_LOJA='';
+  try{ var _qs=new URLSearchParams(location.search); MINHA_LOJA=String(_qs.get('loja')||'').toLowerCase(); SHOPEE_LOJA=String(_qs.get('shopeeLoja')||'').toLowerCase(); }catch(e){}
   function trata(ev){
-    if(MINHA_LOJA && ev.loja && String(ev.loja).toLowerCase()!==MINHA_LOJA) return;
+    // filtro POR PLATAFORMA: o TikTok segue a loja do TikTok; a Shopee segue a loja da Shopee.
+    // (dá pra parear TikTok de uma loja com Shopee de OUTRA). Sem shopeeLoja, a Shopee aparece como antes.
+    var _le=String(ev.loja||'').toLowerCase();
+    var _alvo=(ev.plataforma==='shopee') ? SHOPEE_LOJA : MINHA_LOJA;
+    if(_alvo && _le && _le!==_alvo) return;
     if(ev.tipo==='status'){
       $('st').className='st'+(ev.conectado?' on':'');
       $('quem').textContent=ev.conectado?('TikTok ao vivo · @'+ev.usuario):('TikTok sem live · @'+(ev.usuario||'?'));
@@ -249,7 +253,8 @@
     var css=document.createElement('style');
     css.textContent="#compraOv{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .25s}"
       +"#compraOv.on{opacity:1}"
-      +"#compraOv .raios{position:absolute;width:150vmax;height:150vmax;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,214,0,0) 0deg 6deg,rgba(255,214,0,.30) 6deg 12deg,rgba(255,0,0,0) 12deg 18deg,rgba(255,70,70,.24) 18deg 24deg);animation:ldGira 9s linear infinite}"
+      +"#compraOv .raios{position:absolute;width:150vmax;height:150vmax;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,214,0,0) 0deg 6deg,rgba(255,214,0,.30) 6deg 12deg,rgba(255,0,0,0) 12deg 18deg,rgba(255,70,70,.24) 18deg 24deg)}"
+      +"#compraOv.on .raios{animation:ldGira 9s linear infinite}"
       +"#compraOv .miolo{position:relative;text-align:center;padding:0 16px}"
       +"#compraOv.on .miolo{animation:ldPop .5s cubic-bezier(.2,1.4,.4,1)}"
       +"#compraOv .bang{font-family:'Arial Black',Arial,sans-serif;font-weight:900;font-size:min(22vw,190px);line-height:.9;color:#b00020;-webkit-text-stroke:6px #ffd600;text-shadow:0 6px 0 rgba(0,0,0,.15),0 0 30px rgba(255,70,70,.6);letter-spacing:-2px}"
