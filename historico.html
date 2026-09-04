@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
 <title>DuoLive · Histórico de vendas</title>
 <script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
 <style>
-  :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80}
-  :root[data-tema=claro]{--bg:#f4f4f6;--card:#ffffff;--card-2:#eef0f3;--line:#e4e4ea;--text:#1a1a20;--text-2:#5c5c68;--text-3:#8b8b95}
+  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--border-hi:rgba(139,92,246,.38);--ok:#4ade80}
+  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--border-hi:rgba(236,72,153,.32)}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:16px;max-width:1100px;margin:0 auto}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;padding:16px;max-width:1100px;margin:0 auto}
   .topo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
-  h1{font-size:17px;flex:1;min-width:180px}
+  h1{font-size:20px;flex:1;min-width:180px;font-family:'Bricolage Grotesque',Manrope,sans-serif;font-weight:800}
   .eu{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
   .eu b{color:var(--text)}
   .sair{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer}
@@ -21,18 +23,18 @@
   .sub{font-size:11.5px;color:var(--text-3);margin-bottom:14px}
   .filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
   .chip{font-size:12px;padding:5px 14px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none;background:var(--card)}
-  .chip.on{color:var(--text);border-color:var(--accent);background:rgba(255,92,53,.14)}
+  .chip.on{color:var(--accent-2);border-color:var(--border-hi);background:var(--glow)}
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-  .card small{font-size:10.5px;color:var(--text-3);display:block}
-  .card b{font-size:21px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+  .card small{font-size:11px;color:var(--text-3);display:block;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .card b{font-size:26px;font-variant-numeric:tabular-nums;letter-spacing:-.5px;font-family:'Manrope',sans-serif;font-weight:800;display:block;margin-top:6px}
   .pessoas{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
   .pessoa{background:var(--card);border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:9px 13px;min-width:130px}
   .pessoa .nm{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px}
   .pessoa .dot{width:9px;height:9px;border-radius:50%;flex:none}
   .pessoa .vl{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px}
   .pessoa .qt{font-size:12px;color:var(--text-2);font-weight:700;margin-top:1px}
-  .graf{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 8px 8px}
+  .graf{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 8px 8px}
   .graf h2{font-size:12px;color:var(--text-2);font-weight:600;margin:0 8px 12px}
   .barras{display:flex;align-items:flex-end;gap:10px;height:230px;overflow-x:auto;padding:0 8px 4px}
   .col{flex:0 0 auto;width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
@@ -66,11 +68,18 @@
     <span class="chip" data-v="loja">🏪 Lojas</span>
     <span class="chip" data-v="metas">⏱️ Metas</span>
   </div>
+  <div class="filtros" id="plats" style="margin-top:2px">
+    <span class="chip on" data-pl="todas">Todas</span>
+    <span class="chip" data-pl="shopee">🧡 Shopee</span>
+    <span class="chip" data-pl="tiktok">🎵 TikTok</span>
+  </div>
 
   <div class="cards">
     <div class="card"><small>💰 Total no período</small><b id="cTotal" style="color:var(--ok)">R$ 0,00</b></div>
     <div class="card"><small>🛒 Vendas</small><b id="cQtd">0</b></div>
     <div class="card"><small>📺 Lives</small><b id="cLives">0</b></div>
+    <div class="card cardPlat"><small>🧡 Shopee</small><b id="cSho" style="color:var(--ok)">R$ 0,00</b></div>
+    <div class="card cardPlat"><small>🎵 TikTok</small><b id="cTik" style="color:var(--ok)">R$ 0,00</b></div>
   </div>
 
   <div class="pessoas" id="pessoas"></div>
@@ -93,7 +102,7 @@
     if(_recarregou && _naNuvem){ location.replace('/sair'); return; }
   }catch(e){}
   var $=function(id){return document.getElementById(id)};
-  var periodo='hoje', visao='vend', ehAdm=false, papel=null, minhaSigla=null;
+  var periodo='hoje', visao='vend', platFiltro='todas', ehAdm=false, papel=null, minhaSigla=null;
   // início do período pedido (em horário local, pra o mês fechar certo no fuso do Brasil)
   function desdeDe(p){
     var d=new Date();
@@ -128,6 +137,12 @@
     ajustaPeriodos();
     carregar();
   });
+  $('plats').addEventListener('click',function(e){
+    var c=e.target.closest('.chip'); if(!c) return;
+    platFiltro=c.dataset.pl;
+    document.querySelectorAll('#plats .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
+    carregar();
+  });
   // Metas: os botões viram Diária/Semanal/Mensal e o "Total" some (meta acumulada não faz sentido)
   function ajustaPeriodos(){
     var chips=document.querySelectorAll('#filtros .chip');
@@ -142,6 +157,8 @@
 
   function carregar(){
     if(visao==='metas'){ carregarMetas(); return; }
+    var _pf=$('plats'); if(_pf) _pf.style.display='flex';
+    document.querySelectorAll('.cardPlat').forEach(function(c){ c.style.display=''; });
     fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
       if(!d||!d.ok){ $('erro').style.display='block'; return; }
       $('erro').style.display='none';
@@ -155,7 +172,7 @@
       if(visao==='loja'){
         // trata a LOJA como se fosse a "sigla" -> o gráfico/cartões já funcionam, por loja
         var LC={monaco:{nome:'Monaco',cor:'#ff5c35'},bellini:{nome:'Bellini',cor:'#f472b6'},fast:{nome:'Fast',cor:'#38bdf8'},mania:{nome:'Mania',cor:'#4ade80'}};
-        vendas=vendas.map(function(v){ return {valor:v.valor,sigla:v.loja||'(sem loja)',produto:v.produto,ts:v.ts,qtd:v.qtd}; });
+        vendas=vendas.map(function(v){ return {valor:v.valor,sigla:v.loja||'(sem loja)',produto:v.produto,ts:v.ts,qtd:v.qtd,plataforma:v.plataforma}; });
         cores={}; vendas.forEach(function(v){ if(!cores[v.sigla]) cores[v.sigla]=LC[v.sigla]||{nome:v.sigla.charAt(0).toUpperCase()+v.sigla.slice(1),cor:'#8b8b95'}; });
       }
       render(vendas, cores);
@@ -170,6 +187,13 @@
     // LIVE 10K é evento TEMPORÁRIO: aparece nos períodos recentes (Hoje/7/Mês),
     // mas NÃO entra no "Total" (que é o acumulado permanente).
     if(periodo==='total'){ vendas=vendas.filter(function(v){ return v.sigla!=='LIVE 10K' && v.produto!=='LIVE 10K'; }); } // LIVE 10K dividido em TS/AL fica marcado por produto
+    // split por plataforma — os cards Shopee/TikTok mostram SEMPRE os dois (nunca somam como um só)
+    var totSho=0, totTik=0;
+    vendas.forEach(function(v){ var val=+v.valor||0; if(v.plataforma==='shopee') totSho+=val; else totTik+=val; });
+    if($('cSho')) $('cSho').textContent=real(totSho);
+    if($('cTik')) $('cTik').textContent=real(totTik);
+    // o filtro Todas/Shopee/TikTok afeta o resto (total, vendedoras, gráfico)
+    if(platFiltro!=='todas'){ vendas=vendas.filter(function(v){ return (v.plataforma==='shopee'?'shopee':'tiktok')===platFiltro; }); }
     var total=0, qtd=0;
     // por pessoa (sigla)
     var porSig={};
@@ -264,6 +288,8 @@
   // ===== modo METAS (horas de live por vendedora, vs a meta do período) =====
   function fmtH(min){ min=Math.max(0,Math.round(+min||0)); return Math.floor(min/60)+'h'+('0'+(min%60)).slice(-2); }
   function carregarMetas(){
+    var _pf=$('plats'); if(_pf) _pf.style.display='none';
+    document.querySelectorAll('.cardPlat').forEach(function(c){ c.style.display='none'; });
     fetch('/horas-vendedoras?periodo='+encodeURIComponent(periodo),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){
         if(!d||!d.ok){ $('erro').style.display='block'; return; }

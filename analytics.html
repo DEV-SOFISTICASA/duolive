@@ -3,22 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
 <title>DuoLive · Números da live</title>
 <script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
 <style>
-  :root{--bg:#0d0d10;--card:#16161b;--card-2:#1d1d24;--line:#26262e;--text:#ececf1;--text-2:#a3a3ad;--text-3:#737373;--accent:#ff5c35;--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e}
-  :root[data-tema=claro]{--bg:#f4f4f6;--card:#ffffff;--card-2:#eef0f3;--line:#e4e4ea;--text:#1a1a20;--text-2:#5c5c68;--text-3:#8b8b95}
+  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--border-hi:rgba(139,92,246,.38);--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e;--shopee:#ee4d2d}
+  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--border-hi:rgba(236,72,153,.32)}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:14px}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;padding:14px}
   /* dentro do painel esta pagina fica num quadro; a barra de rolagem dele so
      polui a tela. Some com a barra — a rolagem pela rodinha do mouse continua. */
   html{scrollbar-width:none;-ms-overflow-style:none}
   html::-webkit-scrollbar,body::-webkit-scrollbar{width:0;height:0;display:none}
-  h1{font-size:15px}
+  h1{font-size:18px;font-family:'Bricolage Grotesque',Manrope,sans-serif;font-weight:800}
   .sub{font-size:11px;color:var(--text-3);margin:2px 0 12px}
   .filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
   .chip{font-size:11.5px;padding:4px 12px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none;background:var(--card)}
-  .chip.on{color:var(--text);border-color:var(--accent);background:rgba(255,92,53,.12)}
+  .chip.on{color:var(--accent-2);border-color:var(--border-hi);background:var(--glow)}
   .chip.vivo.on{border-color:var(--vivo);background:rgba(244,63,94,.12)}
   .sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
   #liveInfo{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:none}
@@ -28,9 +30,9 @@
   #liveInfo b{font-size:14px;display:block;margin:2px 0}
   #liveInfo small{color:var(--text-3);font-size:11px}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
-  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-  .tile small{font-size:10.5px;color:var(--text-3);display:block}
-  .tile b{font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+  .tile small{font-size:11px;color:var(--text-3);display:block;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .tile b{font-size:26px;font-variant-numeric:tabular-nums;letter-spacing:-.5px;font-family:'Manrope',sans-serif;font-weight:800;display:block;margin-top:6px}
   /* 🛍️ Últimas compras (últimos compradores da live atual) */
   .uc{display:flex;flex-direction:column;gap:5px;margin-top:2px}
   .uc-row{display:flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:12px}
@@ -84,7 +86,7 @@
       <div class="tile" style="border-color:rgba(0,0,0,.5);background:linear-gradient(135deg,var(--card),rgba(255,255,255,.04))"><small>🎵 TikTok — vendas</small><b id="avVendasTik">–</b></div>
       <div class="tile" style="border-color:rgba(238,77,45,.45)"><small>🧡 Shopee — vendas</small><b id="avVendasSho">–</b></div>
     </div>
-    <div id="avOferta" style="display:none;margin-top:8px;padding:7px 10px;border-radius:8px;background:rgba(255,92,53,.12);border:1px solid rgba(255,92,53,.4);font-size:12px">
+    <div id="avOferta" style="display:none;margin-top:8px;padding:7px 10px;border-radius:8px;background:var(--glow);border:1px solid var(--border-hi);font-size:12px">
       ⚡ <b id="avOfNome"></b> <span id="avOfPreco" style="color:var(--ok)"></span> <span id="avOfTempo" style="color:var(--warn);float:right;font-variant-numeric:tabular-nums"></span>
     </div>
     <div style="font-size:9.5px;color:var(--text-3);margin-top:6px">Ao vivo: 👀❤️⏱️ do chat · 💰📦 do console de lives e do robô de vendas (cookies).</div>
