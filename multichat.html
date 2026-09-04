@@ -12,11 +12,11 @@
   :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.20);--petal-a:#f9a8d4;--petal-b:#fbcfe8;--border-hi:rgba(236,72,153,.32)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column;overflow:hidden}
   #petals{position:fixed;inset:0;z-index:0;pointer-events:none}
   .glow{position:fixed;inset:-15% 0 auto 0;height:55vh;z-index:0;pointer-events:none;background:radial-gradient(55% 60% at 28% 0%,var(--glow-a),transparent 70%),radial-gradient(45% 50% at 82% 4%,var(--glow-b),transparent 70%)}
   body > :not(#petals):not(.glow){position:relative;z-index:1}
-  header{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none}
+  header{display:flex;align-items:center;gap:8px 10px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
   .st{width:9px;height:9px;border-radius:50%;background:#f87171;flex:none}
   .st.on{background:var(--ok);box-shadow:0 0 8px rgba(74,222,128,.7)}
   header b{font-size:13px}
@@ -51,7 +51,7 @@
   .ev b{font-size:1em;font-weight:800} /* nome do usuário: mais forte e com a cor dele */
   /* tema claro: escurece a cor do nome pra ele NAO sumir no fundo branco (branco-no-branco) */
   :root[data-tema=claro] .ev b{filter:brightness(.58) saturate(1.2)}
-  .ev .txt{color:var(--text);font-weight:700;word-break:break-word}
+  .ev .txt{color:var(--text);font-weight:700;word-break:break-word;overflow-wrap:anywhere;flex:1;min-width:0}
   .ev small{font-weight:400}
   .ev.seguidor{border-color:rgba(56,189,248,.4)}
   .ev.presente{border-color:rgba(244,114,182,.45)}
