@@ -8,8 +8,8 @@
 <title>DuoLive · Números da live</title>
 <script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
 <style>
-  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--glow-a:rgba(139,92,246,.30);--glow-b:rgba(192,132,252,.14);--petal-a:#a78bfa;--petal-b:#8b5cf6;--border-hi:rgba(139,92,246,.38);--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e;--shopee:#ee4d2d}
-  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.20);--petal-a:#f9a8d4;--petal-b:#fbcfe8;--border-hi:rgba(236,72,153,.32)}
+  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--glow-a:rgba(139,92,246,.30);--glow-b:rgba(192,132,252,.14);--petal-a:#a78bfa;--petal-b:#8b5cf6;--border-hi:rgba(139,92,246,.38);--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e;--shopee:#ee4d2d;--money:#4ade80;--money-pill:rgba(74,222,128,.14);--down:#fb7185;--down-pill:rgba(251,113,133,.14);--al:#7c5cff;--ts:#3ecf8e;--gc:#f472b6}
+  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.20);--petal-a:#f9a8d4;--petal-b:#fbcfe8;--border-hi:rgba(236,72,153,.32);--ok:#16a34a;--money:#16a34a;--money-pill:rgba(22,163,74,.12);--down:#e11d48;--down-pill:rgba(225,29,72,.12);--al:#7c5cff;--ts:#3ecf8e;--gc:#f472b6}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;padding:14px}
   #petals{position:fixed;inset:0;z-index:0;pointer-events:none}
@@ -32,18 +32,47 @@
   #liveInfo .status.encerrada{color:var(--text-3)}
   #liveInfo b{font-size:14px;display:block;margin:2px 0}
   #liveInfo small{color:var(--text-3);font-size:11px}
-  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
-  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px}
-  .tile small{font-size:11px;color:var(--text-3);display:block;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
-  .tile b{font-size:26px;font-variant-numeric:tabular-nums;letter-spacing:-.5px;font-family:'Manrope',sans-serif;font-weight:800;display:block;margin-top:6px}
-  /* 🛍️ Últimas compras (últimos compradores da live atual) */
-  .uc{display:flex;flex-direction:column;gap:5px;margin-top:2px}
-  .uc-row{display:flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:12px}
-  .uc-row .pico{flex:none;width:1.4em;height:1.4em;border-radius:.3em;background:#000;color:#fff;font-size:.8em;display:inline-flex;align-items:center;justify-content:center}
-  .uc-row b{font-weight:700;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis}
-  .uc-row .uc-p{color:var(--text-3);font-size:11px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .uc-row .uc-v{color:var(--ok);font-weight:800;white-space:nowrap}
-  .uc-row small{color:var(--text-3);font-size:10.5px;min-width:34px;text-align:right}
+  svg.lg{width:12px;height:12px;display:block}
+  /* ===== card AO VIVO (igual à prévia) ===== */
+  .aovivoCard{background:linear-gradient(180deg,var(--glow-a),transparent 60%),var(--card);border:1px solid var(--border-hi);border-radius:16px;padding:16px 18px;margin-bottom:14px}
+  .avHead{display:flex;align-items:center;gap:9px}
+  .avHead .lp{width:8px;height:8px;border-radius:50%;background:var(--vivo);flex:none;box-shadow:0 0 0 0 rgba(244,63,94,.5);animation:pulse 1.8s infinite}
+  .avHead .tagv{font-size:12.5px;font-weight:800;letter-spacing:.14em;color:var(--vivo)}
+  .avHead small{color:var(--text-3);font-size:13.5px}
+  .avHead .avTimer{margin-left:auto;color:var(--accent-2);font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(244,63,94,.5)}70%{box-shadow:0 0 0 8px rgba(244,63,94,0)}100%{box-shadow:0 0 0 0 rgba(244,63,94,0)}}
+  .plat2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
+  .plat2 .p{background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+  .plat2 .cap{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-3);margin-bottom:4px}
+  .plat2 .p b{font-family:'Manrope',sans-serif;font-weight:800;font-size:24px;color:var(--text);display:block;font-variant-numeric:tabular-nums}
+  .plat2 .psh b{color:var(--money)}
+  .badge{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:6px}
+  .b-tt{background:#010101} .b-sh{background:var(--shopee)}
+  /* ===== 4 caixinhas (igual à prévia) ===== */
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 17px}
+  .tile .r{display:flex;align-items:center;justify-content:space-between}
+  .tile .lbl2{font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+  .tile .ic{color:var(--text-3);font-size:15px}
+  .tile b{font-family:'Manrope',sans-serif;font-weight:800;font-size:28px;margin-top:8px;display:block;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .tile b.money{color:var(--money)}
+  .tile .foot{display:flex;align-items:center;gap:6px;margin-top:6px;min-height:18px}
+  .pill{font-size:12px;font-weight:700;border-radius:999px;padding:2px 7px;font-family:'Manrope',sans-serif}
+  .pill.up{color:var(--money);background:var(--money-pill)} .pill.down{color:var(--down);background:var(--down-pill)}
+  .tile .foot small{font-size:12px;color:var(--text-3)}
+  /* ===== Últimas compras (igual à prévia) ===== */
+  .compras{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px 10px;margin-bottom:14px}
+  .compras h3{font-size:16px;font-weight:700;font-family:'Bricolage Grotesque',Manrope,sans-serif}
+  .compras .cap{font-size:12px;color:var(--text-3);margin:2px 0 10px}
+  .buy{display:flex;align-items:center;gap:11px;padding:9px 0;border-top:1px solid var(--line)}
+  .buy:first-of-type{border-top:0}
+  .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:'Manrope',sans-serif;font-weight:700;font-size:12px;color:#fff;flex:none;position:relative}
+  .av .pf{position:absolute;right:-3px;bottom:-3px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--card)}
+  .av .pf svg.lg{width:10px;height:10px}
+  .buy .who{font-weight:600;font-size:15px}
+  .buy .prod{font-size:13.5px;color:var(--text-3);margin-top:1px;max-width:175px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .buy .val{margin-left:auto;font-family:'Manrope',sans-serif;font-weight:700;color:var(--money);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .buy .t{font-size:12px;color:var(--text-3);margin-left:9px;white-space:nowrap}
   .tabelaBox{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
   table{border-collapse:collapse;width:100%;min-width:640px}
   th,td{padding:8px 12px;text-align:right;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -72,28 +101,25 @@
 </head>
 <body>
   <canvas id="petals"></canvas><div class="glow"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <path id="ttnote" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.08-.14 1.62.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+    <symbol id="tiktok" viewBox="0 0 24 24"><use href="#ttnote" fill="#25F4EE" transform="translate(-0.9,0.5)"></use><use href="#ttnote" fill="#FE2C55" transform="translate(0.9,-0.5)"></use><use href="#ttnote" fill="#ffffff"></use></symbol>
+    <symbol id="shopee" viewBox="0 0 32 32"><path fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" d="M7.6 10h16.8l.9 15.2a2.6 2.6 0 0 1-2.6 2.8H9.3a2.6 2.6 0 0 1-2.6-2.8L7.6 10z"></path><path fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" d="M11.2 10.2V8.4a4.8 4.8 0 0 1 9.6 0v1.8"></path><path fill="#ffffff" d="M16 13.4c2.1 0 3.45 1.05 3.7 2.5l-1.8.42c-.16-.8-.82-1.28-1.9-1.28-1 0-1.55.4-1.55.98 0 .58.52.85 1.94 1.2 1.9.46 3.2 1.06 3.2 2.72 0 1.54-1.3 2.56-3.13 2.72v1.18h-1.5v-1.2c-1.53-.19-2.72-1-3.04-2.32l1.85-.44c.2.95 1 1.42 2.15 1.42 1.06 0 1.68-.42 1.68-1.07 0-.62-.58-.9-2.05-1.28-1.8-.46-3.05-1.06-3.05-2.68 0-1.52 1.34-2.5 2.98-2.58z"></path></symbol>
+  </defs></svg>
   <h1>📊 Números da live</h1>
 
   <!-- painel AO VIVO (tempo real) da loja selecionada -->
-  <div id="aoVivoBox" style="display:none;background:linear-gradient(135deg,var(--card),rgba(244,63,94,.06));border:1px solid rgba(244,63,94,.4);border-radius:12px;padding:10px 12px;margin-bottom:12px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="width:8px;height:8px;border-radius:50%;background:var(--vivo);box-shadow:0 0 8px var(--vivo);animation:pisca 1.2s infinite"></span>
-      <b style="font-size:12.5px">AO VIVO</b><small id="avConta" style="color:var(--text-3)"></small>
-      <small id="avTempo" style="margin-left:auto;color:var(--warn);font-variant-numeric:tabular-nums;font-weight:700"></small>
+  <div id="aoVivoBox" class="aovivoCard" style="display:none">
+    <div class="avHead">
+      <span class="lp"></span><span class="tagv">AO VIVO</span>
+      <small id="avConta"></small>
+      <small id="avTempo" class="avTimer"></small>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px">
-      <div class="tile"><small>👀 Assistindo agora</small><b id="avVis">–</b></div>
-      <div class="tile"><small>❤️ Curtidas</small><b id="avLikes">–</b></div>
-      <div class="tile"><small>📦 Pedidos</small><b id="avPed">–</b></div>
+    <div class="plat2">
+      <div class="p"><div class="cap"><span class="badge b-tt"><svg class="lg"><use href="#tiktok"></use></svg></span> TikTok</div><b id="avVendasTik">–</b></div>
+      <div class="p psh"><div class="cap"><span class="badge b-sh"><svg class="lg"><use href="#shopee"></use></svg></span> Shopee</div><b id="avVendasSho">–</b></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div class="tile" style="border-color:rgba(0,0,0,.5);background:linear-gradient(135deg,var(--card),rgba(255,255,255,.04))"><small>🎵 TikTok — vendas</small><b id="avVendasTik">–</b></div>
-      <div class="tile" style="border-color:rgba(238,77,45,.45)"><small>🧡 Shopee — vendas</small><b id="avVendasSho">–</b></div>
-    </div>
-    <div id="avOferta" style="display:none;margin-top:8px;padding:7px 10px;border-radius:8px;background:var(--glow);border:1px solid var(--border-hi);font-size:12px">
-      ⚡ <b id="avOfNome"></b> <span id="avOfPreco" style="color:var(--ok)"></span> <span id="avOfTempo" style="color:var(--warn);float:right;font-variant-numeric:tabular-nums"></span>
-    </div>
-    <div style="font-size:9.5px;color:var(--text-3);margin-top:6px">Ao vivo: 👀❤️⏱️ do chat · 💰📦 do console de lives e do robô de vendas (cookies).</div>
+    <div id="avOferta" style="display:none;margin-top:11px;padding:8px 11px;border-radius:10px;background:var(--glow);border:1px solid var(--border-hi);font-size:13px">⚡ <b id="avOfNome"></b> <span id="avOfPreco" style="color:var(--money)"></span> <span id="avOfTempo" style="color:var(--warn);float:right;font-variant-numeric:tabular-nums"></span></div>
   </div>
 
   <div class="filtros" id="filtros"></div>
@@ -111,12 +137,28 @@
        ele nao coletou nada elas ficam com "–", entao somem durante a live: um
        "Vendas —" no meio da transmissao parece venda zerada e confunde. -->
   <div class="tiles" id="tiles" style="display:none">
-    <div class="tile doConsole"><small>💰 Vendas (GMV)</small><b id="tGmv">–</b></div>
-    <div class="tile doConsole"><small>📦 Pedidos</small><b id="tPed">–</b></div>
-    <div class="tile doConsole"><small>👀 Pessoas que assistiram</small><b id="tViews">–</b></div>
-    <div class="tile doConsole"><small id="tHorasLbl">⏱️ Tempo de live</small><b id="tHoras">–</b></div>
-    <div id="comprasBox" style="display:none;grid-column:1/-1"></div>
+    <div class="tile doConsole">
+      <div class="r"><span class="lbl2">Vendas (GMV)</span><span class="ic">💰</span></div>
+      <b class="money" id="tGmv">–</b>
+      <div class="foot"><span class="pill up" id="tGmvPill" style="display:none"></span><small id="tGmvFoot"></small></div>
+    </div>
+    <div class="tile doConsole">
+      <div class="r"><span class="lbl2">Pedidos</span><span class="ic">🛒</span></div>
+      <b id="tPed">–</b>
+      <div class="foot"><small id="tPedFoot"></small></div>
+    </div>
+    <div class="tile doConsole">
+      <div class="r"><span class="lbl2" id="tViewsLbl">Assistindo</span><span class="ic">👀</span></div>
+      <b id="tViews">–</b>
+      <div class="foot"><small id="tViewsFoot"></small></div>
+    </div>
+    <div class="tile doConsole">
+      <div class="r"><span class="lbl2" id="tLikesLbl">Curtidas</span><span class="ic">❤️</span></div>
+      <b id="tLikes">–</b>
+      <div class="foot"><small id="tLikesFoot"></small></div>
+    </div>
   </div>
+  <div id="comprasBox" class="compras" style="display:none"></div>
 
   <div id="shoTit" style="display:none;font-size:12px;color:var(--text-2);margin:4px 0 6px">🧡 <b>Lives da Shopee</b></div>
   <div class="tabelaBox" id="shoBox" style="display:none;margin-bottom:14px">
@@ -227,22 +269,27 @@
   function renderAoVivo(){
     var lives=daLoja().sort(function(a,b){ return new Date(b.started_at)-new Date(a.started_at); });
     $('tabelaBox').style.display='none';
-    if(!lives.length){
-      // Ainda nao ha numeros do console de lives.
-      // COM A LIVE NO AR: nao mostra nada disso — a mensagem de "nenhuma live" e
-      // as caixinhas com "–" so atrapalham quem esta transmitindo. As vendas
-      // anotadas (Shopee/TikTok) continuam aparecendo, essas sao de verdade.
-      // COM A LIVE PARADA: mostra, para voce saber que ainda nao coletaram nada.
-      var some = liveNoAr ? 'none' : '';
-      $('vazio').style.display = liveNoAr ? 'none' : 'block';
+    // LIVE NO AR: os números vêm do /ao-vivo (pegaAoVivo preenche as caixinhas).
+    // Aqui só garante o layout e some com a poluição (aviso de vazio / última live).
+    if(liveNoAr){
+      $('vazio').style.display='none';
       $('liveInfo').style.display='none';
-      $('tGmv').textContent='–'; $('tPed').textContent='–'; $('tViews').textContent='–'; $('tHoras').textContent='–';
-      var caixas=document.querySelectorAll('#tiles .doConsole');
-      for(var i=0;i<caixas.length;i++) caixas[i].style.display=some;
+      var cx=document.querySelectorAll('#tiles .doConsole');
+      for(var k=0;k<cx.length;k++) cx[k].style.display='';
       $('tiles').style.display='';
       return;
     }
-    // ha numeros de verdade: as caixinhas do console voltam
+    if(!lives.length){
+      // sem live no ar e sem números do console: mostra o aviso, esconde as caixinhas
+      $('vazio').style.display='block';
+      $('liveInfo').style.display='none';
+      $('tGmv').textContent='–'; $('tPed').textContent='–'; $('tViews').textContent='–'; $('tLikes').textContent='–';
+      var caixas=document.querySelectorAll('#tiles .doConsole');
+      for(var i=0;i<caixas.length;i++) caixas[i].style.display='none';
+      $('tiles').style.display='';
+      return;
+    }
+    // última live encerrada: números do console (Compass)
     var todas=document.querySelectorAll('#tiles .doConsole');
     for(var j=0;j<todas.length;j++) todas[j].style.display='';
     $('vazio').style.display='none';
@@ -259,9 +306,12 @@
     var _sh=shDaLoja().sort(function(a,b){ return new Date(b.started_at)-new Date(a.started_at); })[0]||{};
     $('tGmv').textContent=real((+l.gmv||0)+(+_sh.gmv||0));
     $('tPed').textContent=inteiro((+l.orders||0)+(+_sh.orders||0));
-    $('tViews').textContent=inteiro(l.views);
-    $('tHorasLbl').textContent='⏱️ Tempo de live';
-    $('tHoras').textContent=(l.duration_min||0)+' min';
+    $('tViewsLbl').textContent='Pessoas'; $('tViews').textContent=inteiro(l.views);
+    $('tLikesLbl').textContent='Tempo de live'; $('tLikes').textContent=(l.duration_min||0)+' min';
+    $('tGmvFoot').textContent='TikTok + Shopee'; $('tGmvPill').style.display='none';
+    $('tPedFoot').textContent='última live';
+    $('tViewsFoot').textContent='última live';
+    $('tLikesFoot').textContent='começou '+ddmm(new Date(l.started_at));
     $('tiles').style.display='';
   }
 
@@ -272,11 +322,14 @@
       .sort(function(a,b){ return new Date(b.started_at)-new Date(a.started_at); });
     var gmv=0,ped=0,views=0,min=0;
     lives.forEach(function(l){ gmv+=l.gmv||0; ped+=l.orders||0; views+=l.views||0; min+=l.duration_min||0; });
+    var todasH=document.querySelectorAll('#tiles .doConsole');
+    for(var q=0;q<todasH.length;q++) todasH[q].style.display='';
     $('tGmv').textContent=real(gmv);
     $('tPed').textContent=inteiro(ped);
-    $('tViews').textContent=inteiro(views);
-    $('tHorasLbl').textContent='⏱️ Tempo somado';
-    $('tHoras').textContent=Math.floor(min/60)+'h '+(min%60)+'min';
+    $('tViewsLbl').textContent='Pessoas'; $('tViews').textContent=inteiro(views);
+    $('tLikesLbl').textContent='Tempo somado'; $('tLikes').textContent=Math.floor(min/60)+'h '+(min%60)+'min';
+    $('tGmvFoot').textContent=lives.length+' live'+(lives.length===1?'':'s'); $('tGmvPill').style.display='none';
+    $('tPedFoot').textContent=''; $('tViewsFoot').textContent=''; $('tLikesFoot').textContent='';
     var corpo=$('corpo'); corpo.innerHTML='';
     lives.forEach(function(l){
       var tr=document.createElement('tr');
@@ -353,20 +406,27 @@
         if(!x||!x.ts||x.ts<lim) return false;
         if(lojaSel && lojaSel!=='(todas)' && x.loja && String(x.loja).toLowerCase()!==String(lojaSel).toLowerCase()) return false;
         return true;
-      }).sort(function(a,b){ return b.ts-a.ts; }).slice(0,5);
+      }).sort(function(a,b){ return b.ts-a.ts; });
+      var total=v.length; v=v.slice(0,6);
       if(!v.length){ box.style.display='none'; return; } // sem compras: não ocupa espaço
       function esc(t){ return String(t==null?'':t).replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;';}); }
-      var h='<div style="font-size:12px;color:var(--text-2);margin:2px 0 5px">🛍️ Últimas compras</div><div class="uc">';
+      function ini(nome){ var p=String(nome||'').trim().split(/\s+/); return (((p[0]||'?').charAt(0)+(p[1]||'').charAt(0))||'?').toUpperCase(); }
+      var PAL=['var(--al)','var(--ts)','var(--gc)','#38bdf8','#fb7185','#f59e0b'];
+      function cor(nome){ var s=0,n=String(nome||'x'); for(var i=0;i<n.length;i++) s=(s+n.charCodeAt(i))%9973; return PAL[s%PAL.length]; }
+      var h='<h3>Últimas compras</h3><div class="cap">'+total+' venda'+(total===1?'':'s')+' nesta live</div>';
       v.forEach(function(x){
-        var ico=(x.plataforma==='shopee')?'🧡':'♪';
+        var sho=(x.plataforma==='shopee');
         var val=(+x.valor>0)?('R$ '+(+x.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})):'';
-        h+='<div class="uc-row"><span class="pico">'+ico+'</span>'+
-             '<b>'+esc(x.quem||'Comprador')+'</b>'+
-             '<span class="uc-p">'+esc(x.produto||'')+'</span>'+
-             (val?'<span class="uc-v">'+val+'</span>':'')+
-             '<small>'+haQuanto(x.ts)+'</small></div>';
+        h+='<div class="buy">'+
+             '<div class="av" style="background:'+cor(x.quem)+'">'+esc(ini(x.quem))+
+               '<span class="pf" style="background:'+(sho?'var(--shopee)':'#010101')+'"><svg class="lg"><use href="#'+(sho?'shopee':'tiktok')+'"></use></svg></span>'+
+             '</div>'+
+             '<div style="min-width:0"><div class="who">'+esc(x.quem||'Comprador')+'</div><div class="prod">'+esc(x.produto||'')+'</div></div>'+
+             (val?'<div class="val">'+val+'</div>':'')+
+             '<div class="t">'+haQuanto(x.ts)+'</div>'+
+           '</div>';
       });
-      h+='</div>'; box.innerHTML=h; box.style.display='';
+      box.innerHTML=h; box.style.display='';
     }).catch(function(){ box.style.display='none'; });
   }
   pegaCompras();
@@ -390,24 +450,31 @@
   setInterval(pegaShopeeOficial, 60*1000);
 
   // ===== painel AO VIVO (tempo real) =====
-  var av={inicio:0, oferta:null};
+  var av={inicio:0, oferta:null, pico:0};
   function real2(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function pegaAoVivo(){
     fetch(apiBase()+'/ao-vivo'+((lojaSel&&lojaSel!=='(todas)')?'?loja='+encodeURIComponent(lojaSel):''),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
-      if(!d || !d.aoVivo){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; return; }
+      if(!d || !d.aoVivo){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; av.pico=0; return; }
       marcaLive(true);
       $('aoVivoBox').style.display='';
       $('avConta').textContent = d.usuario ? ('@'+d.usuario) : '';
-      $('avVis').textContent = inteiro(d.espectadores);
-      $('avLikes').textContent = inteiro(d.likes);
-      $('avPed').textContent = inteiro(d.pedidos);
       // vendas separadas por app (conector novo manda os dois; o antigo só o total)
       var tik = (d.totalTiktok!=null) ? d.totalTiktok : d.total;
       var sho = (d.totalShopee!=null) ? d.totalShopee : 0;
       $('avVendasTik').textContent = real2(tik);
       $('avVendasSho').textContent = real2(sho);
+      // as 4 caixinhas com os números DE VERDADE da live agora
+      $('tViewsLbl').textContent='Assistindo'; $('tLikesLbl').textContent='Curtidas';
+      $('tGmv').textContent = real2((+tik||0)+(+sho||0));
+      $('tPed').textContent = inteiro(d.pedidos);
+      $('tViews').textContent = inteiro(d.espectadores);
+      $('tLikes').textContent = inteiro(d.likes);
+      av.pico = Math.max(av.pico||0, +d.espectadores||0);
+      $('tGmvFoot').textContent='TikTok + Shopee'; $('tGmvPill').style.display='none';
+      $('tPedFoot').textContent='nesta live';
+      $('tViewsFoot').textContent='pico '+inteiro(av.pico);
       av.inicio = d.inicio||0;
-    }).catch(function(){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; });
+    }).catch(function(){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; av.pico=0; });
     fetch(apiBase()+'/oferta',{cache:'no-store'}).then(function(r){return r.json();}).then(function(o){
       av.oferta = (o&&o.nome)?o:null;
       var box=$('avOferta');
@@ -421,7 +488,9 @@
     if(av.inicio){
       var s=Math.max(0,Math.floor((Date.now()-av.inicio)/1000));
       var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
-      $('avTempo').textContent=(h?h+'h ':'')+('0'+m).slice(-2)+':'+('0'+ss).slice(-2);
+      var t=(h?h+'h ':'')+('0'+m).slice(-2)+':'+('0'+ss).slice(-2);
+      $('avTempo').textContent=t;
+      var lf=$('tLikesFoot'); if(lf && liveNoAr) lf.textContent='tempo '+t;
     } else $('avTempo').textContent='';
     if(av.oferta && av.oferta.fim){
       var r=Math.max(0,Math.round((av.oferta.fim-Date.now())/1000));

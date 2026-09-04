@@ -54,6 +54,19 @@
   #menuLojas .item:hover .ed{opacity:1}
   #menuLojas .add{color:var(--text-3);border-top:1px solid var(--line);margin-top:4px;padding:8px 9px;cursor:pointer;font-size:12px}
   #menuLojas .add:hover{color:var(--text)}
+  /* ===== barra de cima no estilo da prévia ===== */
+  .navTop{display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:3px;flex:none}
+  .navTop a{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9px;font-size:13px;font-weight:600;color:var(--text-3);cursor:pointer;white-space:nowrap;border:1px solid transparent;text-decoration:none}
+  .navTop a:hover{color:var(--text)}
+  .navTop a.on{background:linear-gradient(180deg,var(--glow-a),transparent);color:var(--accent-2);border-color:var(--border-hi)}
+  .navTop a .lp{width:7px;height:7px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 rgba(244,63,94,.5);animation:barPulse 1.8s infinite}
+  @keyframes barPulse{0%{box-shadow:0 0 0 0 rgba(244,63,94,.5)}70%{box-shadow:0 0 0 6px rgba(244,63,94,0)}100%{box-shadow:0 0 0 0 rgba(244,63,94,0)}}
+  .sepv{width:1px;height:24px;background:var(--line);flex:none}
+  .chip-live{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
+  .chip-live .men{width:9px;height:9px;border-radius:50%;flex:none}
+  .chip-live .loja{color:var(--text-3);font-weight:400}
+  .chip-live.on{border-color:var(--live);background:rgba(244,63,94,.12);color:var(--text)}
+  #selShopee{appearance:none;-webkit-appearance:none;border-radius:10px!important}
   /* o template do desenho: esquerda = Analytics em cima + Ofertas embaixo; direita = Multichat inteiro */
   .grade{display:grid;flex:1;min-height:0;gap:0;padding:6px;grid-template-columns:minmax(300px,var(--esq,46%)) 10px 1fr;position:relative;z-index:1}
   .esq{display:grid;gap:6px;grid-template-rows:1fr;min-width:0}  /* TEMPORÁRIO: Ofertas escondida — Analytics ocupa tudo (era 46% 1fr) */
@@ -87,6 +100,8 @@
   <div class="glow"></div>
   <div class="barraLojas" id="barraLojas">
     <span class="marca"><span class="mdot"></span>Duo<em>Live</em></span>
+    <nav class="navTop"><a class="on"><span class="lp"></span> Ao vivo</a><a href="/historico" target="_blank">Histórico</a></nav>
+    <span class="sepv"></span>
     <span class="titulo">🏪 Loja:</span>
     <button id="btnLoja">
       <span class="nome" id="lojaNome">escolher…</span>
@@ -94,16 +109,16 @@
       <span class="seta">▼</span>
     </button>
     <div id="menuLojas"></div>
-    <span class="titulo" style="margin-left:12px">🧡 Shopee:</span>
-    <select id="selShopee" style="padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:12.5px" title="Qual Shopee mostrar. Padrao = a mesma loja. Da pra parear a live do TikTok de uma loja com a Shopee de OUTRA.">
+    <span class="titulo" style="margin-left:6px">🧡 Shopee:</span>
+    <select id="selShopee" style="padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:12.5px" title="Qual Shopee mostrar. Padrao = a mesma loja. Da pra parear a live do TikTok de uma loja com a Shopee de OUTRA.">
       <option value="">= a loja</option>
     </select>
-    <span id="meninasAoVivo" style="display:flex;gap:6px;margin-left:14px;align-items:center"></span>
+    <span class="sepv" style="margin-left:4px"></span>
+    <span id="meninasAoVivo" style="display:flex;gap:7px;align-items:center"></span>
     <button id="btnTema" onclick="alternaTema()" title="Alternar claro/escuro" style="margin-left:auto;background:var(--card);border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:14px;line-height:1">🌗</button>
     <span id="euBar" style="margin-left:10px;display:none;align-items:center;gap:9px;font-size:12px;color:var(--text-2)">
-      <a href="/historico" target="_blank" style="color:var(--text-2);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px">📈 Histórico</a>
-      <span>👤 <b id="euBarNome" style="color:var(--text)"></b></span>
-      <a href="/sair" style="color:var(--text-2);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px">Sair</a>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 12px">👤 <b id="euBarNome" style="color:var(--text)"></b></span>
+      <a href="/sair" style="color:var(--text-2);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 11px">Sair</a>
     </span>
   </div>
   <div class="grade">
@@ -328,14 +343,14 @@
   var lojasLive=[];        // nomes das lojas ao vivo (do robo do console)
   var escolhaManual=false; // se voce escolheu na mao, nao troco sozinho
   // botoes das meninas AO VIVO no topo (loja · sigla). Clicar troca a loja do TikTok e mostra o chat dela.
+  function corSigla(s){ s=String(s||'').toUpperCase(); var m={AL:'#7c5cff',TS:'#3ecf8e',GC:'#f472b6',KA:'#38bdf8',LORE:'#fbbf24'}; return m[s]||'#7c5cff'; }
   function renderMeninas(v){
     var box=document.getElementById('meninasAoVivo'); if(!box) return;
     var vivas=(v||[]).filter(function(x){return x.live;});
     box.innerHTML=vivas.map(function(x){
-      var sig=x.sigla||''; var lab=(x.loja||'')+(sig?(' · '+sig):''); var on=(x.loja===lojaSel);
-      var est='padding:5px 11px;border-radius:8px;border:1px solid #f43f5e;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:'+(on?'#f43f5e':'rgba(244,63,94,.12)')+';color:'+(on?'#fff':'#f43f5e');
+      var sig=x.sigla||''; var on=(x.loja===lojaSel);
       var tit=((x.nome?sig+' — '+x.nome+' · ':'')+'loja '+(x.loja||'')+' — clique pra ver o chat dela').replace(/"/g,'');
-      return '<button data-loja="'+(x.loja||'')+'" style="'+est+'" title="'+tit+'">🔴 '+lab+'</button>';
+      return '<button class="chip-live'+(on?' on':'')+'" data-loja="'+(x.loja||'')+'" title="'+tit+'"><span class="men" style="background:'+corSigla(sig)+'"></span>'+(x.loja||'')+' <span class="loja">·</span> '+sig+'</button>';
     }).join('');
     Array.prototype.forEach.call(box.children,function(b){ b.onclick=function(){ var l=this.getAttribute('data-loja'); if(l) selecionar(l); }; });
   }
