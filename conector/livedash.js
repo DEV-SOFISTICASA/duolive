@@ -257,13 +257,34 @@ async function horasPeriodo(siglasNossas, periodo) {
     const e = cedo ? new Date(new Date(cedo).getTime() - 3 * 3600000) : agora;
     dias = Math.max(1, Math.round((Date.UTC(Y, M, D) - Date.UTC(e.getUTCFullYear(), e.getUTCMonth(), e.getUTCDate())) / 86400000) + 1);
   } else { desde = meiaNoiteBRT(Y, M, D); dias = 1; } // hoje
-  const minId = {}; // id da pessoa -> minutos de live no período
-  resolveTodas(d).forEach((x) => {
-    if (x.live.ts < desde) return;                        // fora do período
-    x.pids.forEach((pid) => {
-      if (pid === '__sem__' || !porId[pid] || APAGADAS[pid]) return;
-      minId[pid] = (minId[pid] || 0) + (x.live.duracao || 0); // dupla NÃO divide (as duas ficaram ao vivo)
+  // junta os INTERVALOS de live de cada pessoa (TikTok + Shopee) e faz a UNIÃO —
+  // assim, quando a menina está nas DUAS plataformas AO MESMO TEMPO não conta em
+  // dobro; e a live SÓ da Shopee (sem TikTok junto) passa a contar. Dupla continua
+  // sem dividir (as duas levam o intervalo cheio).
+  const ivId = {}; // id -> [[iniMs, fimMs], ...]
+  function coletaIntervalos(mapa) {
+    resolveTodas(d, mapa).forEach((x) => {
+      if (x.live.ts < desde) return;                      // fora do período (pelo início da live)
+      const iniMs = Date.parse(x.live.ts); if (isNaN(iniMs)) return;
+      const fimMs = iniMs + (x.live.duracao || 0) * 60000;
+      x.pids.forEach((pid) => {
+        if (pid === '__sem__' || !porId[pid] || APAGADAS[pid]) return;
+        (ivId[pid] = ivId[pid] || []).push([iniMs, fimMs]);
+      });
     });
+  }
+  coletaIntervalos(d.porLoja);        // TikTok
+  coletaIntervalos(d.porLojaShopee);  // Shopee (só-Shopee entra; simultânea não dobra)
+  const minId = {}; // id da pessoa -> minutos de live no período (união dos intervalos)
+  Object.keys(ivId).forEach((pid) => {
+    const ivs = ivId[pid].sort((a, b) => a[0] - b[0]);
+    let tot = 0, ini = null, fim = null;
+    ivs.forEach((iv) => {
+      if (fim === null || iv[0] > fim) { if (fim !== null) tot += fim - ini; ini = iv[0]; fim = iv[1]; } // bloco novo
+      else if (iv[1] > fim) { fim = iv[1]; }                                                             // sobrepõe → estende
+    });
+    if (fim !== null) tot += fim - ini;
+    minId[pid] = Math.round(tot / 60000);
   });
   const metaDia = Math.round((+(process.env.DUOLIVE_META_HORAS || 4)) * 60);
   const metaMin = metaDia * dias;

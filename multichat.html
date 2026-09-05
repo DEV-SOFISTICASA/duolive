@@ -13,7 +13,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:transparent;color:var(--text);font:15px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column;overflow:hidden}
-  body > *{position:relative;z-index:1}
+  body > :not(#compraOv){position:relative;z-index:1}
   header{display:flex;align-items:center;gap:8px 11px;padding:14px 16px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
   .st{width:9px;height:9px;border-radius:50%;background:#f87171;flex:none}
   .st.on{background:var(--ok);box-shadow:0 0 8px rgba(74,222,128,.7)}

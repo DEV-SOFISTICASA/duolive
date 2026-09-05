@@ -8,89 +8,204 @@
 <title>DuoLive · Histórico de vendas</title>
 <script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
 <style>
-  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--border-hi:rgba(139,92,246,.38);--ok:#4ade80}
-  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--border-hi:rgba(236,72,153,.32)}
+  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--glow-a:rgba(139,92,246,.30);--glow-b:rgba(192,132,252,.14);--petal-a:#a78bfa;--petal-b:#8b5cf6;--border-hi:rgba(139,92,246,.38);--ok:#4ade80;--money:#4ade80;--down:#fb7185;--shopee:#ee4d2d;--al:#7c5cff;--ts:#3ecf8e;--gc:#f472b6}
+  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.20);--petal-a:#f9a8d4;--petal-b:#fbcfe8;--border-hi:rgba(236,72,153,.32);--ok:#16a34a;--money:#16a34a;--down:#e11d48;--shopee:#ee4d2d;--al:#7c5cff;--ts:#3ecf8e;--gc:#f472b6}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;padding:16px;max-width:1100px;margin:0 auto}
-  .topo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
-  h1{font-size:20px;flex:1;min-width:180px;font-family:'Bricolage Grotesque',Manrope,sans-serif;font-weight:800}
-  .eu{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
-  .eu b{color:var(--text)}
-  .sair{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer}
-  .sair:hover{border-color:var(--accent);color:var(--text)}
-  .voltar{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:5px 12px;font-size:12px;text-decoration:none;white-space:nowrap}
-  .voltar:hover{border-color:var(--accent);color:var(--text)}
-  .sub{font-size:11.5px;color:var(--text-3);margin-bottom:14px}
-  .filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-  .chip{font-size:12px;padding:5px 14px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none;background:var(--card)}
-  .chip.on{color:var(--accent-2);border-color:var(--border-hi);background:var(--glow)}
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px}
-  .card small{font-size:11px;color:var(--text-3);display:block;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
-  .card b{font-size:26px;font-variant-numeric:tabular-nums;letter-spacing:-.5px;font-family:'Manrope',sans-serif;font-weight:800;display:block;margin-top:6px}
-  .pessoas{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}
-  .pessoa{background:var(--card);border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:9px 13px;min-width:130px}
-  .pessoa .nm{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px}
-  .pessoa .dot{width:9px;height:9px;border-radius:50%;flex:none}
-  .pessoa .vl{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px}
-  .pessoa .qt{font-size:12px;color:var(--text-2);font-weight:700;margin-top:1px}
-  .graf{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 8px 8px}
-  .graf h2{font-size:12px;color:var(--text-2);font-weight:600;margin:0 8px 12px}
-  .barras{display:flex;align-items:flex-end;gap:10px;height:230px;overflow-x:auto;padding:0 8px 4px}
-  .col{flex:0 0 auto;width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
-  .col .val{font-size:10px;color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .stack{width:34px;display:flex;flex-direction:column-reverse;border-radius:5px 5px 0 0;overflow:hidden;min-height:3px}
-  .seg{width:100%}
-  .col .hora{font-size:9.5px;color:var(--text-3);text-align:center;line-height:1.25;white-space:nowrap}
-  .legenda{display:flex;gap:12px;flex-wrap:wrap;margin:12px 8px 2px;font-size:11px;color:var(--text-2)}
-  .legenda span{display:inline-flex;align-items:center;gap:5px}
-  .legenda i{width:10px;height:10px;border-radius:2px;display:inline-block}
-  .vazio{color:var(--text-3);font-size:12.5px;padding:26px 10px;text-align:center;line-height:1.7}
-  .erro{display:none;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:12.5px;color:var(--text-2)}
+  body{background:var(--bg);color:var(--text);font:15px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;padding:20px 22px 30px;max-width:1500px;margin:0 auto}
+  #petals{position:fixed;inset:0;z-index:0;pointer-events:none}
+  .glow{position:fixed;inset:-8% 0 auto 0;height:45vh;z-index:0;pointer-events:none;background:radial-gradient(55% 60% at 28% 0%,var(--glow-a),transparent 70%),radial-gradient(45% 50% at 82% 4%,var(--glow-b),transparent 70%)}
+  body>:not(#petals):not(.glow):not(.vend-modal){position:relative;z-index:1}
+  h1,h2,h3{font-family:'Bricolage Grotesque',Manrope,sans-serif}
+  svg.lg{width:12px;height:12px;display:block}
+  .lgm{display:inline-grid;place-items:center;width:1.25em;height:1.25em;border-radius:4px;vertical-align:-.28em;flex:none}
+  .lgm.tt{background:#010101} .lgm.sh{background:var(--shopee)}
+  .lgm .lg{width:.82em;height:.82em}
+  /* cabeçalho */
+  .dash-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:2px 0 16px}
+  .dash-head h2{font-size:27px;font-weight:800;letter-spacing:-.5px}
+  .dash-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .daterange{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:14px;color:var(--text-2)}
+  .voltar{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:10px;padding:9px 14px;font-size:14px;text-decoration:none;white-space:nowrap}
+  .voltar:hover{border-color:var(--border-hi);color:var(--text)}
+  .sair{background:transparent;border:1px solid var(--line);color:var(--text-2);border-radius:10px;padding:9px 13px;font-size:14px;cursor:pointer}
+  .sair:hover{border-color:var(--border-hi);color:var(--text)}
+  /* segmentos (pílula) */
+  .segment{display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px}
+  .segment a{display:flex;align-items:center;gap:6px;padding:8px 15px;border-radius:9px;font-size:14px;font-weight:600;color:var(--text-2);cursor:pointer;border:1px solid transparent;white-space:nowrap}
+  .segment a:hover{color:var(--text)}
+  .segment a.on{background:linear-gradient(180deg,var(--glow-a),transparent);color:var(--accent-2);border-color:var(--border-hi)}
+  .dash-filter{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  /* cards de stat */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+  .stat4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
+  @media(max-width:1000px){.stat4{grid-template-columns:1fr 1fr}}
+  .statcard{padding:18px 20px}
+  .statcard .r{display:flex;align-items:center;justify-content:space-between}
+  .statcard .lbl2{font-size:14px;font-weight:600}
+  .statcard .ic{color:var(--text-3);font-size:15px;display:inline-flex}
+  .statcard .big{font-family:Manrope;font-weight:800;font-size:31px;margin-top:12px;font-variant-numeric:tabular-nums}
+  .statcard .big.money{color:var(--money)}
+  .statcard .delta{font-size:12.5px;color:var(--text-3);margin-top:6px}
+  .statcard .delta b{color:var(--money)}
+  /* por vendedora */
+  .vend-title{font-size:16px;font-weight:800;margin:22px 0 12px}
+  .vend-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:1000px){.vend-grid{grid-template-columns:1fr}}
+  .vendcard{padding:16px 18px;cursor:pointer;transition:border-color .2s,transform .15s}
+  .vendcard:hover{border-color:var(--border-hi);transform:translateY(-2px)}
+  .vendcard .top{display:flex;align-items:center;gap:12px}
+  .vendcard .top .av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-family:Manrope;font-weight:800;font-size:14px;color:#fff;flex:none}
+  .vendcard .nm{font-weight:800;font-size:16px}
+  .vendcard .sg{font-size:12.5px;color:var(--text-3);margin-top:1px}
+  .vendcard .tot{margin-left:auto;font-family:Manrope;font-weight:800;font-size:21px;color:var(--money);font-variant-numeric:tabular-nums}
+  .vendcard .split{display:flex;gap:9px;margin-top:14px}
+  .vendcard .chip{flex:1;display:flex;align-items:center;gap:7px;background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:13px;color:var(--text-2)}
+  .vendcard .chip b{margin-left:auto;font-family:Manrope;font-weight:700;color:var(--text)}
+  /* gráfico + recentes */
+  .dash-2col{display:grid;grid-template-columns:1.9fr 1fr;gap:16px;align-items:start;margin-top:16px}
+  @media(max-width:1000px){.dash-2col{grid-template-columns:1fr}}
+  .chartcard{padding:20px 22px}
+  .chartcard h3{font-size:16px;font-weight:700;margin-bottom:20px}
+  .chartwrap{display:flex;gap:10px}
+  .yaxis{display:flex;flex-direction:column;justify-content:space-between;height:230px;font-size:10.5px;color:var(--text-3);text-align:right;flex:none;min-width:40px}
+  .barsarea{flex:1;min-width:0}
+  .bars{height:230px;display:flex;align-items:flex-end;gap:5px}
+  .barcol{flex:1;height:100%;display:flex;align-items:flex-end;min-width:6px}
+  .bar{width:66%;margin:0 auto;display:flex;flex-direction:column;border-radius:6px 6px 0 0;overflow:hidden;min-height:2px;transition:height .35s}
+  .bar .seg{width:100%}
+  .bar .seg-sh{background:var(--shopee)} .bar .seg-tt{background:var(--accent-2)}
+  .chart-legend{display:flex;gap:18px;margin-top:14px;font-size:12.5px;color:var(--text-2)}
+  .chart-legend span{display:inline-flex;align-items:center;gap:7px}
+  .chart-legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .xaxis{display:flex;gap:5px;margin-top:8px}
+  .xaxis div{flex:1;text-align:center;font-size:10px;color:var(--text-3);overflow:hidden;white-space:nowrap}
+  .recent{padding:20px 22px}
+  .recent h3{font-size:16px;font-weight:700}
+  .recent .rsub{font-size:13px;color:var(--text-3);margin:3px 0 12px}
+  .rsale{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line)}
+  .rsale:first-of-type{border-top:0}
+  .rsale .av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-family:Manrope;font-weight:700;font-size:13px;color:#fff;flex:none;position:relative}
+  .rsale .av .pf{position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--card)}
+  .rsale .av .pf .lg{width:11px;height:11px}
+  .rsale .who{font-weight:700;font-size:14.5px}
+  .rsale .sub2{font-size:12.5px;color:var(--text-3);margin-top:1px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rsale .amt{margin-left:auto;font-family:Manrope;font-weight:800;color:var(--money);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .vazio{color:var(--text-3);font-size:13.5px;padding:26px 10px;text-align:center;line-height:1.7}
+  .erro{display:none;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:13px;color:var(--text-2);margin-top:12px}
+  /* modal da vendedora */
+  .vend-modal{position:fixed;inset:0;z-index:70;display:none;place-items:center;padding:20px;opacity:0;background:radial-gradient(60% 60% at 50% 40%,transparent,rgba(6,6,12,.5)),rgba(6,6,12,.55);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+  :root[data-tema=claro] .vend-modal{background:radial-gradient(60% 60% at 50% 40%,transparent,rgba(120,60,90,.2)),rgba(255,240,247,.55)}
+  .vend-modal.on{display:grid;animation:ovIn .25s ease forwards}
+  @keyframes ovIn{to{opacity:1}}
+  .vm-card{position:relative;width:min(94vw,560px);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:26px 28px;box-shadow:0 40px 100px rgba(0,0,0,.5),0 0 90px var(--glow-a);transform:scale(.6);opacity:0;animation:vmIn .5s cubic-bezier(.34,1.56,.64,1) forwards}
+  @keyframes vmIn{0%{transform:scale(.6);opacity:0}50%{opacity:1}100%{transform:scale(1);opacity:1}}
+  .vm-close{position:absolute;top:15px;right:15px;width:34px;height:34px;border-radius:50%;background:var(--card-2);border:1px solid var(--line);color:var(--text-2);cursor:pointer;font-size:14px;line-height:1}
+  .vm-close:hover{color:var(--text);border-color:var(--border-hi)}
+  .vm-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+  .vm-head .av{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-family:Manrope;font-weight:800;font-size:17px;color:#fff;flex:none}
+  .vm-nome{font-family:'Bricolage Grotesque',Manrope,sans-serif;font-weight:800;font-size:23px}
+  .vm-sub{font-size:13px;color:var(--text-3);margin-top:2px}
+  .vm-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .vm-stat{background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .vm-k{font-family:Manrope;font-weight:800;font-size:24px;color:var(--money);font-variant-numeric:tabular-nums}
+  .vm-stat.n .vm-k{color:var(--text)}
+  .vm-l{font-size:12px;color:var(--text-3);margin-top:2px}
+  .vm-seg{margin-bottom:16px;width:max-content;max-width:100%}
+  /* metas */
+  .meta-card{padding:16px 18px}
+  .meta-card .top{display:flex;align-items:center;gap:10px}
+  .meta-card .dot{width:11px;height:11px;border-radius:50%;flex:none}
+  .meta-card .nm{font-weight:800;font-size:16px}
+  .meta-card .k{margin-left:auto;font-family:Manrope;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+  .meta-card .barfill{height:9px;border-radius:99px;background:var(--card-2);border:1px solid var(--line);margin-top:12px;overflow:hidden}
+  .meta-card .barfill i{display:block;height:100%;border-radius:99px}
+  .meta-card .msg{font-size:12.5px;font-weight:700;margin-top:8px}
+  [hidden]{display:none!important}
 </style>
 </head>
 <body>
-  <div class="topo">
-    <a href="/painel" class="voltar">← Painel</a>
-    <h1>📈 Histórico de vendas</h1>
-    <div class="eu" id="eu" style="display:none">👤 <b id="euNome"></b> <button class="sair" onclick="location.href='/sair'">Sair</button></div>
-  </div>
-  <div class="sub" id="sub">Cada barra é uma <b>live</b> (pelo horário que ela começou). A cor mostra <b>quem vendeu</b>.</div>
+  <canvas id="petals"></canvas><div class="glow"></div>
 
-  <div class="filtros" id="filtros">
-    <span class="chip on" data-p="hoje">Hoje</span>
-    <span class="chip" data-p="7">7 dias</span>
-    <span class="chip" data-p="mes">Mês</span>
-    <span class="chip" data-p="total">Total</span>
-  </div>
-  <div class="filtros" id="visoes" style="margin-top:2px">
-    <span class="chip on" data-v="vend">👤 Vendedoras</span>
-    <span class="chip" data-v="loja">🏪 Lojas</span>
-    <span class="chip" data-v="metas">⏱️ Metas</span>
-  </div>
-  <div class="filtros" id="plats" style="margin-top:2px">
-    <span class="chip on" data-pl="todas">Todas</span>
-    <span class="chip" data-pl="shopee">🧡 Shopee</span>
-    <span class="chip" data-pl="tiktok">🎵 TikTok</span>
+  <div class="dash-head">
+    <h2>📈 Histórico de vendas</h2>
+    <div class="dash-actions">
+      <a href="/painel" class="voltar" id="voltar">← Painel</a>
+      <div class="daterange" id="dr">📅 Hoje</div>
+      <div class="segment" id="visaoSeg"><a class="on" data-m="dash">📊 Vendas</a><a data-m="metas">⏱️ Metas</a></div>
+      <button class="sair" id="sair" style="display:none" onclick="location.href='/sair'">Sair</button>
+    </div>
   </div>
 
-  <div class="cards">
-    <div class="card"><small>💰 Total no período</small><b id="cTotal" style="color:var(--ok)">R$ 0,00</b></div>
-    <div class="card"><small>🛒 Vendas</small><b id="cQtd">0</b></div>
-    <div class="card"><small>📺 Lives</small><b id="cLives">0</b></div>
-    <div class="card cardPlat"><small>🧡 Shopee</small><b id="cSho" style="color:var(--ok)">R$ 0,00</b></div>
-    <div class="card cardPlat"><small>🎵 TikTok</small><b id="cTik" style="color:var(--ok)">R$ 0,00</b></div>
+  <div class="dash-filter" id="dashFilter">
+    <div class="segment" id="histPlat">
+      <a class="on" data-p="todas">Todas</a>
+      <a data-p="sh"><span class="lgm sh"><svg class="lg"><use href="#shopee"></use></svg></span> Shopee</a>
+      <a data-p="tt"><span class="lgm tt"><svg class="lg"><use href="#tiktok"></use></svg></span> TikTok</a>
+    </div>
+    <div class="segment" id="histPeriodo"><a class="on" data-per="hoje">Hoje</a><a data-per="7">7 dias</a><a data-per="30">30 dias</a></div>
   </div>
 
-  <div class="pessoas" id="pessoas"></div>
-
-  <div class="graf">
-    <h2 id="grafTit">Vendas por live</h2>
-    <div class="barras" id="barras"></div>
-    <div class="legenda" id="legenda"></div>
-    <div class="vazio" id="vazio" style="display:none"></div>
+  <!-- ===== visão VENDAS (dashboard) ===== -->
+  <div id="viewDash">
+    <div class="stat4">
+      <div class="card statcard"><div class="r"><span class="lbl2">Faturamento</span><span class="ic">💰</span></div><div class="big money" id="hTot">R$ 0,00</div><div class="delta" id="hTotD">—</div></div>
+      <div class="card statcard"><div class="r"><span class="lbl2">Pedidos</span><span class="ic">🧾</span></div><div class="big" id="hPed">0</div><div class="delta" id="hPedSub">TikTok 0 · Shopee 0</div></div>
+      <div class="card statcard"><div class="r"><span class="lbl2">Shopee</span><span class="ic"><span class="lgm sh"><svg class="lg"><use href="#shopee"></use></svg></span></span></div><div class="big money" id="hSh">R$ 0,00</div><div class="delta" id="hShSub">0 pedidos</div></div>
+      <div class="card statcard"><div class="r"><span class="lbl2">TikTok</span><span class="ic"><span class="lgm tt"><svg class="lg"><use href="#tiktok"></use></svg></span></span></div><div class="big money" id="hTt">R$ 0,00</div><div class="delta" id="hTtSub">0 pedidos</div></div>
+    </div>
+    <h3 class="vend-title" id="vendTitle">Por vendedora</h3>
+    <div class="vend-grid" id="vendGrid"></div>
+    <div class="dash-2col">
+      <div class="card chartcard">
+        <h3 id="chartTit">Faturamento por live</h3>
+        <div class="chartwrap">
+          <div class="yaxis" id="yaxis"></div>
+          <div class="barsarea"><div class="bars" id="bars"></div><div class="xaxis" id="xaxis"></div></div>
+        </div>
+        <div class="chart-legend"><span><i style="background:var(--shopee)"></i> Shopee</span><span><i style="background:var(--accent-2)"></i> TikTok</span></div>
+      </div>
+      <div class="card recent">
+        <h3>Últimas vendas</h3>
+        <div class="rsub" id="recentSub">Nenhuma venda neste período.</div>
+        <div id="recentList"></div>
+      </div>
+    </div>
   </div>
+
+  <!-- ===== visão METAS ===== -->
+  <div id="viewMetas" hidden>
+    <div class="stat4">
+      <div class="card statcard"><div class="r"><span class="lbl2">Meta do período</span><span class="ic">🎯</span></div><div class="big" id="mMeta">0h00</div><div class="delta" id="mMetaSub">—</div></div>
+      <div class="card statcard"><div class="r"><span class="lbl2">Bateram a meta</span><span class="ic">✅</span></div><div class="big" id="mBat">0/0</div><div class="delta">vendedoras no período</div></div>
+      <div class="card statcard"><div class="r"><span class="lbl2">Horas somadas</span><span class="ic">⏱️</span></div><div class="big money" id="mSoma">0h00</div><div class="delta">de live no período</div></div>
+      <div class="card statcard"><div class="r"><span class="lbl2">Vendedoras</span><span class="ic">👥</span></div><div class="big" id="mQtd">0</div><div class="delta">cadastradas</div></div>
+    </div>
+    <h3 class="vend-title">Horas de live por vendedora</h3>
+    <div class="vend-grid" id="metaGrid"></div>
+  </div>
+
   <div class="erro" id="erro">Não consegui carregar o histórico agora. Recarregue a página (F5).</div>
+
+  <!-- modal detalhe da vendedora -->
+  <div class="vend-modal" id="vendModal">
+    <div class="vm-card">
+      <button class="vm-close" id="vmClose" aria-label="Fechar">✕</button>
+      <div class="vm-head"><div class="av" id="vmAv">–</div><div><div class="vm-nome" id="vmNome">–</div><div class="vm-sub" id="vmSub"></div></div></div>
+      <div class="vm-stats">
+        <div class="vm-stat"><div class="vm-k" id="vmTot">R$ 0,00</div><div class="vm-l">faturamento no período</div></div>
+        <div class="vm-stat n"><div class="vm-k" id="vmN">0</div><div class="vm-l">vendas realizadas</div></div>
+      </div>
+      <div class="segment vm-seg" id="vmFilter"><a class="on" data-p="todas">Todas</a><a data-p="sh"><span class="lgm sh"><svg class="lg"><use href="#shopee"></use></svg></span> Shopee</a><a data-p="tt"><span class="lgm tt"><svg class="lg"><use href="#tiktok"></use></svg></span> TikTok</a></div>
+      <div class="chartwrap"><div class="yaxis" id="vmYaxis"></div><div class="barsarea"><div class="bars" id="vmBars"></div><div class="xaxis" id="vmXaxis"></div></div></div>
+      <div class="chart-legend"><span><i style="background:var(--shopee)"></i> Shopee</span><span><i style="background:var(--accent-2)"></i> TikTok</span></div>
+    </div>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <path id="ttnote" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.08-.14 1.62.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+    <symbol id="tiktok" viewBox="0 0 24 24"><use href="#ttnote" fill="#25F4EE" transform="translate(-0.9,0.5)"></use><use href="#ttnote" fill="#FE2C55" transform="translate(0.9,-0.5)"></use><use href="#ttnote" fill="#ffffff"></use></symbol>
+    <symbol id="shopee" viewBox="0 0 32 32"><path fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" d="M7.6 10h16.8l.9 15.2a2.6 2.6 0 0 1-2.6 2.8H9.3a2.6 2.6 0 0 1-2.6-2.8L7.6 10z"></path><path fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" d="M11.2 10.2V8.4a4.8 4.8 0 0 1 9.6 0v1.8"></path><path fill="#ffffff" d="M16 13.4c2.1 0 3.45 1.05 3.7 2.5l-1.8.42c-.16-.8-.82-1.28-1.9-1.28-1 0-1.55.4-1.55.98 0 .58.52.85 1.94 1.2 1.9.46 3.2 1.06 3.2 2.72 0 1.54-1.3 2.56-3.13 2.72v1.18h-1.5v-1.2c-1.53-.19-2.72-1-3.04-2.32l1.85-.44c.2.95 1 1.42 2.15 1.42 1.06 0 1.68-.42 1.68-1.07 0-.62-.58-.9-2.05-1.28-1.8-.46-3.05-1.06-3.05-2.68 0-1.52 1.34-2.5 2.98-2.58z"></path></symbol>
+  </defs></svg>
 
 <script>
 (function(){
@@ -101,241 +216,183 @@
     var _naNuvem=!/^(localhost$|127\.|0\.0\.0\.0|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
     if(_recarregou && _naNuvem){ location.replace('/sair'); return; }
   }catch(e){}
-  var $=function(id){return document.getElementById(id)};
-  var periodo='hoje', visao='vend', platFiltro='todas', ehAdm=false, papel=null, minhaSigla=null;
-  // início do período pedido (em horário local, pra o mês fechar certo no fuso do Brasil)
-  function desdeDe(p){
-    var d=new Date();
-    if(p==='hoje'){ d.setHours(0,0,0,0); return d; }
-    if(p==='mes'){ return new Date(d.getFullYear(), d.getMonth(), 1); }   // 1º dia do mês atual
-    if(p==='total'){ return new Date(2000,0,1); }                          // tudo, desde sempre
-    d.setDate(d.getDate()-7); return d;                                    // 7 dias
-  }
-  function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-  function corDe(cores,sig){ if(sig==='LIVE 10K') return '#f59e0b'; if(sig==='GRAVADA') return '#a78bfa'; return (sig&&cores[sig]&&cores[sig].cor)||'#6b7280'; }
-  function nomeDe(cores,sig){ if(sig==='GRAVADA') return 'Lives Gravadas'; if(!sig) return 'sem vendedora'; return (cores[sig]&&cores[sig].nome)||sig; }
-  function sigCurta(sig){ return sig==='GRAVADA'?'GR':(sig||''); }  // GRAVADA aparece como "GR" no gráfico/cartões
-  // horário de Brasília FIXO (igual o LiveDash) — não depende do fuso do aparelho que abre o painel
-  var _fmtBRT=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
-  function quando(ms){ var p={}; _fmtBRT.formatToParts(new Date(ms)).forEach(function(x){p[x.type]=x.value;}); return p.day+'/'+p.month+' '+p.hour+':'+p.minute; }
+  var EMBED=false; try{ EMBED=!!new URLSearchParams(location.search).get('embed'); }catch(e){}
+  if(EMBED){ var vb=document.getElementById('voltar'); if(vb) vb.style.display='none'; } // a nav do painel já volta
 
-  // quem está logado (nome + Sair)
+  var $=function(id){return document.getElementById(id)};
+  var periodo='hoje', platF='todas', modo='dash', ehAdm=false, papel=null, minhaSigla=null, cores={}, vendasAll=[];
+  var mesLbl={hoje:'📅 Hoje','7':'📅 Últimos 7 dias','30':'📅 Últimos 30 dias'};
+
+  function real(n){ return 'R$ '+(+n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function esc(t){ return String(t==null?'':t).replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;';}); }
+  function setTxt(id,t){ var e=$(id); if(e) e.textContent=t; }
+  function qtdDe(v){ return (+v.qtd>=0 && v.qtd!=null)?+v.qtd:1; }
+  function ehSh(v){ return v.plataforma==='shopee'; }
+  function corSig(s){ if(s==='GRAVADA') return '#a78bfa'; if(s==='LIVE 10K') return '#f59e0b'; return (s&&cores[s]&&cores[s].cor)||'#8b8b95'; }
+  function nomeSig(s){ if(s==='GRAVADA') return 'Lives Gravadas'; if(!s) return 'sem vendedora'; return (cores[s]&&cores[s].nome)||s; }
+  function sigCurta(s){ return s==='GRAVADA'?'GR':(s||'—'); }
+  function iniciais(nm){ nm=String(nm||'').trim(); if(!nm) return '?'; var p=nm.split(/\s+/); return ((p[0].charAt(0)+(p[1]?p[1].charAt(0):''))||'?').toUpperCase(); }
+  var _fmtBRT=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  function _parts(ms){ var p={}; _fmtBRT.formatToParts(new Date(ms)).forEach(function(x){p[x.type]=x.value;}); return p; }
+  function ddmm(ms){ var p=_parts(ms); return p.day+'/'+p.month; }
+  function ddmmhh(ms){ var p=_parts(ms); return p.day+'/'+p.month+' '+p.hour+':'+p.minute; }
+  function desdeDe(p){ var d=new Date(); if(p==='hoje'){ d.setHours(0,0,0,0); return d; } d.setDate(d.getDate()-(p==='30'?30:7)); return d; }
+
+  // quem está logado (Sair aparece só logado e fora do painel)
   fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).then(function(u){
-    if(u&&u.nome){ $('euNome').textContent=u.nome+(u.papel==='adm'?' (ADM)':''); $('eu').style.display=''; }
+    if(u&&u.nome && !EMBED){ var s=$('sair'); if(s) s.style.display=''; }
   }).catch(function(){});
 
-  $('filtros').addEventListener('click',function(e){
-    var c=e.target.closest('.chip'); if(!c) return;
-    periodo=c.dataset.p;
-    document.querySelectorAll('#filtros .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
-    carregar();
-  });
-  $('visoes').addEventListener('click',function(e){
-    var c=e.target.closest('.chip'); if(!c) return;
-    visao=c.dataset.v;
-    document.querySelectorAll('#visoes .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
-    ajustaPeriodos();
-    carregar();
-  });
-  $('plats').addEventListener('click',function(e){
-    var c=e.target.closest('.chip'); if(!c) return;
-    platFiltro=c.dataset.pl;
-    document.querySelectorAll('#plats .chip').forEach(function(x){ x.classList.toggle('on',x===c); });
-    carregar();
-  });
-  // Metas: os botões viram Diária/Semanal/Mensal e o "Total" some (meta acumulada não faz sentido)
-  function ajustaPeriodos(){
-    var chips=document.querySelectorAll('#filtros .chip');
-    var rot=(visao==='metas')?{hoje:'Diária','7':'Semanal',mes:'Mensal',total:'Total'}:{hoje:'Hoje','7':'7 dias',mes:'Mês',total:'Total'};
-    chips.forEach(function(c){ if(rot[c.dataset.p]) c.textContent=rot[c.dataset.p]; });
-    var tot=document.querySelector('#filtros .chip[data-p="total"]');
-    if(visao==='metas'){
-      if(tot) tot.style.display='none';
-      if(periodo==='total'){ periodo='mes'; chips.forEach(function(x){ x.classList.toggle('on',x.dataset.p==='mes'); }); }
-    } else if(tot){ tot.style.display=''; }
+  // ---------- barra de escala p/ os gráficos ----------
+  function escala(max){ var step=max<=100?25:max<=500?100:max<=2000?500:max<=10000?1000:5000; return Math.max(step, Math.ceil(max/step)*step); }
+  function fmtEixo(t){ return t>=1000?('R$'+(+(t/1000).toFixed(1)).toString().replace('.',',')+'k'):('R$'+Math.round(t)); }
+  function montaChart(lives, filtro, elBars, elY, elX){
+    var vals=lives.map(function(l){ var sh=filtro==='tt'?0:l.sh, tt=filtro==='sh'?0:l.tt; return {sh:sh,tt:tt,tot:sh+tt,ts:l.ts}; });
+    if(!vals.length){ elBars.innerHTML=''; elY.innerHTML=''; elX.innerHTML=''; return; }
+    var max=escala(Math.max.apply(null, vals.map(function(v){return v.tot;}))||1);
+    elY.innerHTML=[1,.75,.5,.25,0].map(function(f){ return '<div>'+fmtEixo(max*f)+'</div>'; }).join('');
+    elBars.innerHTML=vals.map(function(v){ var ttH=v.tot?v.tt/v.tot*100:0, shH=v.tot?v.sh/v.tot*100:0;
+      return '<div class="barcol"><div class="bar" style="height:'+(v.tot/max*100)+'%" title="'+ddmmhh(v.ts)+' · '+real(v.tot)+'"><div class="seg seg-tt" style="height:'+ttH+'%"></div><div class="seg seg-sh" style="height:'+shH+'%"></div></div></div>';
+    }).join('');
+    // mostra no máximo ~8 rótulos no eixo x pra não embolar
+    var pulo=Math.ceil(vals.length/8);
+    elX.innerHTML=vals.map(function(v,i){ return '<div>'+((i%pulo===0)?ddmm(v.ts):'')+'</div>'; }).join('');
+  }
+  function porLive(vendas){
+    var m={}; vendas.forEach(function(v){ var k=v.ts||'?'; if(!m[k]) m[k]={ts:new Date(v.ts).getTime(),sh:0,tt:0}; var val=+v.valor||0; if(ehSh(v)) m[k].sh+=val; else m[k].tt+=val; });
+    var arr=Object.keys(m).map(function(k){return m[k];}).sort(function(a,b){return a.ts-b.ts;});
+    return arr.length>16?arr.slice(arr.length-16):arr;
   }
 
-  function carregar(){
-    if(visao==='metas'){ carregarMetas(); return; }
-    var _pf=$('plats'); if(_pf) _pf.style.display='flex';
-    document.querySelectorAll('.cardPlat').forEach(function(c){ c.style.display=''; });
-    fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
-      if(!d||!d.ok){ $('erro').style.display='block'; return; }
-      $('erro').style.display='none';
-      ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla;
-      $('sub').innerHTML = (visao==='loja')
-        ? 'Cada barra/cartão é uma <b>loja</b> — o total de vendas dela no período.'
-        : (papel==='vendedora')
-          ? 'Você vê só as <b>suas</b> vendas. Cada barra é uma <b>live</b> (pelo horário que começou).'
-          : 'Cada barra é uma <b>vendedora</b> — o total dela no período (Hoje · 7 dias · Mês · Total).';
-      var vendas=d.vendas||[], cores=d.cores||{};
-      if(visao==='loja'){
-        // trata a LOJA como se fosse a "sigla" -> o gráfico/cartões já funcionam, por loja
-        var LC={monaco:{nome:'Monaco',cor:'#ff5c35'},bellini:{nome:'Bellini',cor:'#f472b6'},fast:{nome:'Fast',cor:'#38bdf8'},mania:{nome:'Mania',cor:'#4ade80'}};
-        vendas=vendas.map(function(v){ return {valor:v.valor,sigla:v.loja||'(sem loja)',produto:v.produto,ts:v.ts,qtd:v.qtd,plataforma:v.plataforma}; });
-        cores={}; vendas.forEach(function(v){ if(!cores[v.sigla]) cores[v.sigla]=LC[v.sigla]||{nome:v.sigla.charAt(0).toUpperCase()+v.sigla.slice(1),cor:'#8b8b95'}; });
-      }
-      render(vendas, cores);
-    }).catch(function(){ $('erro').style.display='block'; });
+  // ---------- render VENDAS ----------
+  function render(vendas){
+    vendasAll=vendas;
+    var total=0,totSh=0,totTt=0,nSh=0,nTt=0, livesSet={};
+    vendas.forEach(function(v){ var val=+v.valor||0,n=qtdDe(v); total+=val; livesSet[v.ts]=1; if(ehSh(v)){totSh+=val;nSh+=n;}else{totTt+=val;nTt+=n;} });
+    var nLives=Object.keys(livesSet).length;
+    setTxt('hTot',real(total)); setTxt('hTotD', nLives+' live'+(nLives===1?'':'s')+' no período');
+    setTxt('hPed',(nSh+nTt)); setTxt('hPedSub','TikTok '+nTt+' · Shopee '+nSh);
+    setTxt('hSh',real(totSh)); setTxt('hShSub', nSh+' pedido'+(nSh===1?'':'s'));
+    setTxt('hTt',real(totTt)); setTxt('hTtSub', nTt+' pedido'+(nTt===1?'':'s'));
+    renderVend(vendas);
+    montaChart(porLive(vendas), platF, $('bars'), $('yaxis'), $('xaxis'));
+    renderRecent(vendas);
+  }
+  function renderVend(vendas){
+    var agg={};
+    vendas.forEach(function(v){ var s=v.sigla||''; if(!agg[s]) agg[s]={tot:0,n:0,sh:0,tt:0}; var val=+v.valor||0,n=qtdDe(v); agg[s].tot+=val; agg[s].n+=n; if(ehSh(v)) agg[s].sh+=val; else agg[s].tt+=val; });
+    var sigs=Object.keys(agg).sort(function(a,b){return agg[b].tot-agg[a].tot;});
+    var wrap=$('vendGrid');
+    if(!sigs.length){ wrap.innerHTML='<div class="vazio">Nenhuma venda registrada neste período ainda.<br>Assim que o robô pegar a primeira venda de uma live, ela aparece aqui.</div>'; $('vendTitle').style.display='none'; return; }
+    $('vendTitle').style.display='';
+    wrap.innerHTML=sigs.map(function(s){ var a=agg[s], cor=corSig(s);
+      return '<div class="card vendcard" data-sig="'+esc(s)+'"><div class="top"><div class="av" style="background:'+cor+'">'+esc(sigCurta(s))+'</div>'
+        +'<div style="min-width:0"><div class="nm">'+esc(nomeSig(s))+'</div><div class="sg">'+esc(sigCurta(s))+' · '+a.n+' pedido'+(a.n===1?'':'s')+'</div></div>'
+        +'<div class="tot">'+real(a.tot)+'</div></div>'
+        +'<div class="split"><div class="chip"><span class="lgm sh"><svg class="lg"><use href="#shopee"></use></svg></span> Shopee <b>'+real(a.sh)+'</b></div>'
+        +'<div class="chip"><span class="lgm tt"><svg class="lg"><use href="#tiktok"></use></svg></span> TikTok <b>'+real(a.tt)+'</b></div></div></div>';
+    }).join('');
+  }
+  function renderRecent(vendas){
+    var filt=vendas.filter(function(v){ return platF==='todas'||(ehSh(v)?'sh':'tt')===platF; });
+    setTxt('recentSub', (papel==='vendedora'?'Você fez ':'')+filt.length+' venda'+(filt.length===1?'':'s')+' neste período.');
+    var lista=filt.slice().sort(function(a,b){return new Date(b.ts)-new Date(a.ts);}).slice(0,10);
+    var rl=$('recentList');
+    rl.innerHTML=lista.map(function(v){
+      var pin = ehSh(v) ? '<span class="pf" style="background:var(--shopee)"><svg class="lg"><use href="#shopee"></use></svg></span>'
+                        : '<span class="pf" style="background:#010101"><svg class="lg"><use href="#tiktok"></use></svg></span>';
+      var nome=v.quem||nomeSig(v.sigla);
+      return '<div class="rsale"><div class="av" style="background:'+corSig(v.sigla)+'">'+esc(iniciais(nome))+pin+'</div>'
+        +'<div style="min-width:0"><div class="who">'+esc(nome)+'</div><div class="sub2">'+esc((v.produto||'')+(v.loja?(' · '+v.loja):''))+'</div></div>'
+        +'<div class="amt">+'+real(v.valor)+'</div></div>';
+    }).join('') || '<div class="vazio">Nenhuma venda neste período.</div>';
   }
 
-  function render(vendas, cores){
-    // rótulos dos cartões voltam ao normal (o modo Metas troca eles)
-    $('cTotal').previousElementSibling.textContent='💰 Total no período';
-    $('cQtd').previousElementSibling.textContent='🛒 Vendas';
-    $('cLives').previousElementSibling.textContent='📺 Lives';
-    // LIVE 10K é evento TEMPORÁRIO: aparece nos períodos recentes (Hoje/7/Mês),
-    // mas NÃO entra no "Total" (que é o acumulado permanente).
-    if(periodo==='total'){ vendas=vendas.filter(function(v){ return v.sigla!=='LIVE 10K' && v.produto!=='LIVE 10K'; }); } // LIVE 10K dividido em TS/AL fica marcado por produto
-    // split por plataforma — os cards Shopee/TikTok mostram SEMPRE os dois (nunca somam como um só)
-    var totSho=0, totTik=0;
-    vendas.forEach(function(v){ var val=+v.valor||0; if(v.plataforma==='shopee') totSho+=val; else totTik+=val; });
-    if($('cSho')) $('cSho').textContent=real(totSho);
-    if($('cTik')) $('cTik').textContent=real(totTik);
-    // o filtro Todas/Shopee/TikTok afeta o resto (total, vendedoras, gráfico)
-    if(platFiltro!=='todas'){ vendas=vendas.filter(function(v){ return (v.plataforma==='shopee'?'shopee':'tiktok')===platFiltro; }); }
-    var total=0, qtd=0;
-    // por pessoa (sigla)
-    var porSig={};
-    // por live (agrupa pelo ts = início da live), e dentro dela por sigla
-    var porLive={};
-    vendas.forEach(function(v){
-      var val=+v.valor||0; total+=val;
-      // venda = PEDIDO: no espelho do LiveDash cada linha é uma LIVE e traz
-      // qtd = nº de pedidos dela; no banco próprio cada linha é 1 pedido (qtd=1)
-      var n=(+v.qtd>=0 && v.qtd!=null)?+v.qtd:1; qtd+=n;
-      var sig=v.sigla||'';
-      if(!porSig[sig]) porSig[sig]={sig:sig,total:0,qtd:0}; porSig[sig].total+=val; porSig[sig].qtd+=n;
-      var k=v.ts||'?';
-      if(!porLive[k]) porLive[k]={ts:new Date(v.ts).getTime(),total:0,qtd:0,porSig:{}};
-      porLive[k].total+=val; porLive[k].qtd+=n;
-      porLive[k].porSig[sig]=(porLive[k].porSig[sig]||0)+val;
-    });
-    var lives=Object.keys(porLive).map(function(k){return porLive[k];}).sort(function(a,b){return a.ts-b.ts;});
-
-    $('cTotal').textContent=real(total);
-    $('cQtd').textContent=qtd;
-    $('cLives').textContent=lives.length;
-
-    // cartões por pessoa (ADM vê todas; vendedora vê só a dela). Ordena por total.
-    var pess=Object.keys(porSig).map(function(s){return porSig[s];}).sort(function(a,b){return b.total-a.total;});
-    var pe=$('pessoas'); pe.innerHTML='';
-    pess.forEach(function(p){
-      var cor=corDe(cores,p.sig);
-      var d=document.createElement('div'); d.className='pessoa'; d.style.borderLeftColor=cor;
-      d.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+nomeDe(cores,p.sig)+(p.sig?(' ('+sigCurta(p.sig)+')'):'')+'</div>'
-        +'<div class="vl">'+real(p.total)+'</div><div class="qt">'+p.qtd+' venda'+(p.qtd===1?'':'s')+'</div>';
-      pe.appendChild(d);
-    });
-
-    // ===== gráfico =====
-    var barras=$('barras'); barras.innerHTML='';
-    var semDados = ehAdm ? !pess.length : !lives.length;
-    if(semDados){
-      barras.style.display='none'; $('legenda').style.display='none';
-      $('vazio').style.display='';
-      $('vazio').innerHTML = (papel==='vendedora')
-        ? 'Nenhuma venda sua neste período ainda.<br>Assim que você fizer uma live logada, ela aparece aqui.'
-        : 'Nenhuma venda registrada neste período ainda.<br>Assim que o robô pegar a primeira venda de uma live, ela aparece aqui.';
-      return;
-    }
-    barras.style.display=''; $('vazio').style.display='none';
-
-    if(ehAdm){
-      // ADM: uma barra POR VENDEDORA (total no período — Hoje / 7 dias / 30 dias)
-      $('grafTit').textContent='Total por vendedora no período';
-      $('legenda').style.display='none';
-      var maxP=Math.max.apply(null, pess.map(function(p){return p.total;}))||1;
-      pess.forEach(function(p){
-        var cor=corDe(cores,p.sig);
-        var altura=Math.max(3, Math.round(p.total/maxP*190));
-        var col=document.createElement('div'); col.className='col';
-        col.innerHTML='<div class="val">'+real(p.total).replace('R$ ','')+'</div>'
-          +'<div class="stack" style="height:'+altura+'px"><div class="seg" style="height:'+altura+'px;background:'+cor+'"></div></div>'
-          +'<div class="hora">'+(sigCurta(p.sig)||'sem vend.')+'</div>';
-        col.title=nomeDe(cores,p.sig)+' · '+real(p.total)+' · '+p.qtd+' venda(s)';
-        barras.appendChild(col);
-      });
-      return;
-    }
-
-    // vendedora: uma barra POR LIVE (empilhada por sigla)
-    $('grafTit').textContent='Vendas por live';
-    $('legenda').style.display='flex';
-    var maxT=Math.max.apply(null, lives.map(function(l){return l.total;}))||1;
-    lives.forEach(function(l){
-      var col=document.createElement('div'); col.className='col';
-      var altura=Math.max(3, Math.round(l.total/maxT*190)); // px da coluna cheia
-      var stack='';
-      Object.keys(l.porSig).sort(function(a,b){return l.porSig[b]-l.porSig[a];}).forEach(function(sig){
-        var h=Math.round(l.porSig[sig]/l.total*altura);
-        stack+='<div class="seg" style="height:'+h+'px;background:'+corDe(cores,sig)+'"></div>';
-      });
-      col.innerHTML='<div class="val">'+real(l.total).replace('R$ ','')+'</div>'
-        +'<div class="stack" style="height:'+altura+'px">'+stack+'</div>'
-        +'<div class="hora">'+quando(l.ts).replace(' ','<br>')+'</div>';
-      col.title=quando(l.ts)+' · '+real(l.total)+' · '+l.qtd+' venda(s)';
-      barras.appendChild(col);
-    });
-    var leg=$('legenda'); leg.innerHTML='';
-    pess.forEach(function(p){
-      var s=document.createElement('span');
-      s.innerHTML='<i style="background:'+corDe(cores,p.sig)+'"></i>'+nomeDe(cores,p.sig);
-      leg.appendChild(s);
-    });
+  // ---------- modal da vendedora ----------
+  var vmSig='', vmFiltro='todas';
+  function renderVmChart(){
+    var vs=vendasAll.filter(function(v){ return (v.sigla||'')===vmSig; });
+    var tot=0,n=0; vs.forEach(function(v){ tot+=+v.valor||0; n+=qtdDe(v); });
+    setTxt('vmTot',real(tot)); setTxt('vmN',n);
+    montaChart(porLive(vs), vmFiltro, $('vmBars'), $('vmYaxis'), $('vmXaxis'));
   }
+  function abrirVend(sig){
+    vmSig=sig; vmFiltro='todas';
+    var av=$('vmAv'); av.textContent=sigCurta(sig); av.style.background=corSig(sig);
+    setTxt('vmNome',nomeSig(sig)); setTxt('vmSub', sigCurta(sig));
+    $('vmFilter').querySelectorAll('a').forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-p')==='todas'); });
+    renderVmChart();
+    $('vendModal').classList.add('on');
+  }
+  function fecharVend(){ $('vendModal').classList.remove('on'); }
+  $('vendGrid').addEventListener('click', function(e){ var c=e.target.closest('.vendcard'); if(c) abrirVend(c.getAttribute('data-sig')); });
+  $('vmFilter').addEventListener('click', function(e){ var a=e.target.closest('a'); if(!a) return; this.querySelectorAll('a').forEach(function(x){ x.classList.toggle('on',x===a); }); vmFiltro=a.getAttribute('data-p')||'todas'; renderVmChart(); });
+  $('vmClose').onclick=fecharVend;
+  $('vendModal').addEventListener('click', function(e){ if(e.target===this) fecharVend(); });
 
-  // ===== modo METAS (horas de live por vendedora, vs a meta do período) =====
+  // ---------- METAS ----------
   function fmtH(min){ min=Math.max(0,Math.round(+min||0)); return Math.floor(min/60)+'h'+('0'+(min%60)).slice(-2); }
   function carregarMetas(){
-    var _pf=$('plats'); if(_pf) _pf.style.display='none';
-    document.querySelectorAll('.cardPlat').forEach(function(c){ c.style.display='none'; });
-    fetch('/horas-vendedoras?periodo='+encodeURIComponent(periodo),{cache:'no-store'})
+    fetch('/horas-vendedoras?periodo='+encodeURIComponent(periodo==='30'?'mes':periodo),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){
         if(!d||!d.ok){ $('erro').style.display='block'; return; }
         $('erro').style.display='none';
-        var nomePer={hoje:'hoje','7':'nos últimos 7 dias',mes:'neste mês',total:'no total'}[periodo]||'no período';
-        var titulo=d.ehAdm?'Meta de <b>horas de live</b> por vendedora':'A <b>sua</b> meta de horas de live';
-        $('sub').innerHTML=titulo+' — '+nomePer+'. Meta do período: <b>'+fmtH(d.metaMin)+'</b> ('+fmtH(d.metaDia)+'/dia × '+d.dias+' dia'+(d.dias===1?'':'s')+').';
-        renderMetas(d);
+        var vend=d.vendedoras||[], metaMin=d.metaMin||240;
+        var bateram=vend.filter(function(v){return (+v.minutos||0)>=metaMin;}).length;
+        var soma=vend.reduce(function(a,v){return a+(+v.minutos||0);},0);
+        setTxt('mMeta',fmtH(metaMin)); setTxt('mMetaSub', fmtH(d.metaDia||240)+'/dia × '+(d.dias||1)+' dia'+((d.dias||1)===1?'':'s'));
+        setTxt('mBat', bateram+'/'+vend.length); setTxt('mSoma', fmtH(soma)); setTxt('mQtd', vend.length);
+        var wrap=$('metaGrid');
+        if(!vend.length){ wrap.innerHTML='<div class="vazio">Nenhuma vendedora cadastrada.</div>'; return; }
+        wrap.innerHTML=vend.map(function(v){
+          var min=+v.minutos||0, ok=min>=metaMin, cor=v.cor||'#8b8b95', pct=Math.min(100,Math.round(min/metaMin*100));
+          var msg=ok?('✅ Meta concluída · '+fmtH(min)):('Falta '+fmtH(metaMin-min)+' pra bater');
+          return '<div class="card meta-card"><div class="top"><span class="dot" style="background:'+cor+'"></span><span class="nm">'+esc(v.nome||v.sigla)+'</span>'
+            +'<span class="k">'+fmtH(min)+' <span style="font-size:12px;color:var(--text-3);font-weight:600">/ '+fmtH(metaMin)+'</span></span></div>'
+            +'<div class="barfill"><i style="width:'+pct+'%;background:'+(ok?'var(--ok)':cor)+'"></i></div>'
+            +'<div class="msg" style="color:'+(ok?'var(--ok)':'var(--down)')+'">'+msg+'</div></div>';
+        }).join('');
       }).catch(function(){ $('erro').style.display='block'; });
   }
-  function renderMetas(d){
-    var vend=d.vendedoras||[], metaMin=d.metaMin||240;
-    var bateram=vend.filter(function(v){return (+v.minutos||0)>=metaMin;}).length;
-    var somaMin=vend.reduce(function(a,v){return a+(+v.minutos||0);},0);
-    $('cTotal').textContent=fmtH(metaMin); $('cTotal').previousElementSibling.textContent='🎯 Meta do período';
-    $('cQtd').textContent=bateram+'/'+vend.length; $('cQtd').previousElementSibling.textContent='✅ Bateram a meta';
-    $('cLives').textContent=fmtH(somaMin); $('cLives').previousElementSibling.textContent='⏱️ Horas somadas';
-    var pe=$('pessoas'); pe.innerHTML='';
-    vend.forEach(function(v){
-      var falta=metaMin-(+v.minutos||0), ok=falta<=0, cor=v.cor||'#6b7280';
-      var msg=ok?('Meta concluída! Horas realizadas: '+fmtH(v.minutos)):('Falta '+fmtH(falta)+' para bater a meta diária!');
-      var el=document.createElement('div'); el.className='pessoa'; el.style.borderLeftColor=cor;
-      el.innerHTML='<div class="nm"><span class="dot" style="background:'+cor+'"></span>'+(v.nome||v.sigla)+' ('+v.sigla+')</div>'
-        +'<div class="vl">'+fmtH(v.minutos)+' <span style="font-size:12px;color:var(--text-3)">/ '+fmtH(metaMin)+'</span></div>'
-        +'<div class="qt" style="color:'+(ok?'#22c55e':'#ef4444')+';font-weight:800">'+msg+'</div>';
-      pe.appendChild(el);
-    });
-    $('grafTit').textContent='Horas de live por vendedora'; $('legenda').style.display='none';
-    var barras=$('barras');
-    if(!vend.length){ barras.style.display='none'; $('vazio').style.display=''; $('vazio').textContent='Nenhuma vendedora cadastrada.'; return; }
-    barras.style.display=''; $('vazio').style.display='none'; barras.innerHTML='';
-    var maxV=Math.max.apply(null, vend.map(function(v){return +v.minutos||0;}).concat([metaMin]))||1;
-    vend.forEach(function(v){
-      var ok=(+v.minutos||0)>=metaMin, cor=ok?'#22c55e':(v.cor||'#6b7280');
-      var altura=Math.max(3, Math.round((+v.minutos||0)/maxV*190));
-      var col=document.createElement('div'); col.className='col';
-      col.innerHTML='<div class="val">'+fmtH(v.minutos)+'</div>'
-        +'<div class="stack" style="height:'+altura+'px"><div class="seg" style="height:'+altura+'px;background:'+cor+'"></div></div>'
-        +'<div class="hora">'+v.sigla+'</div>';
-      col.title=(v.nome||v.sigla)+' · '+fmtH(v.minutos)+' de '+fmtH(metaMin)+(ok?' ✅':'');
-      barras.appendChild(col);
-    });
+
+  // ---------- carregar (segundo a visão) ----------
+  function carregar(){
+    setTxt('dr', mesLbl[periodo]||'📅 Período');
+    if(modo==='metas'){ carregarMetas(); return; }
+    fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!d||!d.ok){ $('erro').style.display='block'; return; }
+        $('erro').style.display='none';
+        ehAdm=!!d.ehAdm; papel=d.papel; minhaSigla=d.minhaSigla; cores=d.cores||{};
+        render(d.vendas||[]);
+      }).catch(function(){ $('erro').style.display='block'; });
   }
 
+  // filtros
+  $('histPlat').addEventListener('click', function(e){ var a=e.target.closest('a'); if(!a) return; this.querySelectorAll('a').forEach(function(x){ x.classList.toggle('on',x===a); }); platF=a.getAttribute('data-p')||'todas'; if(modo==='dash') render(vendasAll); });
+  $('histPeriodo').addEventListener('click', function(e){ var a=e.target.closest('a'); if(!a) return; this.querySelectorAll('a').forEach(function(x){ x.classList.toggle('on',x===a); }); periodo=a.getAttribute('data-per')||'hoje'; carregar(); });
+  $('visaoSeg').addEventListener('click', function(e){ var a=e.target.closest('a'); if(!a) return; this.querySelectorAll('a').forEach(function(x){ x.classList.toggle('on',x===a); });
+    modo=a.getAttribute('data-m')||'dash';
+    var metas=(modo==='metas');
+    $('viewDash').hidden=metas; $('viewMetas').hidden=!metas; $('histPlat').style.display=metas?'none':'';
+    carregar();
+  });
+
   carregar();
-  setInterval(carregar, 30000); // atualiza sozinho a cada 30s
+  setInterval(carregar, 30000);
+
+  // ===== pétalas caindo no fundo (igual ao painel; sempre animam) =====
+  (function(){
+    var cv=document.getElementById('petals'); if(!cv) return; var ctx=cv.getContext('2d');
+    var root=document.documentElement, W,H,DPR, N=18, ps=[], colA='#a78bfa', colB='#8b5cf6';
+    function lerCores(){ var cs=getComputedStyle(root); colA=(cs.getPropertyValue('--petal-a')||colA).trim(); colB=(cs.getPropertyValue('--petal-b')||colB).trim(); (ps||[]).forEach(function(p){ p.c=Math.random()<.5?colA:colB; }); }
+    function resize(){ DPR=Math.min(window.devicePixelRatio||1,2); W=innerWidth; H=innerHeight; cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+'px'; cv.style.height=H+'px'; ctx.setTransform(DPR,0,0,DPR,0,0); }
+    function mk(ini){ return {x:Math.random()*W,y:ini?Math.random()*H:-16,s:6+Math.random()*9,r:Math.random()*6.28,vr:-.02+Math.random()*.04,vy:.35+Math.random()*.85,sway:.4+Math.random()*.7,ph:Math.random()*6.28,vph:.008+Math.random()*.02,a:.4+Math.random()*.4,c:Math.random()<.5?colA:colB}; }
+    function petala(s){ ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(s*.55,-s*.42,0,-s); ctx.quadraticCurveTo(-s*.55,-s*.42,0,0); ctx.fill(); }
+    function frame(){ ctx.clearRect(0,0,W,H); for(var i=0;i<ps.length;i++){ var p=ps[i]; p.y+=p.vy; p.ph+=p.vph; p.x+=Math.sin(p.ph)*p.sway; p.r+=p.vr; if(p.y>H+18||p.x<-30||p.x>W+30){ ps[i]=mk(false); continue; } ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.globalAlpha=p.a; ctx.fillStyle=p.c; petala(p.s); ctx.restore(); } ctx.globalAlpha=1; requestAnimationFrame(frame); }
+    resize(); ps=[]; for(var i=0;i<N;i++) ps.push(mk(true)); lerCores(); frame();
+    addEventListener('resize', resize); window.__petalCores=lerCores;
+  })();
 })();
 </script>
 </body>
