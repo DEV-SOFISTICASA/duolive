@@ -12,19 +12,18 @@
   :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#f472b6;--glow:rgba(236,72,153,.12);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.20);--petal-a:#f9a8d4;--petal-b:#fbcfe8;--border-hi:rgba(236,72,153,.32)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{background:var(--bg);color:var(--text);font:13px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column;overflow:hidden}
-  #petals{position:fixed;inset:0;z-index:0;pointer-events:none}
-  .glow{position:fixed;inset:-15% 0 auto 0;height:55vh;z-index:0;pointer-events:none;background:radial-gradient(55% 60% at 28% 0%,var(--glow-a),transparent 70%),radial-gradient(45% 50% at 82% 4%,var(--glow-b),transparent 70%)}
-  body > :not(#petals):not(.glow){position:relative;z-index:1}
-  header{display:flex;align-items:center;gap:8px 10px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+  body{background:transparent;color:var(--text);font:15px/1.5 'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column;overflow:hidden}
+  body > *{position:relative;z-index:1}
+  header{display:flex;align-items:center;gap:8px 11px;padding:14px 16px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
   .st{width:9px;height:9px;border-radius:50%;background:#f87171;flex:none}
   .st.on{background:var(--ok);box-shadow:0 0 8px rgba(74,222,128,.7)}
-  header b{font-size:13px}
-  header small{color:var(--text-3);font-size:11px}
-  .conts{margin-left:auto;display:flex;gap:12px;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
-  .vendas{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex:none;background:rgba(74,222,128,.05)}
-  .vendas b{font-size:12.5px;color:var(--ok)}
-  .vendas .tot{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+  header b{font-size:18px;font-weight:700;font-family:'Bricolage Grotesque','Manrope',sans-serif}
+  header small{color:var(--text-3);font-size:13px}
+  .conts{margin-left:auto;display:flex;gap:14px;font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}
+  .conts b{color:var(--text);font-family:'Manrope',sans-serif}
+  .vendas{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--line);flex:none;background:linear-gradient(90deg,var(--glow),transparent)}
+  .vendas b{font-size:14.5px;color:var(--text)}
+  .vendas .tot{font-size:14px;color:var(--text-2);font-variant-numeric:tabular-nums}
   .vendas button{margin-left:auto}
   .btn{display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:600;cursor:pointer}
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text-2)}
@@ -35,8 +34,8 @@
   #formVenda .plat{display:flex;gap:4px}
   #formVenda .plat span{padding:5px 10px;border:1px solid var(--line);border-radius:99px;font-size:11px;cursor:pointer;color:var(--text-3)}
   #formVenda .plat span.on{color:var(--accent-2);border-color:var(--border-hi);background:var(--glow)}
-  .chips{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
-  .chip{font-size:11px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none}
+  .chips{display:flex;gap:7px;padding:11px 16px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+  .chip{font-size:14px;padding:4px 11px;border-radius:99px;border:1px solid var(--line);color:var(--text-3);cursor:pointer;user-select:none}
   .chip.on{color:var(--accent-2);border-color:var(--border-hi);background:var(--glow)}
   /* a fonte do chat acompanha a largura do painel: alargou pela barrinha, letra cresce.
      Tudo em negrito para ler de longe durante a live. */
@@ -69,10 +68,9 @@
 </style>
 </head>
 <body>
-  <canvas id="petals"></canvas><div class="glow"></div>
   <header>
     <span class="st" id="st"></span>
-    <div><b>💬 Multichat da live</b><br><small id="quem">ligando…</small></div>
+    <div><b>Multichat da live</b><br><small id="quem">ligando…</small></div>
     <div class="conts"><span title="pessoas assistindo agora">👀 <span id="cVis">–</span></span><span title="curtidas">❤️ <span id="cLikes">–</span></span></div>
     <div class="chatsize" title="Tamanho do texto do chat"><span class="aa" style="font-size:12px">A</span><input type="range" id="chatSlider" min="13" max="30" step="1" value="20"><span class="aa" style="font-size:18px">A</span></div>
   </header>
