@@ -462,12 +462,13 @@
       $('tViewsLbl').textContent='Assistindo'; $('tLikesLbl').textContent='Curtidas';
       $('tGmv').textContent = real2((+tik||0)+(+sho||0));
       $('tPed').textContent = inteiro(d.pedidos);
-      $('tViews').textContent = inteiro(d.espectadores);
+      // Assistindo = espectadores do TikTok + os da Shopee (lidos pelo script da tela da Shopee)
+      var vistasSho = +d.espectadoresShopee||0;
+      $('tViews').textContent = inteiro((+d.espectadores||0) + vistasSho);
       $('tLikes').textContent = inteiro(d.likes);
-      av.pico = Math.max(av.pico||0, +d.espectadores||0);
       $('tGmvFoot').textContent='TikTok + Shopee'; $('tGmvPill').style.display='none';
       $('tPedFoot').textContent='nesta live';
-      $('tViewsFoot').textContent='pico '+inteiro(av.pico);
+      $('tViewsFoot').textContent='Shopee + TikTok';
       av.inicio = d.inicio||0;
     }).catch(function(){ marcaLive(false); $('aoVivoBox').style.display='none'; av.inicio=0; av.pico=0; });
     fetch(apiBase()+'/oferta',{cache:'no-store'}).then(function(r){return r.json();}).then(function(o){

@@ -63,12 +63,18 @@ function chatDe(loja) {
 function comLoja(k, ev) { if (k) ev.loja = k; return ev; }
 // numeros oficiais do console de lives (Compass) por loja, lidos por cookies como no LiveDash
 const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
+// espectadores da Shopee lidos pelo script da TELA da Shopee (a Shopee nao tem feed
+// oficial de audiencia ao vivo). loja -> { n, ts }. Some no painel se ficar velho.
+const shopeeViewers = {};
 let lojaAtual = '';        // ultima loja escolhida (reserva p/ chamadas antigas sem ?loja)
-// anti-duplicata do CHAT da Shopee: se DOIS robos leem a MESMA live, os dois postam o mesmo
-// comentario (2x). Ignora o repetido que chegar em ate 15s (loja+pessoa+texto).
+// anti-duplicata do CHAT da Shopee: se DOIS robos leem a MESMA live, os dois postam o
+// mesmo comentario e ele aparece 2x. Aqui a gente ignora o repetido que chegar em ate
+// 15s (mesma pessoa + mesmo texto). O chat nao tem id unico como a venda (order_id),
+// entao a trava e por tempo. Segura duplicata de 2 robos, retry, etc.
 const _chatRecente = new Map();
 function chatRepetido(quem, texto, loja) {
-  const chave = (loja || '') + '|' + quem + '|' + texto;
+  if (loja) quem = loja + '' + quem; // separa por loja (2 lojas nao se anulam)
+  const chave = quem + '' + texto;
   const agora = Date.now();
   const visto = _chatRecente.get(chave);
   if (visto && agora - visto < 15000) return true;
@@ -514,9 +520,13 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const ev = JSON.parse(corpo);
+        const ljEv = ev.loja ? L.limpaNome(ev.loja) : ''; // marca a loja da Shopee p/ o painel filtrar
+        // espectadores da Shopee: o script da tela le' o numero e manda aqui (nao e' chat)
+        if (ev.espectadores != null && isFinite(+ev.espectadores)) {
+          shopeeViewers[ljEv] = { n: Math.max(0, Math.round(+ev.espectadores)), ts: Date.now() };
+        }
         const texto = String(ev.texto || '').slice(0, 300).trim();
         const quem = String(ev.quem || '').slice(0, 60).trim();
-        const ljEv = ev.loja ? L.limpaNome(ev.loja) : ''; // marca a loja da Shopee p/ o painel filtrar
         if (texto && !chatRepetido(quem, texto, ljEv)) {
           emitir(comLoja(ljEv, { tipo: 'mensagem', quem: quem, texto: texto, plataforma: 'shopee' }));
           liveShopeeAtual().mensagens++;
@@ -620,13 +630,29 @@ const server = http.createServer((req, res) => {
       let norm = {}; // sigla/nome da menina AO VIVO por loja (do LiveDash), case-insensitive
       if (LD.ativo()) { try { const sig = SB.ativo() ? await siglasConhecidas() : []; const m = await LD.aoVivoPorLoja(sig); Object.keys(m).forEach((k) => { norm[String(k).toLowerCase()] = m[k]; }); } catch (e) {} }
       const agora = Date.now();
-      const lista = Object.keys(compassPorLoja).map((loja) => {
+      // duas deteccoes de live juntas: (1) robo do console (Compass) e (2) o proprio
+      // chat conectado na live. Assim o chip da menina aparece MESMO sem o robo do
+      // console rodar — basta o chat da loja estar ao vivo (a sigla vem do LiveDash
+      // ou, na falta, do titulo da live que o chat ja le').
+      const porLoja = {};
+      Object.keys(compassPorLoja).forEach((loja) => {
         const c = compassPorLoja[loja];
         const fresco = c.ts && (agora - c.ts < 15 * 60000);
         const s = norm[String(loja).toLowerCase()] || {};
-        return { loja: loja, live: !!(fresco && c.live), gmv: c.gmv, orders: c.orders, views: c.views, sigla: s.sigla || '', nome: s.nome || '' };
+        porLoja[loja] = { loja: loja, live: !!(fresco && c.live), gmv: c.gmv, orders: c.orders, views: c.views, sigla: s.sigla || '', nome: s.nome || '' };
       });
-      res.end(JSON.stringify(lista));
+      Object.keys(chats).forEach((loja) => {
+        if (!loja) return;                 // conta local sem carimbo nao e' uma "loja" da lista
+        const ch = chats[loja];
+        if (!ch || !ch.aoVivo) return;     // so' as lojas que o chat detectou AO VIVO
+        const s = norm[String(loja).toLowerCase()] || {};
+        const cur = porLoja[loja] || { loja: loja, live: false, gmv: 0, orders: 0, views: 0, sigla: '', nome: '' };
+        cur.live = true;
+        if (!cur.sigla) cur.sigla = s.sigla || ((ch.sigla && (agora - ch.siglaTs < 12 * 3600000)) ? ch.sigla : '');
+        if (!cur.nome) cur.nome = s.nome || '';
+        porLoja[loja] = cur;
+      });
+      res.end(JSON.stringify(Object.keys(porLoja).map((k) => porLoja[k])));
     })().catch(() => { res.end('[]'); });
     return;
   }
@@ -668,13 +694,17 @@ const server = http.createServer((req, res) => {
       }
       // espectadores: o do chat; se 0 e o Compass tem views, mostra as views do console
       const espectadores = st.liveEstado.espectadores || (compassFresco ? c.views : 0);
+      // espectadores da SHOPEE: lidos pelo script da tela da Shopee (recente < 60s).
+      // A Shopee nao tem feed oficial de audiencia; some sozinho se o script parar.
+      const svSh = shopeeViewers[lj] || shopeeViewers[''] || null;
+      const espectadoresShopee = (svSh && (Date.now() - svSh.ts < 60000)) ? svSh.n : 0;
       // LIVE FECHADA: zera pedidos/valor da live no painel (cada live comeca do zero).
       // O historico fica registrado no LiveDash/Historico — aqui e' so' o "ao vivo agora".
       if (!st.aoVivo) { totalTiktok = 0; pedidosTiktok = 0; sho.n = 0; sho.t = 0; }
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({
         usuario: st.usuario, aoVivo: st.aoVivo, loja: lj || undefined,
-        espectadores: espectadores, likes: st.liveEstado.likes,
+        espectadores: espectadores, espectadoresShopee: espectadoresShopee, likes: st.liveEstado.likes,
         inicio: st.liveEstado.inicio,
         totalTiktok: totalTiktok, totalShopee: sho.t,
         pedidosTiktok: pedidosTiktok, pedidosShopee: sho.n,
@@ -894,29 +924,6 @@ const server = http.createServer((req, res) => {
       }
       return OFERTAS.listar(loja).then((l) => res.end(JSON.stringify({ ok: true, loja: loja, ehAdm: ehAdm, descontos: l })));
     }).catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e) })); });
-    return;
-  }
-
-  // ---------- Mapa de SKUs da loja MESTRE (casamento exato entre lojas) ----------
-  // Serve o mapa-produtos.json que vem no pacote (o robô do PC reserva renova o dele
-  // a cada ~15 min; o daqui é a foto do último deploy — produto novo só entra no mapa
-  // da nuvem no próximo deploy). É o que o LivePilot (Observador) usa pra casar a
-  // lista mestre com a loja da live SEM chute por nome: SKU prova, nome não.
-  // Formato: { produto_id_da_mestre: { nome, skus:[SELLER-SKUs], monaco, fast, bellini } }
-  if (req.url.startsWith('/mapa-produtos') && req.method === 'GET') {
-    res.setHeader('content-type', 'application/json');
-    try {
-      const arq = path.join(__dirname, 'mapa-produtos.json');
-      const st = fs.statSync(arq);
-      if (!global._mapaCache || global._mapaCacheMs !== st.mtimeMs) {
-        global._mapaCache = JSON.parse(fs.readFileSync(arq, 'utf8'));
-        global._mapaCacheMs = st.mtimeMs;
-      }
-      const m = global._mapaCache;
-      res.end(JSON.stringify({ ok: true, total: Object.keys(m).length, atualizado_em: new Date(st.mtimeMs).toISOString(), produtos: m }));
-    } catch (e) {
-      res.end(JSON.stringify({ ok: false, erro: 'sem mapa-produtos.json neste deploy', detalhe: String((e && e.message) || e) }));
-    }
     return;
   }
 
