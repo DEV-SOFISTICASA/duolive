@@ -40,11 +40,18 @@
   .marca em{color:var(--accent-2);font-style:normal}
   .marca .mdot{width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 0 14px var(--glow-a)}
   .barraLojas .titulo{color:var(--text-3);font-size:11px;flex:none}
-  #btnLoja{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:12.5px;min-width:180px}
+  /* seletores em pílula (rótulo DENTRO, sem poluir com as contas), iguais à prévia */
+  .lojaWrap{position:relative;display:inline-flex}
+  #btnLoja{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:14px}
+  #btnLoja:hover{border-color:var(--border-hi)}
+  #btnLoja .rot{color:var(--text-3);font-size:12.5px}
   #btnLoja .nome{font-weight:600}
-  #btnLoja .tt{font-size:10.5px;color:var(--text-3)}
-  #btnLoja .seta{margin-left:auto;color:var(--text-3);font-size:10px}
-  #menuLojas{position:absolute;top:40px;left:8px;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:5px;min-width:230px;max-height:60vh;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none}
+  #btnLoja .tt{display:none}   /* as contas ficam no menu, não na pílula */
+  #btnLoja .seta{color:var(--text-3);font-size:10px;margin-left:2px}
+  .selShopeeWrap{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:14px;cursor:pointer}
+  .selShopeeWrap:hover{border-color:var(--border-hi)}
+  .selShopeeWrap .rot{color:var(--text-3);font-size:12.5px}
+  #menuLojas{position:absolute;top:calc(100% + 5px);left:0;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:5px;min-width:230px;max-height:60vh;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none}
   #menuLojas.aberto{display:block}
   #menuLojas .item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;color:var(--text-2);cursor:pointer;white-space:nowrap}
   #menuLojas .item:hover{background:var(--card-2,#1d1d24)}
@@ -67,7 +74,7 @@
   .chip-live .men{width:9px;height:9px;border-radius:50%;flex:none}
   .chip-live .loja{color:var(--text-3);font-weight:400}
   .chip-live.on{border-color:var(--live);background:rgba(244,63,94,.12);color:var(--text)}
-  #selShopee{appearance:none;-webkit-appearance:none;border-radius:10px!important}
+  #selShopee{appearance:none;-webkit-appearance:none;background:transparent;border:none;color:var(--text);font:inherit;font-weight:600;cursor:pointer;padding:0 15px 0 0;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5l3 3 3-3' stroke='%236b6b78' fill='none' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right center}
   /* o template do desenho: esquerda = Analytics em cima + Ofertas embaixo; direita = Multichat inteiro */
   .grade{display:grid;flex:1;min-height:0;gap:0;padding:10px 12px 12px;grid-template-columns:minmax(300px,var(--esq,46%)) 12px 1fr;position:relative;z-index:1}
   .esq{display:grid;gap:6px;grid-template-rows:1fr;min-width:0}  /* TEMPORÁRIO: Ofertas escondida — Analytics ocupa tudo (era 46% 1fr) */
@@ -106,17 +113,19 @@
     <span class="marca"><span class="mdot"></span>Duo<em>Live</em></span>
     <nav class="navTop"><a class="on"><span class="lp"></span> Ao vivo</a><a href="/historico" target="_blank">Histórico</a></nav>
     <span class="sepv"></span>
-    <span class="titulo">🏪 Loja:</span>
-    <button id="btnLoja">
-      <span class="nome" id="lojaNome">escolher…</span>
-      <span class="tt" id="lojaTT"></span>
-      <span class="seta">▼</span>
-    </button>
-    <div id="menuLojas"></div>
-    <span class="titulo" style="margin-left:6px">🧡 Shopee:</span>
-    <select id="selShopee" style="padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:12.5px" title="Qual Shopee mostrar. Padrao = a mesma loja. Da pra parear a live do TikTok de uma loja com a Shopee de OUTRA.">
-      <option value="">= a loja</option>
-    </select>
+    <span class="lojaWrap">
+      <button id="btnLoja" title="TikTok e Shopee desta loja (as contas aparecem no menu)">
+        <span class="rot">🏪 Loja</span>
+        <span class="nome" id="lojaNome">escolher…</span>
+        <span class="tt" id="lojaTT"></span>
+        <span class="seta">▾</span>
+      </button>
+      <div id="menuLojas"></div>
+    </span>
+    <label class="selShopeeWrap" title="Qual Shopee mostrar. Padrao = a mesma loja. Da pra parear a live do TikTok de uma loja com a Shopee de OUTRA.">
+      <span class="rot">🧡 Shopee</span>
+      <select id="selShopee"><option value="">= a loja</option></select>
+    </label>
     <span class="sepv" style="margin-left:4px"></span>
     <span id="meninasAoVivo" style="display:flex;gap:7px;align-items:center"></span>
     <button id="btnTema" onclick="alternaTema()" title="Alternar claro/escuro" style="margin-left:auto;background:var(--card);border:1px solid var(--line);color:var(--text-2);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:14px;line-height:1">🌗</button>
