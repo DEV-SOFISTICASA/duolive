@@ -80,6 +80,13 @@
   .gradeHist{flex:1;min-height:0;padding:10px 12px 12px;position:relative;z-index:1;display:flex}
   .gradeHist[hidden]{display:none}
   .gradeHist iframe{width:100%;height:100%;border:0;display:block;background:transparent;border-radius:16px}
+  .gradeOfertas{flex:1;min-height:0;padding:10px 12px 12px;position:relative;z-index:1;display:grid;place-items:center}
+  .gradeOfertas[hidden]{display:none}
+  .emdev{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:44px 42px;text-align:center;max-width:460px}
+  .emdev .ic{font-size:46px;line-height:1}
+  .emdev h2{font-family:'Bricolage Grotesque',Manrope,sans-serif;font-weight:800;font-size:25px;margin:14px 0 8px}
+  .emdev .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2);background:var(--glow);border:1px solid var(--border-hi);border-radius:999px;padding:6px 14px}
+  .emdev p{color:var(--text-3);font-size:14.5px;margin-top:14px;line-height:1.65}
   .esq{display:grid;gap:6px;grid-template-rows:1fr;min-width:0}  /* TEMPORÁRIO: Ofertas escondida — Analytics ocupa tudo (era 46% 1fr) */
   /* a barrinha do meio: segure e arraste para aumentar/diminuir o Multichat
      (2 cliques rápidos voltam ao tamanho padrão) */
@@ -114,7 +121,7 @@
   <div class="glow"></div>
   <div class="barraLojas" id="barraLojas">
     <span class="marca"><span class="mdot"></span>Duo<em>Live</em></span>
-    <nav class="navTop"><a id="navLive" class="on"><span class="lp"></span> Ao vivo</a><a id="navHist">Histórico</a></nav>
+    <nav class="navTop"><a id="navLive" class="on"><span class="lp"></span> Ao vivo</a><a id="navOfertas">Ofertas</a><a id="navHist">Histórico</a></nav>
     <span class="sepv"></span>
     <span class="lojaWrap">
       <button id="btnLoja" title="TikTok e Shopee desta loja (as contas aparecem no menu)">
@@ -161,6 +168,15 @@
   </div>
   <!-- Histórico DENTRO do painel (a nav "Ao vivo / Histórico" alterna; não abre outra aba) -->
   <div class="gradeHist" hidden><iframe id="ifHist" title="Histórico"></iframe></div>
+  <!-- Ofertas: por enquanto só um aviso de "em desenvolvimento" -->
+  <div class="gradeOfertas" hidden>
+    <div class="emdev">
+      <div class="ic">🏷️</div>
+      <h2>Ofertas</h2>
+      <span class="tag">Em desenvolvimento</span>
+      <p>Esta área ainda está sendo construída.<br>Em breve as ofertas da live aparecem aqui. 🌸</p>
+    </div>
+  </div>
 <script>
 (function(){
   // F5 / reiniciar a página = sair (na nuvem, cada abertura pede login de novo).
@@ -491,16 +507,21 @@
 <script>
 // nav "Ao vivo / Histórico": alterna a visão DENTRO do painel (NÃO abre outra aba)
 (function(){
-  var navLive=document.getElementById('navLive'), navHist=document.getElementById('navHist');
-  var grade=document.querySelector('.grade'), gradeHist=document.querySelector('.gradeHist'), ifHist=document.getElementById('ifHist');
+  var navLive=document.getElementById('navLive'), navOfertas=document.getElementById('navOfertas'), navHist=document.getElementById('navHist');
+  var grade=document.querySelector('.grade'), gradeHist=document.querySelector('.gradeHist'), gradeOfertas=document.querySelector('.gradeOfertas'), ifHist=document.getElementById('ifHist');
   if(!navLive||!navHist||!grade||!gradeHist) return;
-  function verLive(){ grade.style.display=''; gradeHist.hidden=true; navLive.classList.add('on'); navHist.classList.remove('on'); }
-  function verHist(){
-    if(!ifHist.getAttribute('src')) ifHist.src='historico.html?embed=1'; // carrega só na 1ª vez
-    grade.style.display='none'; gradeHist.hidden=false; navHist.classList.add('on'); navLive.classList.remove('on');
+  function sel(q){
+    grade.style.display=(q==='live')?'':'none';
+    if(gradeOfertas) gradeOfertas.hidden=(q!=='ofertas');
+    gradeHist.hidden=(q!=='hist');
+    navLive.classList.toggle('on', q==='live');
+    if(navOfertas) navOfertas.classList.toggle('on', q==='ofertas');
+    navHist.classList.toggle('on', q==='hist');
+    if(q==='hist' && ifHist && !ifHist.getAttribute('src')) ifHist.src='historico.html?embed=1'; // carrega só na 1ª vez
   }
-  navLive.addEventListener('click', verLive);
-  navHist.addEventListener('click', verHist);
+  navLive.addEventListener('click', function(){ sel('live'); });
+  if(navOfertas) navOfertas.addEventListener('click', function(){ sel('ofertas'); });
+  navHist.addEventListener('click', function(){ sel('hist'); });
 })();
 </script>
 <script>
