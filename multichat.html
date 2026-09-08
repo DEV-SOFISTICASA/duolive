@@ -58,6 +58,12 @@
   .ev.carrinho{border-color:rgba(251,191,36,.6);background:linear-gradient(135deg,var(--card),rgba(251,191,36,.13))} /* colocou no carrinho: sinal forte */
   .ev small{margin-left:auto;color:var(--text-3);font-size:.7em;flex:none}
   #off{padding:14px;margin:10px 12px;border:1px dashed var(--line);border-radius:10px;color:var(--text-2);font-size:12px;line-height:1.7;display:none}
+  /* banner "ESTAMOS OFFLINE!" — aparece quando NENHUMA live está no ar */
+  #offline{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+  #offline.on{display:flex}
+  #offline .zzz{font-size:44px;opacity:.55;line-height:1}
+  #offline .big{font-family:'Bricolage Grotesque','Manrope',sans-serif;font-weight:800;font-size:clamp(30px,7vw,58px);line-height:1;letter-spacing:-1.5px;background:linear-gradient(115deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  #offline .sub{color:var(--text-3);font-size:14px;max-width:280px}
   #off code{font-family:ui-monospace,Consolas,monospace;background:var(--card-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11px}
   .dica{flex:none;padding:8px 12px;border-top:1px solid var(--line);font-size:10.5px;color:var(--text-3);line-height:1.45}
   .chatsize{display:flex;align-items:center;gap:6px;color:var(--text-3);margin-left:10px}
@@ -79,7 +85,6 @@
     <b>🛒 Vendas da live:</b>
     <span class="tot"><span id="vQtd">0</span> pedido(s) · 🎵 R$ <span id="vTik">0,00</span> · 🧡 R$ <span id="vSho">0,00</span></span>
     <button class="btn" id="btnVenda">+ anotar venda</button>
-    <button class="btn ghost" id="btnZerar" title="Começar a contagem do zero (nova live)">zerar</button>
   </div>
   <div id="formVenda">
     <div class="row">
@@ -113,11 +118,20 @@
   </div>
 
   <div id="feed"></div>
+  <div id="offline"><div class="zzz">😴</div><div class="big">ESTAMOS OFFLINE!</div><div class="sub">As lives estão desligadas no momento.</div></div>
 
 <script>
 (function(){
   var $=function(id){return document.getElementById(id)};
   var feed=$('feed'), MAX=200;
+  // banner "ESTAMOS OFFLINE!": some quando a live está no ar, aparece quando não há live
+  function mostraOffline(sim, motivo){
+    var el=$('offline'); if(!el) return;
+    el.classList.toggle('on', !!sim);
+    if(feed) feed.style.display = sim ? 'none' : '';
+    var off=$('off'); if(off && sim) off.style.display='none'; // o banner substitui o aviso de setup
+    var sub=el.querySelector('.sub'); if(sub) sub.textContent = motivo || 'As lives estão desligadas no momento.';
+  }
   var filtros={mensagem:true,venda:true,seguidor:true,presente:true,entrada:false,share:true,curtiu:true,sacolinha:false,carrinho:true};
   var K_VENDAS='ld-multichat-vendas';
   var vendas=[]; try{ vendas=JSON.parse(localStorage.getItem(K_VENDAS))||[]; }catch(e){}
@@ -222,13 +236,7 @@
   };
   $('vValor').addEventListener('keydown',function(e){ if(e.key==='Enter') $('btnVendaOk').click(); });
   $('vQuem').addEventListener('keydown',function(e){ if(e.key==='Enter') $('vValor').focus(); });
-  $('btnZerar').onclick=function(){
-    if(!confirm('Zerar a contagem de vendas? (faça isso ao começar uma live nova)')) return;
-    vendas=[]; gravaVendas();
-    // zera TAMBÉM no conector (as vendas AUTOMÁTICAS do robô) — senão o número voltava no próximo refresh
-    try{ fetch('/zerar-vendas',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({loja:MINHA_LOJA})}).catch(function(){}); }catch(e){}
-    doConector={pedidos:0,tik:0,sho:0}; somaVendas(); // feedback na hora (o /ao-vivo confirma em ~2s)
-  };
+  // (o botao "zerar" saiu: agora a contagem AO VIVO reseta SOZINHA no inicio de cada live)
   somaVendas();
 
   // ---- eventos que chegam do conector (TikTok) ----
@@ -245,6 +253,7 @@
     if(ev.tipo==='status'){
       $('st').className='st'+(ev.conectado?' on':'');
       $('quem').textContent=ev.conectado?('TikTok ao vivo · @'+ev.usuario):('TikTok sem live · @'+(ev.usuario||'?'));
+      mostraOffline(!ev.conectado); // sem live no ar = ESTAMOS OFFLINE!
       return;
     }
     if(ev.tipo==='contadores'){
@@ -318,7 +327,7 @@
   function desligado(){
     $('st').className='st';
     $('quem').textContent='chat do TikTok desligado';
-    $('off').style.display='block';
+    mostraOffline(true, 'O conector está desligado — ligue ele no PC.');
     setTimeout(conecta,3000);
   }
   conecta();
