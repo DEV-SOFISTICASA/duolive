@@ -41,6 +41,7 @@ let usuario = (process.argv[2] || '').replace(/^@/, '');
 let vendasAnotadas = [];        // manuais (o multichat manda a lista)
 let vendasAuto = [];            // automaticas (o robo de vendas por cookies)
 const vendasAutoIds = new Set(); // evita contar o mesmo pedido duas vezes
+const zeradoEm = {};            // loja -> ts do ultimo "zerar" (piso da contagem POR LIVE)
 // sistema de vendedoras: quem esta' vendendo agora e quando a live atual comecou.
 // O grafico do historico agrupa as vendas POR LIVE (horario = inicio da live).
 let siglaAtiva = '';            // sigla da vendedora logada que esta' na live
@@ -666,14 +667,17 @@ const server = http.createServer((req, res) => {
     const st = chatDe(lj);
     // so' as vendas desta loja (cada venda automatica vem marcada com a loja)
     const todas = vendasAnotadas.concat(vendasAuto).filter((v) => !v.loja || !lj || v.loja === lj);
-    // corte = inicio da live; mas NUNCA esconde uma venda ja capturada desta loja: o
-    // robo costuma mandar venda ANTES do chat conectar, entao puxa o corte pra tras
-    // ate a venda mais antiga recente (<6h) desta loja.
+    // "zerar" manual (botao do painel) = PISO RIGIDO: nada de antes disso conta nesta live.
+    const zerou = zeradoEm[lj] || zeradoEm[''] || 0;
+    // corte = inicio da live; puxa pra tras SO' ~45min pra pegar vendas que o robo
+    // mandou pouco ANTES do chat conectar — sem cruzar pra live anterior (era 6h).
+    // E nunca antes do "zerar". Assim o numero fica limpo POR LIVE.
     let desde = st.liveEstado.inicio || 0;
     if (desde) {
-      const limite = Date.now() - 6 * 3600000;
+      const limite = Math.max(Date.now() - 45 * 60000, zerou);
       for (const v of todas) { const t = v.ts || 0; if (t >= limite && t < desde) desde = t; }
     }
+    if (zerou > desde) desde = zerou;
     const daLive = todas.filter((v) => !desde || (v.ts || 0) >= desde);
     const tik = { n: 0, t: 0 }, sho = { n: 0, t: 0 };
     daLive.forEach((v) => {
@@ -682,7 +686,8 @@ const server = http.createServer((req, res) => {
     });
     // numeros do console (Compass) desta loja, se recentes (<15min): sao os oficiais do TikTok
     const c = compassPorLoja[lj] || null;
-    const compassFresco = !!(c && c.ts && (Date.now() - c.ts < 15 * 60000));
+    // console (Compass) só vale se for recente E depois do "zerar" (senão o zerar não zeraria o TikTok)
+    const compassFresco = !!(c && c.ts && (Date.now() - c.ts < 15 * 60000) && c.ts >= zerou);
     (async () => {
       let totalTiktok = compassFresco ? c.gmv : tik.t;
       let pedidosTiktok = compassFresco ? c.orders : tik.n;
@@ -1107,6 +1112,21 @@ const server = http.createServer((req, res) => {
     // /ofertas -> lista (novo)   ·   /oferta -> a primeira (compatibilidade)
     const querLista = req.url.split('?')[0] === '/ofertas';
     res.end(JSON.stringify(querLista ? minhas : (minhas[0] || null)));
+    return;
+  }
+
+  // "zerar" a contagem AO VIVO desta loja (botao do painel, ao comecar uma live nova):
+  // marca um PISO no tempo — o /ao-vivo passa a contar so' as vendas DAQUI PRA FRENTE.
+  // Zera as automaticas (robo) E as manuais de uma vez (o problema do botao antigo).
+  if (req.url.split('?')[0] === '/zerar-vendas' && req.method === 'POST') {
+    let corpo = '';
+    req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
+    req.on('end', () => {
+      let lj = ''; try { lj = L.limpaNome(JSON.parse(corpo || '{}').loja || ''); } catch (e) {}
+      zeradoEm[lj] = Date.now();
+      console.log('  🧹 zerar vendas da live' + (lj ? ' [' + lj + ']' : '') + ' — contagem recomeca do zero.');
+      res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
+    });
     return;
   }
 

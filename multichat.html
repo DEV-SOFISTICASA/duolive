@@ -225,6 +225,9 @@
   $('btnZerar').onclick=function(){
     if(!confirm('Zerar a contagem de vendas? (faça isso ao começar uma live nova)')) return;
     vendas=[]; gravaVendas();
+    // zera TAMBÉM no conector (as vendas AUTOMÁTICAS do robô) — senão o número voltava no próximo refresh
+    try{ fetch('/zerar-vendas',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({loja:MINHA_LOJA})}).catch(function(){}); }catch(e){}
+    doConector={pedidos:0,tik:0,sho:0}; somaVendas(); // feedback na hora (o /ao-vivo confirma em ~2s)
   };
   somaVendas();
 
