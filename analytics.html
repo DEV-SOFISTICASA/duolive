@@ -188,6 +188,7 @@
   // loja escolhida no seletor do painel chega por ?loja=
   var lojaInicial='(todas)'; try{ var lq=new URLSearchParams(location.search).get('loja'); if(lq) lojaInicial=lq; }catch(e){}
   var lojas=[], lojaSel=lojaInicial, dias=30, modo='aovivo', todasLives=[], todasLivesSho=[];
+  var vendasContadas={tik:0,sho:0,qtd:0}; // total DESTA live pela lista de /vendas (piso do contador AO VIVO)
   var liveNoAr=false;  // a live esta acontecendo agora? (pergunta ao conector)
 
   function real(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -402,6 +403,10 @@
         if(lojaSel && lojaSel!=='(todas)' && x.loja && String(x.loja).toLowerCase()!==String(lojaSel).toLowerCase()) return false;
         return true;
       }).sort(function(a,b){ return b.ts-a.ts; });
+      // total por app DESTA live (a MESMA lista das "Últimas compras"). O contador AO VIVO
+      // usa isto como piso pra NUNCA ficar 0 tendo venda na tela — é a fonte do que aconteceu.
+      var cTik=0,cSho=0; v.forEach(function(x){ if(x.plataforma==='tiktok') cTik+=+x.valor||0; else cSho+=+x.valor||0; });
+      vendasContadas={ tik:cTik, sho:cSho, qtd:v.length };
       var total=v.length; v=v.slice(0,6);
       if(!v.length){ box.style.display='none'; return; } // sem compras: não ocupa espaço
       function esc(t){ return String(t==null?'':t).replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;';}); }
@@ -453,15 +458,18 @@
       marcaLive(true);
       $('aoVivoBox').style.display='';
       $('avConta').textContent = d.usuario ? ('@'+d.usuario) : '';
-      // vendas separadas por app (conector novo manda os dois; o antigo só o total)
-      var tik = (d.totalTiktok!=null) ? d.totalTiktok : d.total;
-      var sho = (d.totalShopee!=null) ? d.totalShopee : 0;
+      // vendas separadas por app (conector novo manda os dois; o antigo só o total).
+      // PISO: nunca MENOS que as vendas já listadas em "Últimas compras" (fonte confiável) —
+      // assim o contador nunca fica 0 tendo venda na tela.
+      var tik = Math.max((d.totalTiktok!=null?d.totalTiktok:d.total)||0, vendasContadas.tik||0);
+      var sho = Math.max((d.totalShopee||0), vendasContadas.sho||0);
+      var ped = Math.max((+d.pedidos||0), vendasContadas.qtd||0);
       $('avVendasTik').textContent = real2(tik);
       $('avVendasSho').textContent = real2(sho);
       // as 4 caixinhas com os números DE VERDADE da live agora
       $('tViewsLbl').textContent='Assistindo'; $('tLikesLbl').textContent='Curtidas';
-      $('tGmv').textContent = real2((+tik||0)+(+sho||0));
-      $('tPed').textContent = inteiro(d.pedidos);
+      $('tGmv').textContent = real2(tik+sho);
+      $('tPed').textContent = inteiro(ped);
       // Assistindo = espectadores do TikTok + os da Shopee (lidos pelo script da tela da Shopee)
       var vistasSho = +d.espectadoresShopee||0;
       $('tViews').textContent = inteiro((+d.espectadores||0) + vistasSho);
