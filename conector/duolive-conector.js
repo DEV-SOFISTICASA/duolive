@@ -1334,7 +1334,16 @@ setInterval(() => { Object.keys(chats).forEach((k) => { if (chats[k].aoVivo) atu
 function criarConexao(k) {
   const c = chatDe(k);
   const cx = c.conexao = new TikTokLiveConnection(c.usuario, opcoes);
-  cx.on(WebcastEvent.CHAT, (d) => emitir(comLoja(k, { tipo: 'mensagem', quem: nomeDe(d), texto: (d && (d.content || d.comment)) || '' })));
+  cx.on(WebcastEvent.CHAT, (d) => {
+    const quem = nomeDe(d);
+    const texto = (d && (d.content || d.comment)) || '';
+    if (!texto) return;
+    // ao (re)conectar, o TikTok REENVIA as ultimas mensagens (replay) — some com a live
+    // fechada e fica repetindo. Ignora os ~4s iniciais pos-conexao; a trava pega o resto.
+    if (Date.now() - (c.conectouEm || 0) < 4000) return;
+    if (chatRepetido(quem, texto, k)) return;
+    emitir(comLoja(k, { tipo: 'mensagem', quem: quem, texto: texto }));
+  });
   cx.on(WebcastEvent.MEMBER, (d) => emitir(comLoja(k, { tipo: 'entrada', quem: nomeDe(d) })));
   cx.on(WebcastEvent.FOLLOW, (d) => emitir(comLoja(k, { tipo: 'seguidor', quem: nomeDe(d) })));
   cx.on(WebcastEvent.SHARE, (d) => emitir(comLoja(k, { tipo: 'share', quem: nomeDe(d) })));
@@ -1392,6 +1401,7 @@ function conectar(k) {
   c.conexao.connect().then((estado) => {
     if (g !== c.geracao) return; // trocaram a conta desta loja enquanto conectava
     c.aoVivo = true;
+    c.conectouEm = Date.now(); // marca a conexao: ignora o "replay" de mensagens dos ~4s seguintes
     if (!c.liveEstado.inicio) c.liveEstado.inicio = Date.now(); // marca o comeco da live
     c.liveEstado.roomId = String((estado && estado.roomId) || ''); // a sala casa a live com o LiveDash
     console.log('  ' + rot + 'Conectado na live de @' + c.usuario + (estado && estado.roomId ? ' (sala ' + estado.roomId + ')' : ''));
