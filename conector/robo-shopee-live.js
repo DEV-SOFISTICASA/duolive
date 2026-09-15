@@ -76,6 +76,7 @@ async function apiShopee(page, caminho) {
 // ---------------------------------------------------------------- estado
 let sessionId = null;      // a live no ar
 let tituloLive = '';
+let _hbTs = 0;             // ultimo "heartbeat" (aviso pro conector de que a live segue no ar)
 let ultimoComentTs = 0;    // marcador do chat (só pego o que for mais novo)
 // TRAVA anti-repetição do chat: guarda a "impressão digital" (hora|pessoa|texto) dos
 // comentários já enviados, pra NÃO repetir se a Shopee devolver o mesmo de novo.
@@ -126,9 +127,9 @@ async function achaLive(page) {
   const lista = (r.data && r.data.list) || [];
   const viva = lista.find((s) => s.status === 1);
   if (!viva) {
-    if (sessionId) console.log('  🔴 a live da ' + loja + ' fechou.');
+    if (sessionId) { console.log('  🔴 a live da ' + loja + ' fechou.'); try { await mandaConector('/eventos', { loja: loja, shopeeLive: false }); } catch (e) {} }
     diz1x('semlive', '  ⏳ ' + loja + ': vigiando… (' + lista.length + ' live(s) na lista, nenhuma AO VIVO agora)');
-    sessionId = null; baseFeita = false; return false;
+    sessionId = null; baseFeita = false; _hbTs = 0; return false;
   }
   if (String(viva.sessionId) !== String(sessionId)) {
     sessionId = viva.sessionId; tituloLive = viva.title || '';
@@ -136,6 +137,7 @@ async function achaLive(page) {
     Object.keys(pedidosPorItem).forEach((k) => delete pedidosPorItem[k]);
     Object.keys(carrinhoPorItem).forEach((k) => delete carrinhoPorItem[k]);
     console.log('  🧡 LIVE DA SHOPEE no ar: "' + tituloLive + '" (sessão ' + sessionId + ')');
+    _hbTs = Date.now(); try { await mandaConector('/eventos', { loja: loja, shopeeLive: true, sessionId: sessionId }); } catch (e) {} // avisa o conector: live NOVA (zera o contador)
   } else if (recuperou) {
     // MESMA live, mas voltei de uma queda → re-sincronizo: pego os números ATUAIS
     // como novo ponto de partida, SEM despejar as vendas do período offline (senão
@@ -143,6 +145,9 @@ async function achaLive(page) {
     baseFeita = false;
     console.log('  🔄 ' + loja + ': reconectei — re-sincronizando (não vou repetir as vendas que passaram enquanto eu estava fora).');
   }
+  // heartbeat: a cada ~15s avisa o conector que a live da Shopee SEGUE no ar. Se o robo
+  // cair, o conector percebe pela falta desse sinal (>3min) e para de contar essa live.
+  if (Date.now() - _hbTs > 15000) { _hbTs = Date.now(); try { await mandaConector('/eventos', { loja: loja, shopeeLive: true, sessionId: sessionId }); } catch (e) {} }
   return true;
 }
 

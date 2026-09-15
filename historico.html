@@ -142,7 +142,7 @@
       <a data-p="sh"><span class="lgm sh"><svg class="lg"><use href="#shopee"></use></svg></span> Shopee</a>
       <a data-p="tt"><span class="lgm tt"><svg class="lg"><use href="#tiktok"></use></svg></span> TikTok</a>
     </div>
-    <div class="segment" id="histPeriodo"><a class="on" data-per="hoje">Hoje</a><a data-per="7">7 dias</a><a data-per="30">30 dias</a></div>
+    <div class="segment" id="histPeriodo"><a class="on" data-per="hoje">Hoje</a><a data-per="7">7 dias</a><a data-per="mes" id="segMes">Mês</a></div>
   </div>
 
   <!-- ===== visão VENDAS (dashboard) ===== -->
@@ -221,7 +221,10 @@
 
   var $=function(id){return document.getElementById(id)};
   var periodo='hoje', platF='todas', modo='dash', ehAdm=false, papel=null, minhaSigla=null, cores={}, vendasAll=[];
-  var mesLbl={hoje:'📅 Hoje','7':'📅 Últimos 7 dias','30':'📅 Últimos 30 dias'};
+  var mesLbl={hoje:'📅 Hoje','7':'📅 Últimos 7 dias'};
+  // nome do mes vigente, em pt-BR e com a 1a letra maiuscula (setembro -> "Setembro").
+  // Automatico: em outubro vira "Outubro" sozinho, sem mexer no codigo.
+  function nomeMesAtual(){ var m=new Date().toLocaleString('pt-BR',{month:'long'}); return m.charAt(0).toUpperCase()+m.slice(1); }
 
   function real(n){ return 'R$ '+(+n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function esc(t){ return String(t==null?'':t).replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;';}); }
@@ -236,7 +239,7 @@
   function _parts(ms){ var p={}; _fmtBRT.formatToParts(new Date(ms)).forEach(function(x){p[x.type]=x.value;}); return p; }
   function ddmm(ms){ var p=_parts(ms); return p.day+'/'+p.month; }
   function ddmmhh(ms){ var p=_parts(ms); return p.day+'/'+p.month+' '+p.hour+':'+p.minute; }
-  function desdeDe(p){ var d=new Date(); if(p==='hoje'){ d.setHours(0,0,0,0); return d; } d.setDate(d.getDate()-(p==='30'?30:7)); return d; }
+  function desdeDe(p){ var d=new Date(); if(p==='hoje'){ d.setHours(0,0,0,0); return d; } if(p==='mes'){ d.setDate(1); d.setHours(0,0,0,0); return d; } d.setDate(d.getDate()-7); return d; }
 
   // quem está logado (Sair aparece só logado e fora do painel)
   fetch('/eu',{cache:'no-store'}).then(function(r){return r.json();}).then(function(u){
@@ -333,7 +336,7 @@
   // ---------- METAS ----------
   function fmtH(min){ min=Math.max(0,Math.round(+min||0)); return Math.floor(min/60)+'h'+('0'+(min%60)).slice(-2); }
   function carregarMetas(){
-    fetch('/horas-vendedoras?periodo='+encodeURIComponent(periodo==='30'?'mes':periodo),{cache:'no-store'})
+    fetch('/horas-vendedoras?periodo='+encodeURIComponent(periodo),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){
         if(!d||!d.ok){ $('erro').style.display='block'; return; }
         $('erro').style.display='none';
@@ -357,7 +360,8 @@
 
   // ---------- carregar (segundo a visão) ----------
   function carregar(){
-    setTxt('dr', mesLbl[periodo]||'📅 Período');
+    var _sm=$('segMes'); if(_sm) _sm.textContent=nomeMesAtual(); // mantem o botao no mes vigente (vira "Outubro" sozinho na virada do mes)
+    setTxt('dr', periodo==='mes'?('📅 '+nomeMesAtual()):(mesLbl[periodo]||'📅 Período'));
     if(modo==='metas'){ carregarMetas(); return; }
     fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){

@@ -67,6 +67,12 @@ const compassPorLoja = {}; // { loja: { gmv, orders, views, ts } }
 // espectadores da Shopee lidos pelo script da TELA da Shopee (a Shopee nao tem feed
 // oficial de audiencia ao vivo). loja -> { n, ts }. Some no painel se ficar velho.
 const shopeeViewers = {};
+// LIVE da Shopee AO VIVO: o robo (robo-shopee-live.js) avisa quando uma live COMECA
+// (com o sessionId da Shopee) e quando FECHA. Usamos isso p/ (1) cortar o contador
+// POR live — mesmo em live SO' de Shopee, sem TikTok — e (2) acender o chip da loja.
+const shopeeSession = {}; // loja -> sessionId da live Shopee no ar agora ('' = fechada)
+const shopeeVivoTs = {};  // loja -> ts do ultimo sinal do robo (heartbeat; velho = live caiu)
+function shopeeAoVivo(loja) { return !!shopeeSession[loja] && (Date.now() - (shopeeVivoTs[loja] || 0) < 3 * 60000); }
 let lojaAtual = '';        // ultima loja escolhida (reserva p/ chamadas antigas sem ?loja)
 // anti-duplicata do CHAT da Shopee: se DOIS robos leem a MESMA live, os dois postam o
 // mesmo comentario e ele aparece 2x. Aqui a gente ignora o repetido que chegar em ate
@@ -522,9 +528,19 @@ const server = http.createServer((req, res) => {
       try {
         const ev = JSON.parse(corpo);
         const ljEv = ev.loja ? L.limpaNome(ev.loja) : ''; // marca a loja da Shopee p/ o painel filtrar
+        // SINAL DE LIVE da Shopee: o robo avisa "comecou" (com o sessionId) e "fechou".
+        // Serve p/ zerar o contador a cada live nova e acender o chip da loja no topo.
+        if (ev.shopeeLive === true && ljEv) {
+          shopeeSession[ljEv] = String(ev.sessionId || '');
+          shopeeVivoTs[ljEv] = Date.now(); // heartbeat: o robo repete esse aviso a cada ~15s
+        } else if (ev.shopeeLive === false && ljEv) {
+          if (shopeeSession[ljEv]) fimLive[ljEv] = Date.now(); // fechou: fecha o corte por live
+          shopeeSession[ljEv] = ''; shopeeVivoTs[ljEv] = 0;
+        }
         // espectadores da Shopee: o script da tela le' o numero e manda aqui (nao e' chat)
         if (ev.espectadores != null && isFinite(+ev.espectadores)) {
           shopeeViewers[ljEv] = { n: Math.max(0, Math.round(+ev.espectadores)), ts: Date.now() };
+          if (ljEv && shopeeSession[ljEv]) shopeeVivoTs[ljEv] = Date.now(); // tb conta como heartbeat
         }
         const texto = String(ev.texto || '').slice(0, 300).trim();
         const quem = String(ev.quem || '').slice(0, 60).trim();
@@ -653,6 +669,16 @@ const server = http.createServer((req, res) => {
         if (!cur.nome) cur.nome = s.nome || '';
         porLoja[loja] = cur;
       });
+      // lives SO' de Shopee: acende o chip mesmo sem TikTok/Compass (o robo avisou)
+      Object.keys(shopeeSession).forEach((loja) => {
+        if (!loja || !shopeeAoVivo(loja)) return;
+        const s = norm[String(loja).toLowerCase()] || {};
+        const cur = porLoja[loja] || { loja: loja, live: false, gmv: 0, orders: 0, views: 0, sigla: '', nome: '' };
+        cur.live = true;
+        if (!cur.sigla) cur.sigla = s.sigla || '';
+        if (!cur.nome) cur.nome = s.nome || '';
+        porLoja[loja] = cur;
+      });
       res.end(JSON.stringify(Object.keys(porLoja).map((k) => porLoja[k])));
     })().catch(() => { res.end('[]'); });
     return;
@@ -679,10 +705,19 @@ const server = http.createServer((req, res) => {
     }
     const daLive = todas.filter((v) => !desde || (v.ts || 0) >= desde);
     const tik = { n: 0, t: 0 }, sho = { n: 0, t: 0 };
-    daLive.forEach((v) => {
-      const d = v.plataforma === 'tiktok' ? tik : sho;
-      d.n++; d.t += v.valor || 0;
-    });
+    // TikTok: corte por tempo (inicio da live do TikTok), como sempre.
+    daLive.forEach((v) => { if (v.plataforma === 'tiktok') { tik.n++; tik.t += v.valor || 0; } });
+    // SHOPEE POR LIVE: se o robo avisou o sessionId da live atual, conta SO' as vendas
+    // com aquele sessionId (o orderId da Shopee e' 'shopee-<sessionId>-...'). Corte EXATO:
+    // nunca mistura com a live anterior, mesmo numa live SO' de Shopee (sem inicio do TikTok).
+    // Sem esse aviso (fluxo antigo/loja sem robo novo), cai no corte por tempo (daLive).
+    const sess = shopeeSession[lj] || '';
+    if (sess) {
+      const pref = 'shopee-' + sess + '-';
+      todas.forEach((v) => { if (v.plataforma !== 'tiktok' && String(v.orderId || '').indexOf(pref) === 0) { sho.n++; sho.t += v.valor || 0; } });
+    } else {
+      daLive.forEach((v) => { if (v.plataforma !== 'tiktok') { sho.n++; sho.t += v.valor || 0; } });
+    }
     // numeros do console (Compass) desta loja, se recentes (<15min): sao os oficiais do TikTok
     const c = compassPorLoja[lj] || null;
     const compassFresco = !!(c && c.ts && (Date.now() - c.ts < 15 * 60000));
@@ -703,10 +738,14 @@ const server = http.createServer((req, res) => {
       const espectadoresShopee = (svSh && (Date.now() - svSh.ts < 60000)) ? svSh.n : 0;
       // LIVE FECHADA: zera pedidos/valor da live no painel (cada live comeca do zero).
       // O historico fica registrado no LiveDash/Historico — aqui e' so' o "ao vivo agora".
-      if (!st.aoVivo) { totalTiktok = 0; pedidosTiktok = 0; sho.n = 0; sho.t = 0; }
+      // TikTok e Shopee sao INDEPENDENTES: pode ter live so' de Shopee (o robo avisa).
+      const shopeeVivo = shopeeAoVivo(lj);
+      if (!st.aoVivo) { totalTiktok = 0; pedidosTiktok = 0; } // TikTok fechado -> zera TikTok
+      if (sess) { if (!shopeeVivo) { sho.n = 0; sho.t = 0; } } // robo avisou: segue o sinal dele
+      else if (!st.aoVivo) { sho.n = 0; sho.t = 0; }           // sem robo novo: segue o TikTok
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({
-        usuario: st.usuario, aoVivo: st.aoVivo, loja: lj || undefined,
+        usuario: st.usuario, aoVivo: st.aoVivo || shopeeVivo, loja: lj || undefined,
         espectadores: espectadores, espectadoresShopee: espectadoresShopee, likes: st.liveEstado.likes,
         inicio: st.liveEstado.inicio,
         totalTiktok: totalTiktok, totalShopee: sho.t,
