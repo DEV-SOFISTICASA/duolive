@@ -214,7 +214,7 @@
       if(typeof lojaSel!=='undefined' && lojaSel){ try{ postConta(ttDe(lojaSel)); }catch(e){} }
     }
     fetch(URL_MC+'/', {mode:'no-cors', cache:'no-store'}).then(function(){
-      if(!ligado){ ligado=true; mc.src=URL_MC+'/?loja='+encodeURIComponent((typeof lojaSel!=='undefined'&&lojaSel)||'')+'&shopeeLoja='+encodeURIComponent((typeof shopeeLojaAtual==='function'?shopeeLojaAtual():'')||''); aviso.style.display='none'; }
+      if(!ligado){ ligado=true; mc.src=URL_MC+'/?loja='+encodeURIComponent((typeof lojaSel!=='undefined'&&lojaSel)||'')+'&shopeeLoja='+encodeURIComponent((typeof shopeeLojaAtual==='function'?shopeeLojaAtual():'')||'')+'&titulo='+encodeURIComponent(tituloLiveTxt()); aviso.style.display='none'; }
       // o servidor reiniciou (deploy)? religa sozinho o chat da loja escolhida
       if(typeof lojaSel!=='undefined' && lojaSel && ttDe(lojaSel)){
         fetch(URL_MC+'/conta?loja='+encodeURIComponent(lojaSel),{cache:'no-store'}).then(function(r){return r.json();})
@@ -256,8 +256,21 @@
   function shDe(l){ return (fixas[l]&&fixas[l].shopee)||''; }
   function shopeeLojaAtual(){ return shopeeSel || lojaSel; }   // qual loja da Shopee mostrar
   function recarregaMc(){ // recarrega o Multichat: loja do TikTok + a loja da Shopee (podem ser diferentes)
-    try{ if(ligado) mc.src=URL_MC+'/?loja='+encodeURIComponent(lojaSel||'')+'&shopeeLoja='+encodeURIComponent(shopeeLojaAtual()||''); }catch(e){}
+    try{ if(ligado) mc.src=URL_MC+'/?loja='+encodeURIComponent(lojaSel||'')+'&shopeeLoja='+encodeURIComponent(shopeeLojaAtual()||'')+'&titulo='+encodeURIComponent(tituloLiveTxt()); }catch(e){}
   }
+  // texto "LIVE DE {vendedora} ({lojas})" pro cabecalho do multichat: quem esta na live
+  // (nome da vendedora do chip selecionado) e ONDE esta rolando (loja do TikTok + a da Shopee).
+  var ultLive=[]; // ultima resposta de /lojas-live (pra achar o nome da vendedora da loja)
+  function nomeVend(loja){ for(var i=0;i<ultLive.length;i++){ var x=ultLive[i]; if(x && x.loja===loja) return x.nome||x.sigla||''; } return ''; }
+  function tituloLiveTxt(){
+    var t=(lojaSel||''), s=(typeof shopeeLojaAtual==='function'?shopeeLojaAtual():'')||'';
+    var arr=[]; if(t) arr.push(t); if(s && s!==t) arr.push(s);
+    if(!arr.length) return '';
+    var ls=arr.map(function(x){return String(x).toUpperCase();}).join(' E ');
+    var nm=nomeVend(lojaSel);
+    return nm ? ('LIVE DE '+String(nm).toUpperCase()+' ('+ls+')') : ('LIVE · '+ls);
+  }
+  function avisaTitulo(){ try{ if(ligado && mc && mc.contentWindow) mc.contentWindow.postMessage({tipo:'ld-titulo', texto:tituloLiveTxt()}, '*'); }catch(e){} }
   function renderShopeeSel(){ // preenche o seletor da Shopee com as lojas
     var sel=document.getElementById('selShopee'); if(!sel) return;
     sel.innerHTML='<option value="">= a loja</option>'+lojas.map(function(l){return '<option value="'+l+'">🧡 '+l+'</option>';}).join('');
@@ -393,9 +406,11 @@
   function pegaLojasLive(){
     fetch(URL_MC+'/lojas-live',{cache:'no-store'}).then(function(r){return r.json();}).then(function(v){
       if(!Array.isArray(v)) return;
+      ultLive=v; // guarda pra achar o nome da vendedora de cada loja (banner do multichat)
       lojasLive=v.filter(function(x){return x.live;}).map(function(x){return x.loja;});
       renderLojas(); // atualiza os pontinhos 🔴 no menu
       renderMeninas(v); // botoes das meninas ao vivo (loja · sigla) no topo
+      avisaTitulo(); // mantem o banner "LIVE DE ..." com nome/lojas frescos, sem recarregar o chat
       // foca sozinho na loja em live (se voce nao escolheu na mao e ela tem @ cadastrado)
       if(!escolhaManual && lojasLive.length){
         var alvo=lojasLive[0];

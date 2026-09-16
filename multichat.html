@@ -19,6 +19,13 @@
   .st.on{background:var(--ok);box-shadow:0 0 8px rgba(74,222,128,.7)}
   header b{font-size:18px;font-weight:700;font-family:'Bricolage Grotesque','Manrope',sans-serif}
   header small{color:var(--text-3);font-size:13px}
+  /* banner "LIVE DE {vendedora} ({lojas})" — o ADM ve de quem e' a live e onde esta rolando.
+     Estilo sakura do painel: pilula com brilho suave + texto em degrade (roxo->rosa no escuro,
+     rosa no claro) na fonte de display, e um pontinho "live" pulsando. */
+  header .tituloLive{flex:1 1 220px;min-width:0;display:flex;align-items:center;justify-content:center;gap:9px;padding:7px 15px;border-radius:13px;border:1px solid var(--border-hi);background:linear-gradient(90deg,var(--glow-b),var(--glow-a));box-shadow:0 8px 22px -12px var(--glow-a)}
+  header .tituloLive::before{content:"";width:8px;height:8px;border-radius:50%;flex:none;background:var(--rosa,#f472b6);box-shadow:0 0 9px var(--rosa,#f472b6);animation:ldLivePulse 1.7s ease-in-out infinite}
+  header .tituloLive .pt{font-family:'Bricolage Grotesque','Manrope',sans-serif;font-weight:800;font-size:14.5px;letter-spacing:.4px;line-height:1.2;text-transform:uppercase;background:linear-gradient(100deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  @keyframes ldLivePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.72)}}
   .conts{margin-left:auto;display:flex;gap:14px;font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}
   .conts b{color:var(--text);font-family:'Manrope',sans-serif}
   .vendas{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--line);flex:none;background:linear-gradient(90deg,var(--glow),transparent)}
@@ -77,6 +84,7 @@
   <header>
     <span class="st" id="st"></span>
     <div><b>Multichat da live</b><br><small id="quem">ligando…</small></div>
+    <div class="tituloLive" id="tituloLive" hidden><span class="pt"></span></div>
     <div class="conts"><span title="pessoas assistindo agora">👀 <span id="cVis">–</span></span><span title="curtidas">❤️ <span id="cLikes">–</span></span></div>
     <div class="chatsize" title="Tamanho do texto do chat"><span class="aa" style="font-size:12px">A</span><input type="range" id="chatSlider" min="13" max="30" step="1" value="20"><span class="aa" style="font-size:18px">A</span></div>
   </header>
@@ -127,11 +135,10 @@
   var ultimaAtividade=0; // ultima mensagem/venda que chegou — prova que a live está no ar (TikTok OU Shopee)
   // banner "ESTAMOS OFFLINE!": some quando a live está no ar, aparece quando não há live
   function mostraOffline(sim, motivo){
-    var el=$('offline'); if(!el) return;
-    el.classList.toggle('on', !!sim);
-    if(feed) feed.style.display = sim ? 'none' : '';
-    var off=$('off'); if(off && sim) off.style.display='none'; // o banner substitui o aviso de setup
-    var sub=el.querySelector('.sub'); if(sub) sub.textContent = motivo || 'As lives estão desligadas no momento.';
+    // DESATIVADO: o banner estava ESCONDENDO o chat durante a live (Shopee com pausas
+    // no chat caía em "offline" e sumia com as mensagens). Agora o chat fica SEMPRE visível.
+    var el=$('offline'); if(el) el.classList.remove('on');
+    if(feed) feed.style.display='';
   }
   var filtros={mensagem:true,venda:true,seguidor:true,presente:true,entrada:false,share:true,curtiu:true,sacolinha:false,carrinho:true};
   var K_VENDAS='ld-multichat-vendas';
@@ -251,6 +258,11 @@
   // ao mesmo tempo, cada evento vem carimbado e so' mostramos o que e' nosso.
   var MINHA_LOJA='', SHOPEE_LOJA='';
   try{ var _qs=new URLSearchParams(location.search); MINHA_LOJA=String(_qs.get('loja')||'').toLowerCase(); SHOPEE_LOJA=String(_qs.get('shopeeLoja')||'').toLowerCase(); }catch(e){}
+  // banner "LIVE DE {vendedora} ({lojas})": a pagina PAI (index) manda o texto — no ?titulo=
+  // ao (re)carregar e por postMessage a cada 15s (pra manter o nome/lojas sem recarregar).
+  function setTituloLive(t){ var el=$('tituloLive'); if(!el) return; t=String(t||'').trim(); var s=el.querySelector('.pt'); if(s) s.textContent=t; el.hidden=!t; }
+  try{ var _qt=new URLSearchParams(location.search).get('titulo'); if(_qt) setTituloLive(_qt); }catch(e){}
+  window.addEventListener('message',function(ev){ try{ var d=ev.data||{}; if(d&&d.tipo==='ld-titulo') setTituloLive(d.texto); }catch(e){} });
   function trata(ev){
     // filtro POR PLATAFORMA: o TikTok segue a loja do TikTok; a Shopee segue a loja da Shopee.
     // (dá pra parear TikTok de uma loja com Shopee de OUTRA). Sem shopeeLoja, a Shopee aparece como antes.
