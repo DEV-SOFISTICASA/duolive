@@ -483,6 +483,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ---------- CRONOGRAMA de lives (espelho do LiveDash: planejado × real, por vendedora) ----------
+  if (req.url.split('?')[0] === '/cronograma') {
+    res.setHeader('content-type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+    (async () => {
+      if (!LD.ativo()) { res.end('{"ok":false,"erro":"livedash off","turnos":[]}'); return; }
+      const siglas = SB.ativo() ? await siglasConhecidas() : [];
+      const dia = new URLSearchParams((req.url.split('?')[1] || '')).get('dia') || '';
+      // room_ids das lives AO VIVO agora (pro "ao vivo agora" bater em tempo real)
+      const vivos = [];
+      try { Object.keys(chats).forEach((lj) => { const c = chats[lj]; if (c && c.aoVivo && c.liveEstado && c.liveEstado.roomId) vivos.push(String(c.liveEstado.roomId)); }); } catch (e) {}
+      const r = await LD.cronograma(siglas, dia, vivos);
+      // nome/cor do NOSSO cadastro (usuarios) por cima — o que o ADM escolheu ganha
+      if (SB.ativo()) {
+        try {
+          const map = {}; (await SB.seleciona('usuarios', 'select=sigla,nome,cor')).forEach((x) => { map[x.sigla] = x; });
+          r.turnos.forEach((t) => { const c = map[t.sigla]; if (c && c.cor) t.cor = c.cor; });
+        } catch (e) {}
+      }
+      const u = req.usuario || null;
+      r.ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(u);
+      res.end(JSON.stringify(r));
+    })().catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ ok: false, erro: String(e.message || e), turnos: [] })); });
+    return;
+  }
+
   // ---------- Lojas fixas (Monaco/Fast/Mania/Bellini + @). Iguais p/ todos; só o ADM edita ----------
   if (req.url.split('?')[0] === '/lojas-fixas' && req.method === 'GET') {
     res.setHeader('content-type', 'application/json');

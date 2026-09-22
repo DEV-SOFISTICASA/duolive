@@ -131,7 +131,7 @@ async function dados() {
   const porLoja = coletaLives('tts_lives:');        // TikTok
   const porLojaShopee = coletaLives('shp_lives:');  // Shopee (vendas realizadas do LiveDash)
 
-  _dados = { porLoja, porLojaShopee, resp, aliasMap, tags, overrides, viraISO: premio.viraISO || '' };
+  _dados = { porLoja, porLojaShopee, resp, aliasMap, tags, overrides, viraISO: premio.viraISO || '', cronograma: premio.cronograma || null };
   _dadosTs = Date.now();
   return _dados;
 }
@@ -318,4 +318,150 @@ async function aoVivoPorLoja(siglasNossas) {
   });
   return res;
 }
-module.exports = { config, ativo, dados, espelho, horasHoje, horasPeriodo, aoVivoPorLoja };
+// ---------- CRONOGRAMA DE LIVES (espelho do LiveDash: planejado × real) ----------
+// Portado do frontend do LiveDash. O cronograma padrao e' a "Folha de 21/09/2026".
+// Avalia cada bloco planejado contra as lives REAIS que ja espelhamos (mesma
+// atribuicao do historico). Bloco: {i,f,t:'live'|'gravada'|'pausa', shp, l}.
+const CRONO_V = 2;
+function cronoDefault() {
+  const L = (i, f, shp) => ({ i, f, t: 'live', shp: shp || '' }),
+        G = (i, f) => ({ i, f, t: 'gravada' }),
+        P = (i, f, l) => ({ i, f, t: 'pausa', l: l || '' });
+  return { _v: CRONO_V, tol: 10, dias: [1, 2, 3, 4, 5, 6], turnos: [
+    { nome: 'Giovanna',   blocos: [G('07:00', '08:00'), L('08:00', '09:00', 'monaco'), P('09:00', '09:30'), L('09:30', '11:00', 'monaco'), P('11:00', '12:00', 'Almoço'), L('12:00', '13:30', 'monaco'), P('13:30', '14:30'), L('14:30', '15:30'), P('15:30', '16:00')] },
+    { nome: 'Alessandra', blocos: [G('09:00', '10:00'), P('10:00', '11:00'), L('11:00', '12:00', 'monaco'), P('12:00', '13:00', 'Almoço'), L('13:00', '14:00'), P('14:00', '14:30'), L('14:30', '16:00', 'monaco'), P('16:00', '16:30'), L('16:30', '18:00', 'monaco')] },
+    { nome: 'Taciana',    blocos: [G('12:30', '13:30'), L('18:00', '21:00', 'monaco')] },
+  ] };
+}
+const cronoNorm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const cronoCap = (s) => { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); };
+const cronoMin = (hhmm) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '')); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+const cronoHHMM = (min) => { min = Math.max(0, Math.round(min || 0)); return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); };
+function cronoUniao(ivs) { const s = ivs.filter((x) => x[1] > x[0]).sort((a, b) => a[0] - b[0]); let tot = 0, cur = null; s.forEach((x) => { if (!cur || x[0] > cur[1]) { if (cur) tot += cur[1] - cur[0]; cur = [x[0], x[1]]; } else if (x[1] > cur[1]) cur[1] = x[1]; }); if (cur) tot += cur[1] - cur[0]; return tot; }
+const minDiaBRT = (ts) => { const d = new Date(Date.parse(ts) - 3 * 3600000); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+// responsavel do turno: pid gravado (edicao no LiveDash) senao casa pelo comeco do nome (Giov->Giovanna)
+function cronoPidDe(resp, t) { if (t && t.pid && (resp || []).some((p) => p.id === t.pid)) return t.pid; const n = cronoNorm((t && t.nome) || '').slice(0, 4); if (!n) return ''; const p = (resp || []).find((p) => cronoNorm(p.nome).slice(0, 4) === n); return p ? p.id : ''; }
+// config do cronograma: espelha o PREMIO.cronograma do LiveDash; sem ele (ou versao antiga) usa o padrao
+function cronoConf(saved) {
+  if (!saved || !Array.isArray(saved.turnos)) return cronoDefault();
+  if ((+saved._v || 0) < CRONO_V) { // folha nova: troca os horarios, preserva tolerancia/dias/pessoa do LiveDash
+    const n = cronoDefault();
+    if (saved.tol != null) n.tol = saved.tol;
+    if (Array.isArray(saved.dias) && saved.dias.length) n.dias = saved.dias.slice();
+    n.turnos.forEach((t) => { const v = saved.turnos.find((x) => cronoNorm(x.nome).slice(0, 4) === cronoNorm(t.nome).slice(0, 4)); if (v && v.pid) t.pid = v.pid; });
+    return n;
+  }
+  return saved;
+}
+
+// avalia UM dia (YYYY-MM-DD BRT). vivosRoomIds = room_ids que estao AO VIVO agora (do conector).
+async function cronograma(siglasNossas, dia, vivosRoomIds) {
+  const d = await dados();
+  const porId = {}; d.resp.forEach((p) => { porId[p.id] = p; });
+  const conf = cronoConf(d.cronograma); // espelha o cronograma editado no LiveDash; senao o padrao
+  const hoje = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+  dia = dia || hoje;
+  const ehHoje = dia === hoje;
+  const nb = new Date(Date.now() - 3 * 3600000);
+  const agora = ehHoje ? (nb.getUTCHours() * 60 + nb.getUTCMinutes()) : (dia < hoje ? 24 * 60 + 1 : -1);
+  const tol = (conf.tol == null || !isFinite(+conf.tol)) ? 10 : Math.max(0, +conf.tol);
+  const vivos = new Set((vivosRoomIds || []).map(String));
+  // lives reais do dia (TikTok + Shopee), atribuicao ja resolvida (mesma do historico)
+  const lives = [];
+  const add = (mapa, mk) => resolveTodas(d, mapa).forEach((x) => {
+    const r = x.live; if (r.dia !== dia) return;
+    const ini = minDiaBRT(r.ts); if (ini == null) return;
+    const vivo = ehHoje && vivos.has(String(r.room_id));
+    let fim = ini + (r.duracao || 0); if (vivo && agora > fim) fim = agora;
+    lives.push({ r, s: { name: x.loja }, ini, fim, vivo, pids: x.pids, mk, loja: cronoNorm(x.loja) });
+  });
+  add(d.porLoja, 'tt'); add(d.porLojaShopee, 'shp');
+  const dow = new Date(dia + 'T12:00:00').getDay();
+  const ativo = (conf.dias || [1, 2, 3, 4, 5, 6]).indexOf(dow) >= 0;
+  const semDono = (l) => !l.pids.some((x) => x !== '__semshp__' && x !== '__sem__');
+  const monBlocks = []; (conf.turnos || []).forEach((t2) => (t2.blocos || []).forEach((b2) => { if (b2.t === 'live' && b2.shp) { const i2 = cronoMin(b2.i), f2 = cronoMin(b2.f); if (i2 != null && f2 != null) monBlocks.push({ t: t2, ini: i2, fim: f2, loja: cronoNorm(b2.shp) }); } }));
+  const turnos = (conf.turnos || []).map((t) => {
+    const pid = cronoPidDe(d.resp, t);
+    const blocos = (t.blocos || []).map((b) => {
+      const ini = cronoMin(b.i), fim = cronoMin(b.f);
+      const o = { i: b.i, f: b.f, t: b.t, shp: b.shp || '', l: b.l || '', ini, fim, st: 'neutro', cover: 0, shpCover: 0, nota: '', semShp: false, real: '' };
+      if (ini == null || fim == null || fim <= ini || b.t === 'pausa' || b.t === 'ajuste' || b.t === 'gravada') return o;
+      const len = fim - ini;
+      const quem = (l) => !!pid && l.pids.indexOf(pid) >= 0;
+      o._tt = lives.filter((l) => l.mk === 'tt' && quem(l) && l.fim > ini && l.ini < fim);
+      o.cover = cronoUniao(o._tt.map((l) => [Math.max(l.ini, ini), Math.min(l.fim, fim)]));
+      { // Shopee da pessoa: pela sigla; sem sigla -> loja marcada (Monaco) ou outra Shopee livre
+        const shpAll = lives.filter((l) => l.mk === 'shp' && l.fim > ini && l.ini < fim);
+        let cand = shpAll.filter((l) => !!pid && l.pids.indexOf(pid) >= 0);
+        if (!cand.length) {
+          if (b.shp) cand = shpAll.filter((l) => l.loja.indexOf(cronoNorm(b.shp)) >= 0 && semDono(l));
+          else { const presas = monBlocks.filter((m) => m.t !== t && m.fim > ini && m.ini < fim).map((m) => m.loja); cand = shpAll.filter((l) => semDono(l) && !presas.some((n) => l.loja.indexOf(n) >= 0)); }
+        }
+        o._shp = cand; o.shpCover = cronoUniao(cand.map((l) => [Math.max(l.ini, ini), Math.min(l.fim, fim)]));
+        if (b.shp && cand.length && !cand.some((l) => l.loja.indexOf(cronoNorm(b.shp)) >= 0)) o.shpOutra = cand.map((l) => l.s.name).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+      }
+      const primeiro = o._tt.length ? Math.min.apply(null, o._tt.map((l) => l.ini)) : null;
+      const ultimo = o._tt.length ? Math.max.apply(null, o._tt.map((l) => l.fim)) : null;
+      const vivo = o._tt.some((l) => l.vivo);
+      const atr = (primeiro != null && primeiro > ini + tol) ? (primeiro - ini) : 0;
+      if (o._tt.length) { const lj = o._tt.map((l) => l.s.name).filter((v, i, a) => a.indexOf(v) === i).join(', '); o.real = 'no ar ' + cronoHHMM(primeiro) + '–' + (vivo ? 'agora' : cronoHHMM(ultimo)) + ' · ' + lj; }
+      if (agora < ini) o.st = 'futuro';
+      else if (!o._tt.length) {
+        o.st = agora < ini + tol ? 'aguardando' : (agora < fim ? 'fora' : 'faltou');
+        if (o.st === 'fora') o.nota = 'nada no ar desde ' + cronoHHMM(ini);
+        if (o.st === 'faltou') o.nota = 'nenhuma live dela nesse horário';
+      } else if (agora < fim) {
+        if (vivo || ultimo >= agora - tol) { o.st = 'aovivo'; if (atr) o.nota = 'começou ' + cronoHHMM(primeiro) + ' (' + atr + ' min atrasada)'; }
+        else { o.st = 'fora'; o.nota = 'saiu do ar às ' + cronoHHMM(ultimo); }
+      } else {
+        const pct = o.cover / len, pctTxt = Math.round(pct * 100) + '%';
+        if (atr) { o.st = 'atrasou'; o.nota = 'começou ' + cronoHHMM(primeiro) + ' (' + atr + ' min atrasada)' + (pct < 0.8 ? ' · cobriu ' + pctTxt : ''); }
+        else if (pct >= 0.8) o.st = 'ok';
+        else { o.st = 'parcial'; o.nota = 'cobriu ' + pctTxt + ' (' + cronoHHMM(primeiro) + '–' + cronoHHMM(Math.min(ultimo, fim)) + ')'; }
+      }
+      if (b.t === 'live' && o.st !== 'futuro' && o.st !== 'aguardando') {
+        const shpOk = agora < fim ? o._shp.some((l) => l.vivo || l.fim >= agora - tol) : (o.cover > 0 ? o.shpCover >= 0.6 * o.cover : o.shpCover / len >= 0.5);
+        if (!shpOk && agora >= ini + tol) o.semShp = true;
+      }
+      delete o._tt; delete o._shp;
+      return o;
+    });
+    const lb = blocos.filter((b) => b.t === 'live');
+    const feitos = lb.filter((b) => ['ok', 'atrasou', 'aovivo'].indexOf(b.st) >= 0).length; // igual ao LiveDash: parcial NAO conta
+    const sig = SIGLA_EXIBE[pid] || (porId[pid] ? siglaDe(porId[pid], siglasNossas) : '');
+    // barras do REAL (o que aconteceu): lives dela no TikTok + o Shopee dela/da loja que segura
+    const shpLojas = (t.blocos || []).filter((b) => b.shp && b.t === 'live').map((b) => cronoNorm(b.shp));
+    const realTT = lives.filter((l) => l.mk === 'tt' && !!pid && l.pids.indexOf(pid) >= 0).map((l) => ({ ini: l.ini, fim: l.fim, loja: l.s.name }));
+    const realSHP = lives.filter((l) => l.mk === 'shp' && ((!!pid && l.pids.indexOf(pid) >= 0) || (shpLojas.length && shpLojas.some((n) => l.loja.indexOf(n) >= 0) && semDono(l)))).map((l) => ({ ini: l.ini, fim: l.fim, loja: l.s.name }));
+    return { nome: t.nome || '?', sigla: sig, cor: (porId[pid] || {}).cor || '#7c5cff', pid, feitos, totalLive: lb.length, blocos, real: { tt: realTT, shp: realSHP } };
+  });
+  // resumo (conta blocos de live de todos os turnos)
+  const resumo = { cumpridos: 0, atraso: 0, faltaram: 0, aovivo: 0, ainda: 0 };
+  if (ativo) turnos.forEach((t) => t.blocos.forEach((b) => {
+    if (b.t !== 'live') return;
+    if (b.st === 'ok') resumo.cumpridos++;
+    else if (b.st === 'atrasou' || b.st === 'parcial') resumo.atraso++;
+    else if (b.st === 'faltou' || b.st === 'fora') resumo.faltaram++;
+    else if (b.st === 'aovivo') resumo.aovivo++;
+    else if (b.st === 'futuro' || b.st === 'aguardando') resumo.ainda++;
+  }));
+  return { ok: true, dia, ehHoje, agora, tol, ativo, resumo, turnos, problemas: cronoProblemas(turnos, ativo) };
+}
+// lista de problemas em ordem de gravidade (igual ao LiveDash)
+function cronoProblemas(turnos, ativo) {
+  const out = []; if (!ativo) return out;
+  turnos.forEach((t) => t.blocos.forEach((o) => {
+    const b = o, faixa = cronoHHMM(o.ini) + '–' + cronoHHMM(o.fim);
+    const alvo = 'ao vivo no TikTok + Shopee' + (b.shp ? ' (Shopee na ' + cronoCap(b.shp) + ')' : '');
+    const add = (g, st, msg) => out.push({ g, st, nome: t.nome, faixa, msg, txt: t.nome + ' ' + msg });
+    if (o.st === 'fora') add(0, 'fora', 'fora do ar: deveria estar ' + alvo + ' desde ' + cronoHHMM(o.ini) + ((o.nota && o.nota.indexOf('nada no ar') < 0) ? ' · ' + o.nota : ''));
+    else if (o.st === 'faltou' && b.t === 'live') add(1, 'faltou', 'não fez o bloco das ' + faixa);
+    else if (o.semShp && o.st === 'aovivo') add(2, 'shp', 'está no TikTok, mas o Shopee' + (b.shp ? ' (' + cronoCap(b.shp) + ')' : '') + ' não está no ar (' + faixa + ')');
+    else if (o.semShp) add(3, 'shp', 'fez a live das ' + faixa + ' sem o Shopee' + (b.shp ? ' (' + cronoCap(b.shp) + ')' : ''));
+    else if (o.st === 'atrasou' || o.st === 'parcial') add(3, o.st, faixa + ': ' + o.nota);
+    else if (o.shpOutra) add(4, 'shp', 'fez a live das ' + faixa + ' com o Shopee na ' + o.shpOutra + ' (era pra ser ' + cronoCap(b.shp) + ')');
+  }));
+  return out.sort((a, b) => a.g - b.g || 0);
+}
+
+module.exports = { config, ativo, dados, espelho, horasHoje, horasPeriodo, aoVivoPorLoja, cronograma, cronoDefault };

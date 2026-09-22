@@ -120,6 +120,36 @@
   .meta-card .barfill{height:9px;border-radius:99px;background:var(--card-2);border:1px solid var(--line);margin-top:12px;overflow:hidden}
   .meta-card .barfill i{display:block;height:100%;border-radius:99px}
   .meta-card .msg{font-size:12.5px;font-weight:700;margin-top:8px}
+  /* ===== Cronograma de lives (espelho do LiveDash) ===== */
+  .crono-sub{color:var(--text-2);font-size:13px;margin:2px 2px 14px}
+  .crono-kpis{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+  .crono-kpi{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:13px;font-weight:600;color:var(--text-2)}
+  .crono-kpi b{font-size:15px;color:var(--text)}
+  .crono-kpi .dot{width:8px;height:8px;border-radius:50%}
+  .crono-kpi.k-ok .dot{background:#22c55e}.crono-kpi.k-amb .dot{background:#f59e0b}.crono-kpi.k-red .dot{background:#ef4444}.crono-kpi.k-live .dot{background:var(--accent)}.crono-kpi.k-fut .dot{background:#6b7280}
+  .crono-row{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+  .crono-who{width:150px;flex:none;display:flex;gap:9px;align-items:center}
+  .crono-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:13px;flex:none}
+  .crono-nm{font-weight:700;font-size:14px;line-height:1.15}
+  .crono-cnt{font-size:11.5px;color:var(--text-3);font-weight:600;margin-top:1px}
+  .crono-tl{flex:1;min-width:0;position:relative}
+  .crono-ticks{position:relative;height:15px}
+  .crono-tick{position:absolute;transform:translateX(-50%);font-size:10px;color:var(--text-3)}
+  .crono-track{position:relative;height:30px;background:var(--card-2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .crono-blk{position:absolute;top:2px;bottom:2px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;overflow:hidden;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+  .crono-blk.s-ok{background:#22c55e}.crono-blk.s-atrasou,.crono-blk.s-parcial{background:#f59e0b}.crono-blk.s-faltou,.crono-blk.s-fora{background:#ef4444}
+  .crono-blk.s-aovivo{background:var(--accent);animation:crBlink 1.6s ease-in-out infinite}.crono-blk.s-futuro,.crono-blk.s-aguardando{background:#3a3a44;color:var(--text-2)}
+  @keyframes crBlink{50%{opacity:.6}}
+  .crono-real{position:relative;height:6px;margin-top:3px}
+  .crono-bar{position:absolute;top:0;height:5px;border-radius:3px;opacity:.9}
+  .crono-bar.tt{background:var(--accent-2)}.crono-bar.shp{background:var(--shopee)}
+  .crono-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 2px 2px;font-size:11.5px;color:var(--text-3)}
+  .crono-legend span{display:inline-flex;align-items:center;gap:5px}
+  .crono-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .crono-probs .cp{display:flex;gap:9px;align-items:flex-start;padding:10px 13px;border:1px solid var(--line);border-radius:11px;margin-bottom:7px;font-size:13px;background:var(--card);line-height:1.4}
+  .crono-probs .cp i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
+  .cp.s-fora i,.cp.s-faltou i{background:#ef4444}.cp.s-atrasou i,.cp.s-parcial i,.cp.s-shp i{background:#f59e0b}
+  @media(max-width:640px){.crono-who{width:96px}.crono-nm{font-size:12.5px}.crono-blk{font-size:9px}}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -131,7 +161,7 @@
     <div class="dash-actions">
       <a href="/painel" class="voltar" id="voltar">← Painel</a>
       <div class="daterange" id="dr">📅 Hoje</div>
-      <div class="segment" id="visaoSeg"><a class="on" data-m="dash">📊 Vendas</a><a data-m="metas">⏱️ Metas</a></div>
+      <div class="segment" id="visaoSeg"><a class="on" data-m="dash">📊 Vendas</a><a data-m="metas">⏱️ Metas</a><a data-m="crono">📅 Cronograma</a></div>
       <button class="sair" id="sair" style="display:none" onclick="location.href='/sair'">Sair</button>
     </div>
   </div>
@@ -182,6 +212,24 @@
     </div>
     <h3 class="vend-title">Horas de live por vendedora</h3>
     <div class="vend-grid" id="metaGrid"></div>
+  </div>
+
+  <!-- ===== visão CRONOGRAMA (espelho do LiveDash: planejado × real, por vendedora) ===== -->
+  <div id="viewCrono" hidden>
+    <div class="crono-sub" id="cronoSub">carregando…</div>
+    <div class="crono-kpis" id="cronoKpis"></div>
+    <div class="crono-list" id="cronoList"></div>
+    <div class="crono-legend">
+      <span><i style="background:#22c55e"></i>cumprido</span>
+      <span><i style="background:#f59e0b"></i>atrasou/parcial</span>
+      <span><i style="background:#ef4444"></i>faltou/fora do ar</span>
+      <span><i style="background:var(--accent)"></i>ao vivo agora</span>
+      <span><i style="background:#3a3a44"></i>ainda vai</span>
+      <span><i style="background:var(--accent-2)"></i>real TikTok</span>
+      <span><i style="background:var(--shopee)"></i>real Shopee</span>
+    </div>
+    <h3 class="vend-title" style="margin-top:18px">Problemas de hoje</h3>
+    <div class="crono-probs" id="cronoProbs"></div>
   </div>
 
   <div class="erro" id="erro">Não consegui carregar o histórico agora. Recarregue a página (F5).</div>
@@ -358,10 +406,50 @@
       }).catch(function(){ $('erro').style.display='block'; });
   }
 
+  // ---------- CRONOGRAMA (espelho do LiveDash: planejado × real, por vendedora) ----------
+  function carregarCrono(){
+    fetch('/cronograma',{cache:'no-store'})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!d||!d.ok){ if(d&&d.erro==='livedash off'){ renderCrono(null,'LiveDash desligado.'); } else { $('erro').style.display='block'; } return; }
+        $('erro').style.display='none'; renderCrono(d);
+      }).catch(function(){ $('erro').style.display='block'; });
+  }
+  function renderCrono(d, aviso){
+    var sub=$('cronoSub'), kp=$('cronoKpis'), list=$('cronoList'), pr=$('cronoProbs');
+    if(!d){ sub.textContent=aviso||'—'; kp.innerHTML=''; list.innerHTML='<div class="vazio">'+esc(aviso||'Sem dados.')+'</div>'; pr.innerHTML=''; return; }
+    var dBR=d.dia.slice(8,10)+'/'+d.dia.slice(5,7);
+    sub.textContent=(d.ehHoje?'hoje':'dia')+' · '+dBR+' · tolerância '+d.tol+' min · TikTok e Shopee';
+    if(!d.ativo){ kp.innerHTML=''; list.innerHTML='<div class="vazio">Sem cronograma neste dia da semana.</div>'; pr.innerHTML=''; return; }
+    var rs=d.resumo||{};
+    kp.innerHTML=[['ok',rs.cumpridos,'cumpridos'],['amb',rs.atraso,'com atraso'],['red',rs.faltaram,'faltaram'],['live',rs.aovivo,'ao vivo agora'],['fut',rs.ainda,'ainda vão']]
+      .filter(function(x){return x[1]>0;}).map(function(x){return '<span class="crono-kpi k-'+x[0]+'"><span class="dot"></span><b>'+x[1]+'</b> '+x[2]+'</span>';}).join('');
+    // faixa de horas do eixo (do 1º bloco ao último, arredondado na hora)
+    var minI=24*60, maxF=0;
+    d.turnos.forEach(function(t){ t.blocos.forEach(function(b){ if(b.ini!=null&&b.fim!=null){ minI=Math.min(minI,b.ini); maxF=Math.max(maxF,b.fim);} }); });
+    if(maxF<=minI){ minI=7*60; maxF=21*60; }
+    minI=Math.floor(minI/60)*60; maxF=Math.ceil(maxF/60)*60; var span=(maxF-minI)||1;
+    var pct=function(m){ return (Math.max(minI,Math.min(maxF,m))-minI)/span*100; };
+    var ticks=''; for(var h=minI;h<=maxF;h+=60){ ticks+='<span class="crono-tick" style="left:'+pct(h).toFixed(2)+'%">'+(h/60)+'h</span>'; }
+    list.innerHTML=d.turnos.map(function(t){
+      var blks=t.blocos.filter(function(b){return b.ini!=null&&b.fim!=null&&b.t!=='pausa'&&b.t!=='ajuste';}).map(function(b){
+        var l=pct(b.ini), w=Math.max(1.4, pct(b.fim)-pct(b.ini));
+        var lbl=b.t==='gravada'?'GR':b.i;
+        return '<div class="crono-blk s-'+b.st+'" style="left:'+l.toFixed(2)+'%;width:'+w.toFixed(2)+'%" title="'+esc(b.i+'–'+b.f+(b.nota?' · '+b.nota:''))+'">'+esc(lbl)+'</div>';
+      }).join('');
+      function barras(arr,cls){ return (arr||[]).map(function(iv){ var l=pct(iv.ini), w=Math.max(0.6,pct(iv.fim)-pct(iv.ini)); return '<div class="crono-bar '+cls+'" style="left:'+l.toFixed(2)+'%;width:'+w.toFixed(2)+'%" title="'+esc((iv.loja||'')+'')+'"></div>'; }).join(''); }
+      var ini2=esc((t.nome||'?').trim().charAt(0).toUpperCase());
+      return '<div class="crono-row"><div class="crono-who"><div class="crono-av" style="background:'+(t.cor||'#7c5cff')+'">'+ini2+'</div><div><div class="crono-nm">'+esc(t.nome)+'</div><div class="crono-cnt">'+t.feitos+'/'+t.totalLive+' blocos</div></div></div>'
+        +'<div class="crono-tl"><div class="crono-ticks">'+ticks+'</div><div class="crono-track">'+blks+'</div><div class="crono-real">'+barras(t.real&&t.real.tt,'tt')+'</div><div class="crono-real">'+barras(t.real&&t.real.shp,'shp')+'</div></div></div>';
+    }).join('');
+    pr.innerHTML=(d.problemas&&d.problemas.length)? d.problemas.map(function(p){ return '<div class="cp s-'+p.st+'"><i></i><span><b>'+esc(p.nome)+'</b> '+esc(p.msg)+'</span></div>'; }).join('')
+      : '<div class="cp s-ok" style="border-color:rgba(34,197,94,.4)"><i style="background:#22c55e"></i><span>Tudo dentro do cronograma até agora ✅</span></div>';
+  }
+
   // ---------- carregar (segundo a visão) ----------
   function carregar(){
     var _sm=$('segMes'); if(_sm) _sm.textContent=nomeMesAtual(); // mantem o botao no mes vigente (vira "Outubro" sozinho na virada do mes)
     setTxt('dr', periodo==='mes'?('📅 '+nomeMesAtual()):(mesLbl[periodo]||'📅 Período'));
+    if(modo==='crono'){ carregarCrono(); return; }
     if(modo==='metas'){ carregarMetas(); return; }
     fetch('/vendas-historico?desde='+encodeURIComponent(desdeDe(periodo).toISOString()),{cache:'no-store'})
       .then(function(r){return r.json();}).then(function(d){
@@ -377,8 +465,10 @@
   $('histPeriodo').addEventListener('click', function(e){ var a=e.target.closest('a'); if(!a) return; this.querySelectorAll('a').forEach(function(x){ x.classList.toggle('on',x===a); }); periodo=a.getAttribute('data-per')||'hoje'; carregar(); });
   $('visaoSeg').addEventListener('click', function(e){ var a=e.target.closest('a'); if(!a) return; this.querySelectorAll('a').forEach(function(x){ x.classList.toggle('on',x===a); });
     modo=a.getAttribute('data-m')||'dash';
-    var metas=(modo==='metas');
-    $('viewDash').hidden=metas; $('viewMetas').hidden=!metas; $('histPlat').style.display=metas?'none':'';
+    var metas=(modo==='metas'), crono=(modo==='crono');
+    $('viewDash').hidden=metas||crono; $('viewMetas').hidden=!metas; $('viewCrono').hidden=!crono;
+    var df=$('dashFilter'); if(df) df.style.display=crono?'none':''; // cronograma é sempre HOJE (não usa o filtro de período)
+    $('histPlat').style.display=(metas||crono)?'none':'';
     carregar();
   });
 
