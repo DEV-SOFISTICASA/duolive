@@ -82,8 +82,9 @@
   .gradeHist{flex:1;min-height:0;padding:10px 12px 12px;position:relative;z-index:1;display:flex}
   .gradeHist[hidden]{display:none}
   .gradeHist iframe{width:100%;height:100%;border:0;display:block;background:transparent;border-radius:16px}
-  .gradeOfertas{flex:1;min-height:0;padding:10px 12px 12px;position:relative;z-index:1;display:grid;place-items:center}
+  .gradeOfertas{flex:1;min-height:0;padding:10px 12px 12px;position:relative;z-index:1;display:flex}
   .gradeOfertas[hidden]{display:none}
+  .gradeOfertas iframe{width:100%;height:100%;border:0;display:block;background:transparent;border-radius:16px;overflow:auto}
   .emdev{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:44px 42px;text-align:center;max-width:460px}
   .emdev .ic{font-size:46px;line-height:1}
   .emdev h2{font-family:'Bricolage Grotesque',Manrope,sans-serif;font-weight:800;font-size:25px;margin:14px 0 8px}
@@ -170,15 +171,8 @@
   </div>
   <!-- Histórico DENTRO do painel (a nav "Ao vivo / Histórico" alterna; não abre outra aba) -->
   <div class="gradeHist" hidden><iframe id="ifHist" title="Histórico"></iframe></div>
-  <!-- Ofertas: por enquanto só um aviso de "em desenvolvimento" -->
-  <div class="gradeOfertas" hidden>
-    <div class="emdev">
-      <div class="ic">🏷️</div>
-      <h2>Ofertas</h2>
-      <span class="tag">Em desenvolvimento</span>
-      <p>Esta área ainda está sendo construída.<br>Em breve as ofertas da live aparecem aqui. 🌸</p>
-    </div>
-  </div>
+  <!-- Ofertas: painel das ⚡ (produtos fixados, automação, ensaio/real) -->
+  <div class="gradeOfertas" hidden><iframe id="ifOfertasTab" title="Ofertas"></iframe></div>
 <script>
 (function(){
   // F5 / reiniciar a página = sair (na nuvem, cada abertura pede login de novo).
@@ -325,6 +319,7 @@
     if(af) af.setAttribute('src','analytics.html?api='+encodeURIComponent(URL_MC)+'&loja='+encodeURIComponent(loja));
     // o multichat tambem e' POR loja: recarrega mostrando so' o chat desta loja
     recarregaMc(); // Multichat: loja do TikTok + a Shopee escolhida (podem ser lojas diferentes)
+    var io2=document.getElementById('ifOfertasTab'); if(io2 && io2.getAttribute('src')) io2.src='ofertas.html?embed=1&loja='+encodeURIComponent(loja||''); // aba Ofertas segue a loja
     fechaMenu();
     renderLojas();
   }
@@ -527,7 +522,7 @@
 // nav "Ao vivo / Histórico": alterna a visão DENTRO do painel (NÃO abre outra aba)
 (function(){
   var navLive=document.getElementById('navLive'), navOfertas=document.getElementById('navOfertas'), navHist=document.getElementById('navHist');
-  var grade=document.querySelector('.grade'), gradeHist=document.querySelector('.gradeHist'), gradeOfertas=document.querySelector('.gradeOfertas'), ifHist=document.getElementById('ifHist');
+  var grade=document.querySelector('.grade'), gradeHist=document.querySelector('.gradeHist'), gradeOfertas=document.querySelector('.gradeOfertas'), ifHist=document.getElementById('ifHist'), ifOfertasTab=document.getElementById('ifOfertasTab');
   if(!navLive||!navHist||!grade||!gradeHist) return;
   function sel(q){
     grade.style.display=(q==='live')?'':'none';
@@ -537,6 +532,7 @@
     if(navOfertas) navOfertas.classList.toggle('on', q==='ofertas');
     navHist.classList.toggle('on', q==='hist');
     if(q==='hist' && ifHist && !ifHist.getAttribute('src')) ifHist.src='historico.html?embed=1'; // carrega só na 1ª vez
+    if(q==='ofertas' && ifOfertasTab && !ifOfertasTab.getAttribute('src')) ifOfertasTab.src='ofertas.html?embed=1&loja='+encodeURIComponent((typeof lojaSel!=='undefined'&&lojaSel)||''); // carrega só na 1ª vez, já na loja selecionada
   }
   navLive.addEventListener('click', function(){ sel('live'); });
   if(navOfertas) navOfertas.addEventListener('click', function(){ sel('ofertas'); });

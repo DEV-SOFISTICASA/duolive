@@ -147,6 +147,8 @@ function gravaVendaHistorico(v) {
 let ofertas = [];
 // automacao da ⚡ ligada por loja (o robo da oferta no PC le isto e dispara sozinho)
 let ofertaAuto = {};
+// modo REAL da ⚡ por loja (o robo le isto): false = ENSAIO (nao cria). Padrao ENSAIO (seguro).
+let ofertaReal = {};
 // dono da live (author_id) por loja — carregado do banco no boot, atualizado pelo robô.
 // Faz 1 ⚡ manual por loja valer PRA SEMPRE (sobrevive a restart/deploy). NÃO é preço.
 let authorIds = {};
@@ -1068,6 +1070,32 @@ const server = http.createServer((req, res) => {
     // automação LIGADA por padrão: só fica desligada se o ADM desligar de propósito.
     // Assim, mesmo depois de um deploy (que zera a memória), todas já vêm ativas.
     res.end(JSON.stringify({ loja: loja, ligado: ofertaAuto[loja] !== false }));
+    return;
+  }
+
+  // modo ENSAIO/REAL da ⚡ por loja: o ADM vira no painel; o robo le (GET) e so' CRIA de
+  // verdade quando for REAL. Padrao ENSAIO (nao cria) — seguro depois de deploy/restart.
+  if (req.url.startsWith('/oferta-real')) {
+    if (req.method === 'POST') {
+      const ehAdm = !AUTH.veioDeFora(req) || CONTAS.ehAdm(req.usuario);
+      if (!ehAdm) { res.statusCode = 403; res.setHeader('content-type', 'application/json'); res.end('{"ok":false,"erro":"So o ADM vira Ensaio/Real."}'); return; }
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 4096) req.destroy(); });
+      req.on('end', () => {
+        let b; try { b = JSON.parse(corpo); } catch (e) { b = null; }
+        res.setHeader('content-type', 'application/json');
+        if (!b || !b.loja) { res.statusCode = 400; res.end('{"ok":false,"erro":"faltou a loja"}'); return; }
+        ofertaReal[String(b.loja)] = !!b.real;
+        emitir({ tipo: 'oferta-real', loja: String(b.loja), real: !!b.real });
+        console.log('  ⚡ modo ' + (b.real ? '⚡ REAL' : '🧪 ENSAIO') + ' na loja ' + b.loja);
+        res.end(JSON.stringify({ ok: true, loja: String(b.loja), real: !!b.real }));
+      });
+      return;
+    }
+    const qs = new URLSearchParams((req.url.split('?')[1] || ''));
+    const loja = qs.get('loja') || '';
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ loja: loja, real: !!ofertaReal[loja] })); // padrao ENSAIO
     return;
   }
 

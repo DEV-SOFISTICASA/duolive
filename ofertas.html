@@ -1,0 +1,217 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>try{if(localStorage.getItem('ldTema')==='claro')document.documentElement.setAttribute('data-tema','claro');}catch(e){}</script>
+<title>DuoLive · Ofertas Relâmpago</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+  :root{--bg:#0a0a0f;--card:#131319;--card-2:#181820;--line:rgba(255,255,255,.07);--text:#f4f4f5;--text-2:#a1a1aa;--text-3:#6b6b78;--accent:#8b5cf6;--accent-2:#c084fc;--glow:rgba(139,92,246,.14);--glow-a:rgba(139,92,246,.30);--glow-b:rgba(192,132,252,.14);--border-hi:rgba(139,92,246,.38);--ok:#4ade80;--warn:#fbbf24;--vivo:#f43f5e;--rosa:#f472b6;--shopee:#ee4d2d;--money:#4ade80}
+  :root[data-tema=claro]{--bg:#faf6f8;--card:#ffffff;--card-2:#fbf4f7;--line:rgba(17,17,20,.09);--text:#18181b;--text-2:#52525b;--text-3:#9ca3af;--accent:#ec4899;--accent-2:#db2777;--glow:rgba(236,72,153,.10);--glow-a:rgba(236,72,153,.16);--glow-b:rgba(249,168,212,.18);--border-hi:rgba(236,72,153,.30);--money:#16a34a}
+  *{box-sizing:border-box}
+  body{margin:0;background:transparent;color:var(--text);font:15px/1.5 'Manrope',system-ui,sans-serif;padding:20px}
+  h1,h2,h3{font-family:'Bricolage Grotesque','Manrope',sans-serif;margin:0}
+  .disp{font-family:'Bricolage Grotesque',sans-serif}
+  img{max-width:100%}
+  .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .head .tit{font-size:23px;font-weight:800;letter-spacing:-.3px}
+  .head .sub{color:var(--text-3);font-size:13px;margin-top:2px}
+  .modo{margin-left:auto;display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .modo b{padding:7px 15px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;color:var(--text-3);user-select:none}
+  .modo b.on{background:linear-gradient(180deg,rgba(251,191,36,.25),transparent);color:var(--warn);border:1px solid rgba(251,191,36,.4)}
+  .modo b.real.on{background:linear-gradient(180deg,var(--glow-a),transparent);color:var(--accent-2);border-color:var(--border-hi)}
+  .ctrl{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;margin-bottom:16px}
+  @media(max-width:720px){.ctrl{grid-template-columns:1fr}}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .box .lbl{font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:8px}
+  .lojas{display:flex;gap:6px;flex-wrap:wrap}
+  .lojas b{padding:7px 13px;border-radius:10px;border:1px solid var(--line);font-size:13.5px;font-weight:700;color:var(--text-2);cursor:pointer;user-select:none}
+  .lojas b.on{border-color:var(--border-hi);background:var(--glow);color:var(--accent-2)}
+  .sw{display:flex;align-items:center;gap:10px}
+  .toggle{width:46px;height:26px;border-radius:999px;background:var(--accent);position:relative;cursor:pointer;flex:none;box-shadow:0 0 0 3px var(--glow);transition:.15s}
+  .toggle::after{content:"";position:absolute;top:3px;left:23px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s}
+  .toggle.off{background:#3a3a44;box-shadow:none}.toggle.off::after{left:3px}
+  .toggle.trava{opacity:.4;cursor:not-allowed}
+  .sw .st{font-weight:800;font-size:14px}.sw .st small{display:block;color:var(--text-3);font-weight:600;font-size:11.5px}
+  .vivo{display:inline-flex;align-items:center;gap:7px;font-weight:800;font-size:14px}
+  .vivo .dot{width:9px;height:9px;border-radius:50%;background:var(--vivo);box-shadow:0 0 8px var(--vivo);animation:pz 1.6s infinite}
+  .vivo.off .dot{background:var(--text-3);box-shadow:none;animation:none}
+  @keyframes pz{50%{opacity:.4}}
+  .banner{background:linear-gradient(180deg,var(--glow-a),transparent 60%),var(--card);border:1px solid var(--border-hi);border-radius:16px;padding:15px 18px;margin-bottom:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .banner .ic{font-size:24px}
+  .banner .tt{font-weight:800;font-size:16px}
+  .banner .ds{color:var(--text-2);font-size:13px}
+  .banner.ensaio{background:linear-gradient(180deg,rgba(251,191,36,.14),transparent 60%),var(--card);border-color:rgba(251,191,36,.4)}
+  .banner.off{background:var(--card);border-color:var(--line)}
+  .sec{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 12px;gap:10px;flex-wrap:wrap}
+  .sec h2{font-size:17px;font-weight:800}
+  .sec .n{color:var(--text-3);font-size:13px;font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+  .card .top{display:flex;gap:11px;align-items:center}
+  .card .th{width:52px;height:52px;border-radius:10px;flex:none;overflow:hidden;background:var(--card-2);border:1px solid var(--line)}
+  .card .th img{width:100%;height:100%;object-fit:cover;display:block}
+  .card .nm{font-weight:700;font-size:13.5px;line-height:1.2}
+  .card .stpill{font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;white-space:nowrap;display:inline-block;margin-top:4px}
+  .stpill.ok{background:rgba(74,222,128,.16);color:var(--ok)}
+  .stpill.fila{background:rgba(139,92,246,.16);color:var(--accent-2)}
+  .stpill.sem{background:rgba(251,191,36,.16);color:var(--warn)}
+  .price{margin:11px 0 4px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .price .big{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:22px;color:var(--money)}
+  .price .semp{font-size:13px;color:var(--warn);font-weight:700}
+  .price .un{color:var(--text-3);font-size:12px;font-weight:600}
+  .vars{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .var{font-size:11.5px;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--text-2);display:inline-flex;gap:6px;align-items:center}
+  .var .sw2{width:9px;height:9px;border-radius:50%;background:var(--accent-2);opacity:.7}
+  .var b{color:var(--money);font-weight:800}
+  .vazio{color:var(--text-3);font-size:13.5px;padding:26px 12px;text-align:center;line-height:1.7;background:var(--card);border:1px dashed var(--line);border-radius:14px}
+  .nota{margin-top:18px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:12px;padding:12px 15px;font-size:12.5px;color:var(--text-2);line-height:1.6}
+  .erro{display:none;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.4);color:#fda4af;border-radius:12px;padding:12px 15px;margin-bottom:14px;font-size:13px}
+  [hidden]{display:none!important}
+</style></head><body>
+
+  <div class="head">
+    <div>
+      <div class="tit disp">⚡ Ofertas Relâmpago</div>
+      <div class="sub">o robô cria a ⚡ nativa do TikTok e <b>fixa o produto</b> — a cada 15 min, só com a live no ar</div>
+    </div>
+    <div class="modo" id="modo" title="Ensaio confere sem criar. Real cria a ⚡ de verdade.">
+      <b id="mEnsaio">🧪 Ensaio</b><b class="real" id="mReal">⚡ Real</b>
+    </div>
+  </div>
+
+  <div class="erro" id="erro"></div>
+
+  <div class="ctrl">
+    <div class="box">
+      <div class="lbl">Loja (segue o painel)</div>
+      <div class="disp" id="lojaNome" style="font-weight:800;font-size:17px">—</div>
+    </div>
+    <div class="box">
+      <div class="lbl">Automação</div>
+      <div class="sw"><div class="toggle" id="tgAuto"></div><div class="st" id="stAuto">—<small>cria a cada 15 min · 1 min de intervalo</small></div></div>
+    </div>
+    <div class="box">
+      <div class="lbl">Live</div>
+      <div class="sw"><span class="vivo off" id="vivo"><span class="dot"></span> <span id="vivoTxt">—</span></span></div>
+    </div>
+  </div>
+
+  <div class="banner off" id="banner">
+    <span class="ic" id="bIc">⏸️</span>
+    <div><div class="tt" id="bTt">Carregando…</div><div class="ds" id="bDs"></div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Em rotação — produtos fixados</h2>
+    <span class="n" id="qtd"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="vazio" id="vazio" hidden>Nenhum produto com preço configurado nesta loja.<br>O ADM define os preços das ofertas (conjunto + exceção por variação) — aí eles aparecem aqui e o robô cria a ⚡.</div>
+
+  <div class="nota">
+    ⚠️ <b>Como funciona:</b> o robô cria a <b>⚡ nativa do TikTok</b> (a mesma que os espectadores veem) e ela nasce <b>fixada</b> — a cada <b>15 min</b> renova/gira os produtos, com <b>1 min</b> de intervalo, e <b>só com a live no ar</b>. Os preços saem do painel (conjunto + exceção por variação). Em <b>Ensaio</b> nada é criado — serve pra conferir antes de virar o <b>Real</b>. O desconto de verdade precisa existir no TikTok Shop na mesma janela.
+  </div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var real2=function(n){ return 'R$ '+(+n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  var esc=function(t){ return String(t==null?'':t).replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;';}); };
+  var slug=function(s){ return String(s||'').normalize('NFD').replace(/[^\x00-\x7F]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); };
+  var nomeCurto=function(n){ n=String(n||'').split(/[,–]| - /)[0].trim(); return n.length>44?n.slice(0,42)+'…':n; };
+
+  // a loja vem do PAINEL (?loja=). A aba não tem seletor próprio — ela SEGUE a loja
+  // escolhida no topo do painel (o index recarrega este iframe quando você troca).
+  var LOJA=''; try{ var q=new URLSearchParams(location.search); LOJA=(q.get('loja')||'').toLowerCase(); }catch(e){}
+  if(!LOJA) LOJA='monaco'; // fallback só se abrir solto
+  var ehAdm=false, autoOn=true, realOn=false, vivoOn=false;
+  function cap(s){ s=String(s||''); return s.charAt(0).toUpperCase()+s.slice(1); }
+
+  function setToggle(el,on){ el.classList.toggle('off',!on); }
+  function pintaModo(){ $('mEnsaio').classList.toggle('on',!realOn); $('mReal').classList.toggle('on',realOn); }
+
+  function pintaBanner(){
+    var b=$('banner'), ic=$('bIc'), tt=$('bTt'), ds=$('bDs');
+    b.className='banner';
+    if(!vivoOn){ b.classList.add('off'); ic.textContent='🌙'; tt.textContent='Live fechada'; ds.textContent='As ofertas só rodam com a live no ar. Assim que abrir, o robô começa.'; return; }
+    if(!autoOn){ b.classList.add('off'); ic.textContent='⏸️'; tt.textContent='Automação desligada'; ds.textContent='Ligue a automação pra o robô criar as ⚡ a cada 15 min.'; return; }
+    if(!realOn){ b.classList.add('ensaio'); ic.textContent='🧪'; tt.textContent='Ensaio — conferindo, não cria'; ds.textContent='O robô lê os produtos/preços e mostra, mas NÃO cria a ⚡. Vire pra Real quando estiver tudo certo.'; return; }
+    ic.textContent='⚡'; tt.textContent='No ar — criando a cada 15 min'; ds.textContent='O robô mantém os produtos abaixo fixados, girando a cada 15 min (1 min de intervalo).';
+  }
+
+  function cardHTML(p){
+    var temPreco=(p.conjunto!=null)||Object.keys(p.excecoes).length;
+    var chips=(p.variacoes||[]).slice(0,4).map(function(v){
+      var nome=v.nome||v; var pr=(p.excecoes[slug(nome)]!=null)?p.excecoes[slug(nome)]:p.conjunto;
+      return '<span class="var"><span class="sw2"></span>'+esc(nome)+(pr!=null?' <b>'+real2(pr)+'</b>':'')+'</span>';
+    }).join('');
+    if(!chips && p.conjunto!=null) chips='<span class="var">todas as variações <b>'+real2(p.conjunto)+'</b></span>';
+    var pill = !temPreco ? '<span class="stpill sem">sem preço</span>'
+      : (realOn&&autoOn&&vivoOn ? '<span class="stpill ok">🟢 em rotação</span>' : '<span class="stpill fila">⏳ pronta</span>');
+    return '<div class="card"><div class="top">'
+      +'<div class="th">'+(p.imagem?'<img src="'+esc(p.imagem)+'" alt="" loading="lazy">':'')+'</div>'
+      +'<div style="flex:1"><div class="nm">'+esc(nomeCurto(p.nome))+'</div>'+pill+'</div></div>'
+      +'<div class="price">'+(p.conjunto!=null?'<span class="big">'+real2(p.conjunto)+'</span><span class="un">preço do conjunto</span>':'<span class="semp">falta o preço do conjunto</span>')+'</div>'
+      +'<div class="vars">'+chips+'</div></div>';
+  }
+
+  function carregar(){
+    Promise.all([
+      fetch('/descontos?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),
+      fetch('/produtos?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),
+      fetch('/oferta-auto?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),
+      fetch('/oferta-real?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),
+      fetch('/ao-vivo?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;})
+    ]).then(function(res){
+      var d=res[0], cat=res[1], au=res[2], rl=res[3], av=res[4];
+      if(!d){ $('erro').textContent='Não consegui carregar as ofertas agora. Recarregue a página (F5).'; $('erro').style.display='block'; return; }
+      $('erro').style.display='none';
+      ehAdm=!!(d&&d.ehAdm);
+      autoOn=!(au&&au.ligado===false);
+      realOn=!!(rl&&rl.real);
+      vivoOn=!!(av&&av.aoVivo);
+      // toggles
+      setToggle($('tgAuto'),autoOn);
+      $('stAuto').innerHTML=(autoOn?'Ligada':'Desligada')+' <small>cria a cada 15 min · 1 min de intervalo</small>';
+      $('tgAuto').classList.toggle('trava',!ehAdm);
+      pintaModo();
+      $('modo').style.opacity=ehAdm?'1':'.55';
+      // live
+      var v=$('vivo'); v.className='vivo'+(vivoOn?'':' off'); $('vivoTxt').textContent=vivoOn?'AO VIVO':'fechada';
+      pintaBanner();
+      // junta descontos (preços) + catálogo (foto/variações)
+      var rows=(d&&d.descontos)||[];
+      var porProd={};
+      rows.forEach(function(o){ var id=String(o.produto_id); if(!porProd[id]) porProd[id]={produto_id:id,nome:o.nome,conjunto:null,excecoes:{},imagem:'',variacoes:[]};
+        if(o.sku){ if(o.valor_desconto!=null) porProd[id].excecoes[slug(o.variacao_nome||o.sku)]=+o.valor_desconto; }
+        else if(o.valor_desconto!=null) porProd[id].conjunto=+o.valor_desconto; });
+      var catProds=(cat&&cat.tiktok)||[];
+      var catById={}; catProds.forEach(function(p){ catById[String(p.id)]=p; });
+      Object.keys(porProd).forEach(function(id){ var c=catById[id]; if(c){ porProd[id].imagem=c.imagem||''; porProd[id].variacoes=c.variacoes||[]; if(!porProd[id].nome) porProd[id].nome=c.nome; } });
+      ultimaLista=Object.keys(porProd).map(function(id){return porProd[id];});
+      renderGrid();
+    });
+  }
+  var ultimaLista=[];
+  function renderGrid(){
+    var lista=ultimaLista;
+    $('qtd').textContent=lista.length?(lista.length+' produto'+(lista.length>1?'s':'')):'';
+    if(!lista.length){ $('grid').innerHTML=''; $('vazio').hidden=false; return; }
+    $('vazio').hidden=true;
+    $('grid').innerHTML=lista.map(cardHTML).join('');
+  }
+
+  // toggles (só ADM; o endpoint recusa quem não for)
+  $('tgAuto').onclick=function(){ if(!ehAdm) return; autoOn=!autoOn; setToggle($('tgAuto'),autoOn); $('stAuto').innerHTML=(autoOn?'Ligada':'Desligada')+' <small>cria a cada 15 min · 1 min de intervalo</small>'; pintaBanner();
+    fetch('/oferta-auto',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({loja:LOJA,ligado:autoOn})}).catch(function(){}); };
+  function viraReal(v){ if(!ehAdm) return; realOn=v; pintaModo(); pintaBanner(); renderGrid();
+    fetch('/oferta-real',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({loja:LOJA,real:v})}).catch(function(){}); }
+  $('mEnsaio').onclick=function(){ viraReal(false); };
+  $('mReal').onclick=function(){ viraReal(true); };
+
+  $('lojaNome').textContent=cap(LOJA);
+  carregar();
+  setInterval(carregar, 12000); // mantém live/estado fresco
+})();
+</script>
+</body></html>

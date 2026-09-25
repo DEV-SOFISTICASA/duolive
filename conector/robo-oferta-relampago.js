@@ -22,11 +22,11 @@ const https = require('https');
 const { URL } = require('url');
 
 const ARGS = process.argv.slice(2).filter((a) => !a.startsWith('-'));
-const REAL = process.env.DUOLIVE_OFERTA_REAL === '1';
+const REAL_ENV = process.env.DUOLIVE_OFERTA_REAL === '1';      // força REAL sem o painel (fallback)
 const TESTE = process.argv.includes('--teste');
 const RODADAS = process.argv.includes('--rodadas');
 const FORCA = process.argv.includes('--forca-sem-live');       // só testes: ignora a trava de "live no ar"
-const DUR = +(process.env.DUOLIVE_OFERTA_DUR || 600);          // duração de cada oferta (s) — 600 = 10 min
+const DUR = +(process.env.DUOLIVE_OFERTA_DUR || 900);          // duração de cada oferta (s) — 900 = 15 min
 const STAGGER_S = +(process.env.DUOLIVE_OFERTA_INTERVALO || 60); // segundos entre um disparo e o próximo
 const CHECK_S = +(process.env.DUOLIVE_OFERTA_CHECK || 45);     // de quanto em quanto confere se alguma acabou
 const LOJAS = TESTE ? ['monaco'] : (ARGS.length ? ARGS : ['monaco', 'fast', 'mania', 'bellini']);
@@ -76,6 +76,14 @@ async function autoLigada(loja) {
   const r = await pega(base + '/oferta-auto?loja=' + encodeURIComponent(loja));
   return !!(r && r.ligado);
 }
+// modo Ensaio/Real: o painel (ADM) vira; o robo respeita. REAL só quando o painel disser
+// (ou o env DUOLIVE_OFERTA_REAL forçar). Padrão ENSAIO — nunca cria sem alguém ligar de propósito.
+async function realLigado(loja) {
+  if (REAL_ENV) return true;
+  const base = enderecoConector().replace(/\/+$/, '');
+  const r = await pega(base + '/oferta-real?loja=' + encodeURIComponent(loja));
+  return !!(r && r.real);
+}
 
 // ---------- chamada assinada, feita de DENTRO da página ----------
 async function api(page, caminho, metodo, corpo) {
@@ -104,13 +112,13 @@ function montaCorpo(authorId, prod, skus) {
   if (!rel.length) return null;
   return { corpo: { promotion: [{ promotion_base: { promotion_meta: { title: ('DuoLive ' + (prod.nome || '')).slice(0, 30), launch_mode: 1 }, promotion_type: 3, promotion_level: 2, promotion_time: { duration: DUR, preheat_duration: 10 } }, sku_promotion_relation_list: rel, spu_promotion_relation: { spu_id: prod.produto_id } }], author_id: authorId, device_type_code: 2 }, rel: rel };
 }
-async function criar(page, authorId, prod, tag) {
+async function criar(page, authorId, prod, tag, real) {
   const skus = await skusDe(page, prod.produto_id);
   if (!skus.length) { console.log('  ⚠️  ' + tag + (prod.nome || prod.produto_id) + ': sem SKUs (a live está no ar?)'); return null; }
   const m = montaCorpo(authorId, prod, skus);
   if (!m) { console.log('  ⚠️  ' + tag + (prod.nome || prod.produto_id) + ': nenhum preço aplicável (falta o conjunto?)'); return null; }
   const precos = m.rel.map((r) => r.promotion_benefit.benefit_value.display_price);
-  if (!REAL) { console.log('  🧪 ' + tag + (prod.nome || prod.produto_id) + ' → ' + m.rel.length + ' variações (' + precos.join(' / ') + ') — ENSAIO, não enviei'); return { ensaio: true }; }
+  if (!real) { console.log('  🧪 ' + tag + (prod.nome || prod.produto_id) + ' → ' + m.rel.length + ' variações (' + precos.join(' / ') + ') — ENSAIO, não enviei'); return { ensaio: true }; }
   const r = await api(page, '/api/v1/live_promotion/flash_sale/create', 'POST', m.corpo);
   if (r.json && r.json.code === 0) { const pid = r.json.data && r.json.data.product_to_promotion_id_map && r.json.data.product_to_promotion_id_map[prod.produto_id]; console.log('  ⚡ ' + tag + (prod.nome || prod.produto_id) + ' → CRIADA (' + pid + ')'); return { promotion_id: pid }; }
   console.log('  ❌ ' + tag + (prod.nome || prod.produto_id) + ': falhou — ' + (r.json ? r.json.message : (r.erro || r.texto)));
@@ -131,11 +139,12 @@ async function reporOfertas(conta) {
   try { ativos = (await listarAtivas(conta.page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
   const pendentes = conta.produtos.filter((p) => !ativos.includes(String(p.produto_id)));
   if (!pendentes.length) return;
+  let real = false; try { real = await realLigado(conta.loja); } catch (e) {} // Ensaio/Real vem do painel
   const tag = '🏪' + conta.loja + ' · ';
-  console.log('\n  ▶️  ' + hora() + ' · ' + conta.loja + ' — ' + pendentes.length + ' oferta(s) pra entrar/renovar');
+  console.log('\n  ▶️  ' + hora() + ' · ' + conta.loja + ' — ' + pendentes.length + ' oferta(s) pra ' + (real ? 'CRIAR' : 'conferir (ENSAIO)'));
   for (let i = 0; i < pendentes.length; i++) {
-    await criar(conta.page, conta.authorId, pendentes[i], tag);
-    if (i < pendentes.length - 1) await sleep(STAGGER_S * 1000); // espaça os disparos
+    await criar(conta.page, conta.authorId, pendentes[i], tag, real);
+    if (i < pendentes.length - 1) await sleep(STAGGER_S * 1000); // espaça os disparos (1 min)
   }
 }
 
@@ -185,7 +194,7 @@ async function abreConta(browser, loja) {
 
 async function principal() {
   console.log('\n  DuoLive · Robô da Oferta Relâmpago NATIVA');
-  console.log('  ' + (REAL ? '⚡ MODO REAL — CRIA as ofertas de verdade' : '🧪 MODO ENSAIO — só mostra, não cria') + ' · lojas: ' + LOJAS.join(', '));
+  console.log('  Modo Ensaio/Real vem do PAINEL por loja (⚡ só cria quando o ADM virar pra Real)' + (REAL_ENV ? ' · env força REAL' : '') + ' · lojas: ' + LOJAS.join(', '));
   console.log('  (abre uma janela do navegador — o TikTok bloqueia o modo invisível)\n');
 
   const browser = await abreNavegador(false);
@@ -199,7 +208,7 @@ async function principal() {
     await agendador(contas);
   } else {
     for (const c of contas) { await reporOfertas(c); }
-    console.log('\n  pronto.' + (REAL ? '  (as ofertas expiram sozinhas em ~' + Math.round(DUR / 60) + ' min)' : ''));
+    console.log('\n  pronto.  (as ofertas REAIS expiram sozinhas em ~' + Math.round(DUR / 60) + ' min)');
     await browser.close();
   }
 }
