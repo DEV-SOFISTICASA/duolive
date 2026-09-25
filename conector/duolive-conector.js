@@ -1180,7 +1180,9 @@ const server = http.createServer((req, res) => {
 
   // ofertas relampago ao vivo (VARIAS ao mesmo tempo), compartilhadas entre aparelhos.
   // POST aceita uma lista (novo) ou uma oferta so' (painel antigo). GET devolve a lista.
-  if (req.url.startsWith('/oferta')) {
+  // caminho EXATO: /oferta (a 1a) e /ofertas (a lista) sao JSON; NAO pega /ofertas.html
+  // (o arquivo do painel), que antes era engolido aqui e voltava "null".
+  if (req.url.split('?')[0] === '/oferta' || req.url.split('?')[0] === '/ofertas') {
     if (req.method === 'POST') {
       let corpo = '';
       req.on('data', (d) => { corpo += d; if (corpo.length > 65536) req.destroy(); });
@@ -1277,6 +1279,7 @@ const server = http.createServer((req, res) => {
     '/conectar.html': 'conectar.html',
     '/meus-fixados': 'meus-fixados.html',        // painel da vendedora: escolhe as ofertas + a fixada (nunca preco)
     '/meus-fixados.html': 'meus-fixados.html',
+    '/ofertas.html': 'ofertas.html',             // aba Ofertas do painel (⚡ por loja). /ofertas (sem .html) é a rota JSON da lista
     '/lib/xlsx.min.js': 'lib/xlsx.min.js',
   };
   const caminho = req.url.split('?')[0];
