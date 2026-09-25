@@ -35,6 +35,15 @@ const slug = (s) => String(s).normalize('NFD').replace(/[^\x00-\x7F]/g, '').toLo
 const brl = (n) => (+n || 0).toFixed(2).replace('.', ',');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hora = () => new Date().toLocaleTimeString('pt-BR');
+// fecha popups/avisos do console (best-effort, nunca trava): Esc + botoes comuns de fechar/ok.
+async function fechaPopups(page) {
+  try { await page.keyboard.press('Escape').catch(() => {}); } catch (e) {}
+  const textos = ['Entendi', 'Got it', 'OK', 'Ok', 'Fechar', 'Close', 'Agora não', 'Não, obrigado', 'Cancelar', 'Pular', 'Skip', 'I got it'];
+  for (const t of textos) {
+    try { const b = page.locator('button:has-text("' + t + '"), [role="button"]:has-text("' + t + '")').first(); if (await b.count().catch(() => 0)) await b.click({ timeout: 700 }).catch(() => {}); } catch (e) {}
+  }
+  try { const x = page.locator('[aria-label*="close" i], [aria-label*="fechar" i], [class*="close" i][role="button"]').first(); if (await x.count().catch(() => 0)) await x.click({ timeout: 700 }).catch(() => {}); } catch (e) {}
+}
 
 // ---------- conector: config de preços (conjunto + exceção) + trava de live ----------
 function enderecoConector() {
@@ -135,6 +144,7 @@ async function encerrar(page, promotionId, produtoId) {
 
 // confere quais produtos estão SEM oferta ativa e dispara (duplica) só esses
 async function reporOfertas(conta) {
+  try { await fechaPopups(conta.page); } catch (e) {} // fecha avisos que aparecem durante a live
   let ativos = [];
   try { ativos = (await listarAtivas(conta.page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
   const pendentes = conta.produtos.filter((p) => !ativos.includes(String(p.produto_id)));
@@ -187,8 +197,12 @@ async function abreConta(browser, loja) {
   await page.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
   if (/login|passport/i.test(page.url())) { console.log('  ' + loja + ': SESSÃO EXPIROU — puxe fresca do LiveDash. Pulo.'); await ctx.close(); return null; }
   await page.waitForTimeout(8000);
-  const authorId = await pAuthor;
-  console.log('  ✅ ' + loja + ': ' + produtos.length + ' produto(s)' + (authorId ? ' · author ' + authorId : ' · ⚠️ sem author_id'));
+  await fechaPopups(page); // fecha os avisos/modais do console assim que abre
+  let authorId = await pAuthor;
+  if (!authorId) { // captura local falhou (nenhuma req de ⚡ na abertura) -> usa o guardado no conector (o robo de VENDAS captura e guarda)
+    try { const s = await pega(enderecoConector().replace(/\/+$/, '') + '/author-id?loja=' + encodeURIComponent(loja)); const a = s && (s.author_id || s.authorId); if (a) { authorId = String(a); console.log('  (author_id do conector: ' + authorId + ')'); } } catch (e) {}
+  }
+  console.log('  ✅ ' + loja + ': ' + produtos.length + ' produto(s)' + (authorId ? ' · author ' + authorId : ' · ⚠️ sem author_id (nem local nem guardado)'));
   return { loja, page, authorId, produtos };
 }
 
