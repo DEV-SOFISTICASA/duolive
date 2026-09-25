@@ -57,7 +57,7 @@ let ultimaVendaTs = 0;          // ultima venda vista (para detectar quando come
 const chats = {}; // loja -> { usuario, conexao, geracao, aoVivo, liveEstado, sigla, siglaTs }
 function chatDe(loja) {
   const k = String(loja || '');
-  if (!chats[k]) chats[k] = { usuario: '', conexao: null, geracao: 0, aoVivo: false, liveEstado: { espectadores: 0, likes: 0, inicio: 0, roomId: '' }, sigla: '', siglaTs: 0, curtiram: new Map() };
+  if (!chats[k]) chats[k] = { usuario: '', conexao: null, geracao: 0, aoVivo: false, liveEstado: { espectadores: 0, likes: 0, inicio: 0, roomId: '' }, sigla: '', siglaTs: 0, gravada: false, gravadaTs: 0, curtiram: new Map() };
   return chats[k];
 }
 // carimba a loja no evento (a chave '' nao carimba — evento "de todos")
@@ -124,10 +124,15 @@ function gravaVendaHistorico(v) {
   // da loja do painel — melhor sem sigla do que com a sigla errada.
   const lj = v.loja || '';
   const c = lj ? chats[lj] : null;
-  let sigla = (c && c.sigla && (Date.now() - c.siglaTs < 12 * 3600000)) ? c.sigla : null;
-  if (!sigla) {
-    const mesmaLoja = !lj || !lojaAtual || lj === lojaAtual;
-    sigla = (mesmaLoja && siglaAtiva && (Date.now() - siglaAtivaTs < 12 * 3600000)) ? siglaAtiva : null;
+  let sigla;
+  if (c && c.gravada && (Date.now() - (c.gravadaTs || 0) < 12 * 3600000)) {
+    sigla = 'GRAVADA'; // live GRAVADA: vai pro balde "Gravadas", NUNCA credita vendedora (nem a do login)
+  } else {
+    sigla = (c && c.sigla && (Date.now() - c.siglaTs < 12 * 3600000)) ? c.sigla : null;
+    if (!sigla) {
+      const mesmaLoja = !lj || !lojaAtual || lj === lojaAtual;
+      sigla = (mesmaLoja && siglaAtiva && (Date.now() - siglaAtivaTs < 12 * 3600000)) ? siglaAtiva : null;
+    }
   }
   const ts = new Date(inicioDaLiveAtual(lj)).toISOString();
   const linha = {
@@ -691,8 +696,12 @@ const server = http.createServer((req, res) => {
         const s = norm[String(loja).toLowerCase()] || {};
         const cur = porLoja[loja] || { loja: loja, live: false, gmv: 0, orders: 0, views: 0, sigla: '', nome: '' };
         cur.live = true;
-        if (!cur.sigla) cur.sigla = s.sigla || ((ch.sigla && (agora - ch.siglaTs < 12 * 3600000)) ? ch.sigla : '');
-        if (!cur.nome) cur.nome = s.nome || '';
+        if (ch.gravada && (agora - (ch.gravadaTs || 0) < 12 * 3600000)) { // LIVE GRAVADA: nao e' de vendedora nenhuma
+          cur.gravada = true; cur.sigla = 'GR'; cur.nome = 'Live Gravada';
+        } else {
+          if (!cur.sigla) cur.sigla = s.sigla || ((ch.sigla && (agora - ch.siglaTs < 12 * 3600000)) ? ch.sigla : '');
+          if (!cur.nome) cur.nome = s.nome || '';
+        }
         porLoja[loja] = cur;
       });
       // lives SO' de Shopee: acende o chip mesmo sem TikTok/Compass (o robo avisou)
@@ -772,6 +781,8 @@ const server = http.createServer((req, res) => {
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({
         usuario: st.usuario, aoVivo: st.aoVivo || shopeeVivo, loja: lj || undefined,
+        gravada: !!(st.aoVivo && st.gravada && (Date.now() - (st.gravadaTs || 0) < 12 * 3600000)), // live gravada: painel marca "🎬 GRAVADA" e nao credita vendedora
+
         espectadores: espectadores, espectadoresShopee: espectadoresShopee, likes: st.liveEstado.likes,
         inicio: st.liveEstado.inicio,
         totalTiktok: totalTiktok, totalShopee: sho.t,
@@ -1380,15 +1391,25 @@ async function atualizaSiglaDoTitulo(k) {
     try { info = await c.conexao.fetchRoomInfo(); } catch (e) { info = c.conexao.roomInfo; }
     const titulo = achaTitulo(info);
     if (!titulo) return;
+    // LIVE GRAVADA: titulo com a tag "GR"/"GRAVADA" (palavra isolada). Gravada NUNCA conta
+    // pra uma vendedora — vai pro balde "Gravadas", igual ao historico. Detecto ANTES da
+    // sigla (tem prioridade) e LIMPO a sigla, pra nao herdar a da live anterior.
+    const Tt = ' ' + String(titulo).toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+    const ehGravada = Tt.indexOf(' GR ') >= 0 || Tt.indexOf(' GRAVADA ') >= 0;
     const achadas = siglasNoTitulo(titulo, await siglasConhecidas());
-    if (achadas.length === 1) {
-      c.sigla = achadas[0]; c.siglaTs = Date.now();
+    if (ehGravada) {
+      c.gravada = true; c.gravadaTs = Date.now(); c.sigla = ''; c.siglaTs = Date.now();
+      console.log('  🎬 ' + rot + 'Título: "' + titulo.slice(0, 60) + '" → LIVE GRAVADA (não conta pra vendedora)');
+    } else if (achadas.length === 1) {
+      c.gravada = false; c.sigla = achadas[0]; c.siglaTs = Date.now();
       // a global segue alimentando o fluxo antigo (vendas sem loja marcada)
       siglaAtiva = achadas[0]; siglaAtivaTs = Date.now();
       console.log('  🏷️  ' + rot + 'Título: "' + titulo.slice(0, 60) + '" → sigla ' + achadas[0]);
     } else if (achadas.length > 1) {
+      c.gravada = false;
       console.log('  🏷️  ' + rot + 'Título: "' + titulo.slice(0, 60) + '" → dupla/grupo (' + achadas.join('+') + '), atribuição de grupo a definir');
     } else {
+      c.gravada = false;
       console.log('  🏷️  ' + rot + 'Título: "' + titulo.slice(0, 60) + '" (nenhuma sigla reconhecida)');
     }
   } catch (e) {}

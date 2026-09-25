@@ -33,12 +33,16 @@
   svg.lg{width:12px;height:12px;display:block}
   /* ===== card AO VIVO (igual à prévia) ===== */
   .aovivoCard{background:linear-gradient(180deg,var(--glow-a),transparent 60%),var(--card);border:1px solid var(--border-hi);border-radius:16px;padding:16px 18px;margin-bottom:14px}
-  .avHead{display:flex;align-items:center;gap:9px}
+  .avHead{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
   .avHead .lp{width:8px;height:8px;border-radius:50%;background:var(--vivo);flex:none;box-shadow:0 0 0 0 rgba(244,63,94,.5);animation:pulse 1.8s infinite}
   .avHead .tagv{font-size:12.5px;font-weight:800;letter-spacing:.14em;color:var(--vivo)}
   .avHead small{color:var(--text-3);font-size:13.5px}
   .avHead .avTimer{margin-left:auto;color:var(--accent-2);font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(244,63,94,.5)}70%{box-shadow:0 0 0 8px rgba(244,63,94,0)}100%{box-shadow:0 0 0 0 rgba(244,63,94,0)}}
+  /* selo de LIVE GRAVADA: roxo (mesma cor do balde "Lives Gravadas" do histórico) */
+  .avHead .avGrav{flex-basis:100%;margin:8px 0 0;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.5);color:#a78bfa;font-weight:800;font-size:12.5px;letter-spacing:.02em;padding:7px 12px;border-radius:10px;text-align:center}
+  .aovivoCard.gravada{background:linear-gradient(180deg,rgba(167,139,250,.16),transparent 60%),var(--card);border-color:rgba(167,139,250,.5)}
+  .aovivoCard.gravada .tagv{color:#a78bfa}
   .plat2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
   .plat2 .p{background:var(--card-2);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
   .plat2 .cap{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-3);margin-bottom:4px}
@@ -111,6 +115,7 @@
       <span class="lp"></span><span class="tagv">AO VIVO</span>
       <small id="avConta"></small>
       <small id="avTempo" class="avTimer"></small>
+      <small id="avGrav" class="avGrav" hidden>🎬 LIVE GRAVADA · não conta pra vendedora</small>
     </div>
     <div class="plat2">
       <div class="p"><div class="cap"><span class="badge b-tt"><svg class="lg"><use href="#tiktok"></use></svg></span> TikTok</div><b id="avVendasTik">–</b></div>
@@ -458,6 +463,10 @@
       marcaLive(true);
       $('aoVivoBox').style.display='';
       $('avConta').textContent = d.usuario ? ('@'+d.usuario) : '';
+      // LIVE GRAVADA: mostra o selo roxo e marca o card; os números continuam (só não creditam vendedora)
+      var ehGrav = !!d.gravada;
+      var gb=$('avGrav'); if(gb) gb.hidden=!ehGrav;
+      $('aoVivoBox').classList.toggle('gravada', ehGrav);
       // vendas separadas por app (conector novo manda os dois; o antigo só o total).
       // PISO: nunca MENOS que as vendas já listadas em "Últimas compras" (fonte confiável) —
       // assim o contador nunca fica 0 tendo venda na tela.

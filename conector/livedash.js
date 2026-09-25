@@ -464,4 +464,4 @@ function cronoProblemas(turnos, ativo) {
   return out.sort((a, b) => a.g - b.g || 0);
 }
 
-module.exports = { config, ativo, dados, espelho, horasHoje, horasPeriodo, aoVivoPorLoja, cronograma, cronoDefault };
+module.exports = { config, ativo, dados, espelho, horasHoje, horasPeriodo, aoVivoPorLoja, cronograma, cronoDefault, resolveTodas };

@@ -262,11 +262,13 @@
   // (nome da vendedora do chip selecionado) e ONDE esta rolando (loja do TikTok + a da Shopee).
   var ultLive=[]; // ultima resposta de /lojas-live (pra achar o nome da vendedora da loja)
   function nomeVend(loja){ for(var i=0;i<ultLive.length;i++){ var x=ultLive[i]; if(x && x.loja===loja) return x.nome||x.sigla||''; } return ''; }
+  function ehGravadaLoja(loja){ for(var i=0;i<ultLive.length;i++){ var x=ultLive[i]; if(x && x.loja===loja) return !!x.gravada; } return false; }
   function tituloLiveTxt(){
     var t=(lojaSel||''), s=(typeof shopeeLojaAtual==='function'?shopeeLojaAtual():'')||'';
     var arr=[]; if(t) arr.push(t); if(s && s!==t) arr.push(s);
     if(!arr.length) return '';
     var ls=arr.map(function(x){return String(x).toUpperCase();}).join(' E ');
+    if(ehGravadaLoja(lojaSel)) return '🎬 LIVE GRAVADA ('+ls+')'; // gravada: nao credita vendedora
     var nm=nomeVend(lojaSel);
     return nm ? ('LIVE DE '+String(nm).toUpperCase()+' ('+ls+')') : ('LIVE · '+ls);
   }
