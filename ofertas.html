@@ -66,6 +66,14 @@
   .vazio{color:var(--text-3);font-size:13.5px;padding:26px 12px;text-align:center;line-height:1.7;background:var(--card);border:1px dashed var(--line);border-radius:14px}
   .nota{margin-top:18px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:12px;padding:12px 15px;font-size:12.5px;color:var(--text-2);line-height:1.6}
   .erro{display:none;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.4);color:#fda4af;border-radius:12px;padding:12px 15px;margin-bottom:14px;font-size:13px}
+  .cta{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap}
+  .cta:hover{filter:brightness(1.08)}
+  .pkmodal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:18px}
+  .pkbox{background:var(--bg);border:1px solid var(--border-hi);border-radius:16px;width:min(1000px,96vw);height:min(88vh,900px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+  .pkhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex:none}
+  .pkhead b{font-family:'Bricolage Grotesque',sans-serif;font-size:16px;flex:1}
+  .pkhead button{background:var(--card-2);border:1px solid var(--line);color:var(--text-2);border-radius:9px;width:32px;height:32px;font-size:15px;cursor:pointer}
+  .pkbox iframe{flex:1;width:100%;border:0;background:var(--bg)}
   [hidden]{display:none!important}
 </style></head><body>
 
@@ -103,13 +111,20 @@
 
   <div class="sec">
     <h2>Em rotação — produtos fixados</h2>
-    <span class="n" id="qtd"></span>
+    <div style="display:flex;align-items:center;gap:12px"><span class="n" id="qtd"></span><button class="cta" id="btnEditar" hidden>✏️ Escolher produtos / preços</button></div>
   </div>
   <div class="grid" id="grid"></div>
   <div class="vazio" id="vazio" hidden>Nenhum produto com preço configurado nesta loja.<br>O ADM define os preços das ofertas (conjunto + exceção por variação) — aí eles aparecem aqui e o robô cria a ⚡.</div>
 
   <div class="nota">
     ⚠️ <b>Como funciona:</b> o robô cria a <b>⚡ nativa do TikTok</b> (a mesma que os espectadores veem) e ela nasce <b>fixada</b> — a cada <b>15 min</b> renova/gira os produtos, com <b>1 min</b> de intervalo, e <b>só com a live no ar</b>. Os preços saem do painel (conjunto + exceção por variação). Em <b>Ensaio</b> nada é criado — serve pra conferir antes de virar o <b>Real</b>. O desconto de verdade precisa existir no TikTok Shop na mesma janela.
+  </div>
+
+  <div class="pkmodal" id="pkModal" hidden>
+    <div class="pkbox">
+      <div class="pkhead"><b>Escolher produtos e preços — <span id="pkLoja"></span></b><button id="pkClose" title="Fechar">✕</button></div>
+      <iframe id="pkFrame" title="Editor de preços"></iframe>
+    </div>
   </div>
 
 <script>
@@ -174,6 +189,7 @@
       setToggle($('tgAuto'),autoOn);
       $('stAuto').innerHTML=(autoOn?'Ligada':'Desligada')+' <small>cria a cada 15 min · 1 min de intervalo</small>';
       $('tgAuto').classList.toggle('trava',!ehAdm);
+      $('btnEditar').hidden=!ehAdm; // só o ADM edita preços
       pintaModo();
       $('modo').style.opacity=ehAdm?'1':'.55';
       // live
@@ -208,6 +224,12 @@
     fetch('/oferta-real',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({loja:LOJA,real:v})}).catch(function(){}); }
   $('mEnsaio').onclick=function(){ viraReal(false); };
   $('mReal').onclick=function(){ viraReal(true); };
+  // editor de preços (reaproveita o sacolinha-controle, que já mexe no modelo certo)
+  var pk=$('pkModal');
+  function fechaPk(){ pk.hidden=true; $('pkFrame').removeAttribute('src'); carregar(); } // recarrega pra mostrar os preços novos
+  $('btnEditar').onclick=function(){ $('pkLoja').textContent=cap(LOJA); $('pkFrame').src='sacolinha-controle.html?loja='+encodeURIComponent(LOJA); pk.hidden=false; };
+  $('pkClose').onclick=fechaPk;
+  pk.onclick=function(e){ if(e.target===pk) fechaPk(); };
 
   $('lojaNome').textContent=cap(LOJA);
   carregar();
