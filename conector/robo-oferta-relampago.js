@@ -59,6 +59,20 @@ function pega(u) {
     lib.get(url, opt, (r) => { let c = ''; r.on('data', (d) => { c += d; }); r.on('end', () => { try { ok(JSON.parse(c)); } catch (e) { ok(null); } }); }).on('error', () => ok(null));
   });
 }
+// POST JSON pro conector (best-effort, nunca trava o robô se a nuvem estiver fora)
+function manda(caminho, corpo) {
+  return new Promise((ok) => {
+    try {
+      const url = new URL(enderecoConector().replace(/\/+$/, '') + caminho);
+      const lib = url.protocol === 'https:' ? https : http;
+      const dados = Buffer.from(JSON.stringify(corpo));
+      const opt = { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': dados.length } };
+      if (TOKEN) opt.headers['x-duolive-token'] = TOKEN;
+      const rq = lib.request(url, opt, (r) => { r.on('data', () => {}); r.on('end', ok); });
+      rq.on('error', () => ok()); rq.write(dados); rq.end();
+    } catch (e) { ok(); }
+  });
+}
 async function configDoPainel(loja) {
   const base = enderecoConector().replace(/\/+$/, '');
   const d = await pega(base + '/descontos?loja=' + encodeURIComponent(loja));
@@ -147,15 +161,40 @@ async function reporOfertas(conta) {
   try { await fechaPopups(conta.page); } catch (e) {} // fecha avisos que aparecem durante a live
   let ativos = [];
   try { ativos = (await listarAtivas(conta.page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
+  conta.criadoEm = conta.criadoEm || {};
   const pendentes = conta.produtos.filter((p) => !ativos.includes(String(p.produto_id)));
-  if (!pendentes.length) return;
-  let real = false; try { real = await realLigado(conta.loja); } catch (e) {} // Ensaio/Real vem do painel
-  const tag = '🏪' + conta.loja + ' · ';
-  console.log('\n  ▶️  ' + hora() + ' · ' + conta.loja + ' — ' + pendentes.length + ' oferta(s) pra ' + (real ? 'CRIAR' : 'conferir (ENSAIO)'));
-  for (let i = 0; i < pendentes.length; i++) {
-    await criar(conta.page, conta.authorId, pendentes[i], tag, real);
-    if (i < pendentes.length - 1) await sleep(STAGGER_S * 1000); // espaça os disparos (1 min)
+  if (pendentes.length) {
+    let real = false; try { real = await realLigado(conta.loja); } catch (e) {} // Ensaio/Real vem do painel
+    const tag = '🏪' + conta.loja + ' · ';
+    console.log('\n  ▶️  ' + hora() + ' · ' + conta.loja + ' — ' + pendentes.length + ' oferta(s) pra ' + (real ? 'CRIAR' : 'conferir (ENSAIO)'));
+    for (let i = 0; i < pendentes.length; i++) {
+      const r = await criar(conta.page, conta.authorId, pendentes[i], tag, real);
+      if (r) { conta.criadoEm[String(pendentes[i].produto_id)] = Date.now(); ativos.push(String(pendentes[i].produto_id)); } // passou a valer agora
+      if (i < pendentes.length - 1) await sleep(STAGGER_S * 1000); // espaça os disparos (1 min)
+    }
   }
+  reportarEstado(conta, ativos); // conta pro painel: por produto, quando ACABA / quando VOLTA
+}
+
+// monta e manda pro conector o estado da rotacao: por produto, quando a ⚡ ACABA
+// (ativa, = criada + DUR) ou quando ela VOLTA (espera, na fila de renovacao ~STAGGER).
+// O painel de ofertas mostra esse tempo em cada card ("acaba 14:35" / "volta 14:36").
+function reportarEstado(conta, ativos) {
+  const agora = Date.now();
+  const itens = {};
+  let naFila = 0;
+  conta.produtos.forEach((p) => {
+    const id = String(p.produto_id);
+    if (ativos.indexOf(id) >= 0) {
+      const c = conta.criadoEm[id];
+      const acaba = (c && (agora - c) < DUR * 1000) ? c + DUR * 1000 : agora + DUR * 1000; // sabido; senao estima
+      itens[id] = { estado: 'ativa', acaba };
+    } else {
+      naFila++;
+      itens[id] = { estado: 'espera', volta: agora + naFila * STAGGER_S * 1000 }; // proximo(s) disparo(s)
+    }
+  });
+  manda('/oferta-estado', { loja: conta.loja, itens });
 }
 
 // agendador multi-loja: cada oferta dura DUR; quando UMA acaba, re-dispara só ela

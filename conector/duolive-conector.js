@@ -145,6 +145,10 @@ function gravaVendaHistorico(v) {
 }
 // ofertas relampago NO AR (varias ao mesmo tempo), transmitidas para todos os aparelhos
 let ofertas = [];
+// rotacao ao vivo das ⚡ por loja: o robo reporta, por produto, quando a oferta
+// ACABA (ativa) ou quando VOLTA (espera). O painel de ofertas mostra esse tempo
+// em cada card. { <loja>: { itens: { <produto_id>: {estado,acaba,volta} }, ts } }
+let agendaOferta = {};
 // automacao da ⚡ ligada por loja (o robo da oferta no PC le isto e dispara sozinho)
 let ofertaAuto = {};
 // modo REAL da ⚡ por loja (o robo le isto): false = ENSAIO (nao cria). Padrao ENSAIO (seguro).
@@ -1159,22 +1163,42 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // o robo da oferta conta como foi (aplicada / ensaio / erro / restaurada)
-  if (req.url.startsWith('/oferta-estado') && req.method === 'POST') {
-    let corpo = '';
-    req.on('data', (d) => { corpo += d; if (corpo.length > 8192) req.destroy(); });
-    req.on('end', () => {
-      try {
-        const b = JSON.parse(corpo);
-        const o = ofertas.find((x) => x.id === b.id);
-        if (o) {
-          o.estado = String(b.estado || '').slice(0, 20);
-          o.erro = String(b.erro || '').slice(0, 120);
-          emitir({ tipo: 'oferta', ofertas: ofertas, oferta: ofertas[0] || null });
-        }
-      } catch (e) {}
-      res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
-    });
+  // ESTADO da rotacao das ⚡:
+  //  POST (robo) — dois formatos:
+  //    (a) { loja, itens:{<produto_id>:{estado,acaba,volta}} } = relatorio da rotacao
+  //        (por produto: quando a oferta ACABA ou quando VOLTA). O painel mostra o tempo.
+  //    (b) { id, estado, erro } = estado de UMA oferta (compat antigo: aplicada/ensaio/erro)
+  //  GET  (painel) /oferta-estado?loja= — devolve os itens da rotacao daquela loja.
+  if (req.url.split('?')[0] === '/oferta-estado') {
+    if (req.method === 'POST') {
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 65536) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const b = JSON.parse(corpo);
+          if (b && b.loja && b.itens && typeof b.itens === 'object') {              // (a) rotacao por loja
+            agendaOferta[String(b.loja).trim().toLowerCase()] = { itens: b.itens, ts: Date.now() };
+          }
+          if (b && b.id) {                                                           // (b) estado de uma oferta
+            const o = ofertas.find((x) => x.id === b.id);
+            if (o) {
+              o.estado = String(b.estado || '').slice(0, 20);
+              o.erro = String(b.erro || '').slice(0, 120);
+              emitir({ tipo: 'oferta', ofertas: ofertas, oferta: ofertas[0] || null });
+            }
+          }
+        } catch (e) {}
+        res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
+      });
+      return;
+    }
+    // GET: rotacao atual da loja (tempo que acaba / volta) pro painel de ofertas.
+    // Relatorio velho (robo parado > 3 min) nao vale — nao engana o painel.
+    res.setHeader('content-type', 'application/json');
+    const lj = String(new URLSearchParams((req.url.split('?')[1] || '')).get('loja') || '').trim().toLowerCase();
+    const a = agendaOferta[lj];
+    if (!lj || !a || (Date.now() - a.ts) > 180000) { res.end('{"ok":true,"itens":{}}'); return; }
+    res.end(JSON.stringify({ ok: true, itens: a.itens || {}, ts: a.ts }));
     return;
   }
 

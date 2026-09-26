@@ -72,6 +72,19 @@
   .card.fixada{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 26px -12px var(--accent)}
   .stpill.fix{background:rgba(139,92,246,.24);color:#fff}
   .stpill.disp{background:var(--card-2);color:var(--text-3);border:1px solid var(--line)}
+  .card .crow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:6px}
+  .fixbtn{cursor:pointer;border:1px solid var(--line);background:var(--card-2);color:var(--text-2);font-family:inherit;line-height:1.1;transition:.12s}
+  .fixbtn:hover{border-color:var(--border-hi);color:var(--accent-2)}
+  .fixbtn.fix{background:rgba(139,92,246,.24);color:#fff;border-color:var(--accent)}
+  .tbox{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);color:var(--text-2);background:var(--card-2)}
+  .tbox .ti{font-size:11px}
+  .tbox b{color:var(--text);font-weight:800}
+  .tbox i{font-style:normal;color:var(--text-3);font-variant-numeric:tabular-nums;margin-left:3px}
+  .tbox.ativa{border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.1);color:var(--ok)}
+  .tbox.ativa b{color:var(--ok)}
+  .tbox.espera{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.1);color:var(--warn)}
+  .tbox.espera b{color:var(--warn)}
+  .tbox.off{color:var(--text-3)}
   .pkmodal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:18px}
   .pkbox{background:var(--bg);border:1px solid var(--border-hi);border-radius:16px;width:min(1000px,96vw);height:min(88vh,900px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5)}
   .pkhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex:none}
@@ -143,8 +156,9 @@
   // escolhida no topo do painel (o index recarrega este iframe quando você troca).
   var LOJA=''; try{ var q=new URLSearchParams(location.search); LOJA=(q.get('loja')||'').toLowerCase(); }catch(e){}
   if(!LOJA) LOJA='monaco'; // fallback só se abrir solto
-  var MASTER='monaco'; // lista de preços é UMA só (loja-mestre = Monaco), vale global; cada loja só ESCOLHE quais trabalhar + a fixada
+  // CADA LOJA tem os SEUS produtos e preços: tudo aqui é da loja selecionada (LOJA).
   var sel={ofertas:[],fixada:null}; // escolha da vendedora NESTA loja (quais produtos + a fixada)
+  var estado={}; // rotação ao vivo por produto {estado:'ativa'|'espera',acaba,volta} — vem do robô
   var ehAdm=false, autoOn=true, realOn=false, vivoOn=false;
   function cap(s){ s=String(s||''); return s.charAt(0).toUpperCase()+s.slice(1); }
 
@@ -160,34 +174,49 @@
     ic.textContent='⚡'; tt.textContent='No ar — criando a cada 15 min'; ds.textContent='O robô mantém os produtos abaixo fixados, girando a cada 15 min (1 min de intervalo).';
   }
 
+  function fmtHora(ts){ try{ return new Date(+ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+  function faltam(ts){ var s=Math.max(0,Math.round((+ts-Date.now())/1000)); var m=Math.floor(s/60); s=s%60; return m+':'+(s<10?'0':'')+s; }
+  // caixa de TEMPO do card: enquanto a ⚡ está no ar mostra QUANDO ACABA (+contagem);
+  // quando ela sai da vez, mostra QUANDO VOLTA. Sem robô/live, caixa neutra.
+  function tboxHTML(id){
+    var e=estado[id]||{}; var now=Date.now();
+    if(e.estado==='ativa' && +e.acaba>now)
+      return '<span class="tbox ativa" data-acaba="'+(+e.acaba)+'"><span class="ti">⏳</span>acaba <b>'+fmtHora(e.acaba)+'</b><i>'+faltam(e.acaba)+'</i></span>';
+    if(e.estado==='espera' && +e.volta>now)
+      return '<span class="tbox espera"><span class="ti">🔁</span>volta <b>'+fmtHora(e.volta)+'</b></span>';
+    return '<span class="tbox off"><span class="ti">⏱️</span>'+(vivoOn?'aguardando o robô':'live fechada')+'</span>';
+  }
   function cardHTML(p){
-    var isFix = sel.fixada===p.produto_id;
+    var id=p.produto_id;
+    var isFix = sel.fixada===id;
     var temPreco=(p.conjunto!=null)||Object.keys(p.excecoes).length;
     var chips=(p.variacoes||[]).slice(0,4).map(function(v){
       var nome=v.nome||v; var pr=(p.excecoes[slug(nome)]!=null)?p.excecoes[slug(nome)]:p.conjunto;
       return '<span class="var"><span class="sw2"></span>'+esc(nome)+(pr!=null?' <b>'+real2(pr)+'</b>':'')+'</span>';
     }).join('');
     if(!chips && p.conjunto!=null) chips='<span class="var">todas as variações <b>'+real2(p.conjunto)+'</b></span>';
+    // pílula = botão de FIXAR (fixa/solta no topo da live). Sem preço não dá pra fixar.
     var pill = !temPreco ? '<span class="stpill sem">sem preço (ADM)</span>'
-      : isFix ? '<span class="stpill fix">📌 FIXADA</span>'
-      : (realOn&&autoOn&&vivoOn ? '<span class="stpill ok">🟢 em rotação</span>' : '<span class="stpill fila">⏳ pronta</span>');
+      : '<button class="stpill fixbtn'+(isFix?' fix':'')+'" data-fix="'+esc(id)+'" title="'+(isFix?'clique pra soltar':'clique pra fixar no topo da live')+'">'+(isFix?'📌 FIXADA':'📌 fixar')+'</button>';
     return '<div class="card'+(isFix?' fixada':'')+'"><div class="top">'
       +'<div class="th">'+(p.imagem?'<img src="'+esc(p.imagem)+'" alt="" loading="lazy">':'')+'</div>'
-      +'<div style="flex:1"><div class="nm">'+esc(nomeCurto(p.nome))+'</div>'+pill+'</div></div>'
+      +'<div style="flex:1;min-width:0"><div class="nm">'+esc(nomeCurto(p.nome))+'</div>'
+      +'<div class="crow">'+pill+tboxHTML(id)+'</div></div></div>'
       +'<div class="price">'+(p.conjunto!=null?'<span class="big">'+real2(p.conjunto)+'</span><span class="un">preço do conjunto</span>':'<span class="semp">falta o preço do conjunto (ADM)</span>')+'</div>'
       +'<div class="vars">'+chips+'</div></div>';
   }
 
   function carregar(){
     Promise.all([
-      fetch('/descontos?loja='+encodeURIComponent(MASTER),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),   // preços: lista mestre (Monaco)
-      fetch('/produtos?loja='+encodeURIComponent(MASTER),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),    // fotos/variações do catálogo mestre
+      fetch('/descontos?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),   // preços DESTA loja
+      fetch('/produtos?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),    // fotos/variações DESTA loja
       fetch('/oferta-auto?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),
       fetch('/oferta-real?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),
       fetch('/ao-vivo?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}),
-      fetch('/vendedora-ofertas?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}) // escolha desta loja
+      fetch('/vendedora-ofertas?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;}), // escolha desta loja
+      fetch('/oferta-estado?loja='+encodeURIComponent(LOJA),{cache:'no-store'}).then(function(r){return r.json();}).catch(function(){return null;})   // rotação: quando acaba/volta
     ]).then(function(res){
-      var d=res[0], cat=res[1], au=res[2], rl=res[3], av=res[4], vo=res[5];
+      var d=res[0], cat=res[1], au=res[2], rl=res[3], av=res[4], vo=res[5], es=res[6];
       if(!d){ $('erro').textContent='Não consegui carregar as ofertas agora. Recarregue a página (F5).'; $('erro').style.display='block'; return; }
       $('erro').style.display='none';
       ehAdm=!!(d&&d.ehAdm);
@@ -195,6 +224,7 @@
       realOn=!!(rl&&rl.real);
       vivoOn=!!(av&&av.aoVivo);
       sel.ofertas=((vo&&vo.ofertas)||[]).map(String); sel.fixada=(vo&&vo.fixada)?String(vo.fixada):null;
+      estado=(es&&es.itens)||{}; // tempo por produto (acaba/volta), vindo do robô
       // toggles
       setToggle($('tgAuto'),autoOn);
       $('stAuto').innerHTML=(autoOn?'Ligada':'Desligada')+' <small>cria a cada 15 min · 1 min de intervalo</small>';
@@ -205,7 +235,7 @@
       // live
       var v=$('vivo'); v.className='vivo'+(vivoOn?'':' off'); $('vivoTxt').textContent=vivoOn?'AO VIVO':'fechada';
       pintaBanner();
-      // preços (lista mestre) + fotos/variações do catálogo mestre
+      // preços + fotos/variações do catálogo DESTA loja
       var rows=(d&&d.descontos)||[];
       var porProd={};
       rows.forEach(function(o){ var id=String(o.produto_id); if(!porProd[id]) porProd[id]={produto_id:id,nome:o.nome,conjunto:null,excecoes:{},imagem:'',variacoes:[]};
@@ -229,6 +259,19 @@
     $('vazio').hidden=true;
     $('grid').innerHTML=lista.map(cardHTML).join('');
   }
+  // relógio: atualiza só a contagem das ⚡ no ar (sem re-buscar nada, cada 1s)
+  function tick(){ var now=Date.now(); var els=document.querySelectorAll('.tbox.ativa'); for(var i=0;i<els.length;i++){ var a=+els[i].getAttribute('data-acaba'); var it=els[i].querySelector('i'); if(it) it.textContent=faltam(a>now?a:now); } }
+  setInterval(tick,1000);
+  // clique na pílula = FIXA/SOLTA este produto no topo da live (funciona com a live
+  // aberta; qualquer logada pode). Uma fixada por vez: fixar outra troca a anterior.
+  $('grid').addEventListener('click',function(ev){
+    var b=ev.target.closest?ev.target.closest('.fixbtn'):null; if(!b) return;
+    var id=b.getAttribute('data-fix'); if(!id) return;
+    var nova=(sel.fixada===id)?null:id;
+    sel.fixada=nova; renderGrid(); // responde na hora (otimista)
+    fetch('/vendedora-ofertas',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({loja:LOJA,ofertas:sel.ofertas,fixada:nova})})
+      .then(function(r){return r.json();}).then(function(x){ if(!x||!x.ok) carregar(); }).catch(function(){ carregar(); });
+  });
 
   // toggles (só ADM; o endpoint recusa quem não for)
   $('tgAuto').onclick=function(){ if(!ehAdm) return; autoOn=!autoOn; setToggle($('tgAuto'),autoOn); $('stAuto').innerHTML=(autoOn?'Ligada':'Desligada')+' <small>cria a cada 15 min · 1 min de intervalo</small>'; pintaBanner();
@@ -242,7 +285,7 @@
   function abrePk(src, titulo, loja){ $('pkTit').textContent=titulo+' — '+cap(loja); $('pkFrame').src=src+'?loja='+encodeURIComponent(loja); pk.hidden=false; }
   function fechaPk(){ pk.hidden=true; $('pkFrame').removeAttribute('src'); carregar(); } // recarrega pra refletir a escolha/preços
   $('btnFixar').onclick=function(){ abrePk('meus-fixados.html','Escolher / Fixar produtos', LOJA); };   // escolha POR LOJA (qualquer logado)
-  $('btnEditar').onclick=function(){ abrePk('sacolinha-controle.html','Editar preços', MASTER); };       // preços na LISTA MESTRE (só ADM)
+  $('btnEditar').onclick=function(){ abrePk('sacolinha-controle.html','Editar preços', LOJA); };         // preços DESTA loja (só ADM)
   $('pkClose').onclick=fechaPk;
   pk.onclick=function(e){ if(e.target===pk) fechaPk(); };
 
