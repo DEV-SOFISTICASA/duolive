@@ -85,7 +85,7 @@ const OFERTA_REAL = process.env.DUOLIVE_OFERTA_REAL === '1' || _of.modo === 'rea
 const OFERTA_DUR = +(process.env.DUOLIVE_OFERTA_DUR || 900); // 900s = 15 min POR PRODUTO (era 10)
 const OFERTA_CHECK = Math.max(20, +(process.env.DUOLIVE_OFERTA_CHECK || 45));
 const OFERTA_STAGGER = Math.max(3, +(process.env.DUOLIVE_OFERTA_STAGGER || _of.stagger || 60)); // seg. entre criações
-const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'mania').toLowerCase(); // lista mestre GLOBAL
+const OFERTA_MASTER = (process.env.DUOLIVE_OFERTA_MASTER || _of.master || 'monaco').toLowerCase(); // lista mestre GLOBAL
 const _ofCfg = {}, _ofCfgTs = {}; // cache da lista mestre
 // ---- MAPA DE SKUs da loja MESTRE: o fim do casamento por nome (que chutava) ----
 // mapa-produtos.json: { produto_id_da_mestre: { nome, skus:[SELLER-SKUs...] } }.

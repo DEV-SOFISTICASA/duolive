@@ -24,7 +24,7 @@ const crypto = require('crypto');
 const SB = require('./supabase.js');
 const OFERTAS = require('./ofertas.js');
 
-const MASTER = (process.env.DUOLIVE_OFERTA_MASTER || 'mania').toLowerCase();
+const MASTER = (process.env.DUOLIVE_OFERTA_MASTER || 'monaco').toLowerCase();
 
 // o "retrato" canônico da lista mestre: só o que define preço (produto|sku|valor),
 // ordenado. O nome vai junto só pra mensagem de alarme ficar legível (fora do hash).

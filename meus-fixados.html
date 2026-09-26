@@ -66,7 +66,7 @@
   <div class="rodape"><span class="r">⚡</span> A oferta relâmpago sai sozinha, a cada 15 minutos, só dos produtos marcados, enquanto esta live estiver aberta.</div>
 <script>
 (function(){
-  var MASTER='mania';
+  var MASTER='monaco'; // lista de precos mestre (o ADM precifica aqui; vale global)
   var LOJA=(new URLSearchParams(location.search).get('loja')||'').trim().toLowerCase();
   var $=function(id){return document.getElementById(id);};
   var grupos=[], sel={ofertas:[],fixada:null};
