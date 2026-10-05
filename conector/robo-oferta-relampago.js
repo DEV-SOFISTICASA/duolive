@@ -157,33 +157,56 @@ async function encerrar(page, promotionId, produtoId) {
 }
 
 // confere quais produtos estão SEM oferta ativa e dispara (duplica) só esses
+// a vendedora escolhe no painel QUAIS produtos trabalhar nesta loja + a FIXADA
+// (/vendedora-ofertas). Lido A CADA rodada: ela pode mudar no meio da live.
+async function escolhaDaVendedora(loja) {
+  const base = enderecoConector().replace(/\/+$/, '');
+  const v = await pega(base + '/vendedora-ofertas?loja=' + encodeURIComponent(loja));
+  return { ofertas: ((v && v.ofertas) || []).map(String), fixada: (v && v.fixada) ? String(v.fixada) : null };
+}
+// aplica a escolha sobre os produtos COM PREÇO (conta.produtos): só os escolhidos,
+// a FIXADA na frente da fila. NADA marcado = TODOS (a live nunca fica sem ⚡). Se a
+// vendedora marcou só produto(s) sem preço, também cai em todos (não trava a live).
+function aplicaEscolha(produtos, esc) {
+  if (!esc || !esc.ofertas.length) return produtos;
+  const quer = {}; esc.ofertas.forEach((id) => { quer[String(id)] = true; });
+  const filtrados = produtos.filter((p) => quer[String(p.produto_id)]);
+  if (!filtrados.length) return produtos;
+  filtrados.sort((a, b) => (esc.fixada === String(b.produto_id) ? 1 : 0) - (esc.fixada === String(a.produto_id) ? 1 : 0));
+  return filtrados;
+}
+
 async function reporOfertas(conta) {
   try { await fechaPopups(conta.page); } catch (e) {} // fecha avisos que aparecem durante a live
+  // respeita a escolha da vendedora (só os produtos dela, fixada na frente) — lido
+  // a cada rodada pra pegar mudança no meio da live; sem escolha = todos com preço.
+  let desejados = conta.produtos;
+  try { desejados = aplicaEscolha(conta.produtos, await escolhaDaVendedora(conta.loja)); } catch (e) {}
   let ativos = [];
   try { ativos = (await listarAtivas(conta.page)).map((x) => String((x.base && x.base.product_id) || x.product_id || '')); } catch (e) {}
   conta.criadoEm = conta.criadoEm || {};
-  const pendentes = conta.produtos.filter((p) => !ativos.includes(String(p.produto_id)));
+  const pendentes = desejados.filter((p) => !ativos.includes(String(p.produto_id)));
   if (pendentes.length) {
     let real = false; try { real = await realLigado(conta.loja); } catch (e) {} // Ensaio/Real vem do painel
     const tag = '🏪' + conta.loja + ' · ';
-    console.log('\n  ▶️  ' + hora() + ' · ' + conta.loja + ' — ' + pendentes.length + ' oferta(s) pra ' + (real ? 'CRIAR' : 'conferir (ENSAIO)'));
+    console.log('\n  ▶️  ' + hora() + ' · ' + conta.loja + ' — ' + desejados.length + ' escolhido(s), ' + pendentes.length + ' pra ' + (real ? 'CRIAR' : 'conferir (ENSAIO)'));
     for (let i = 0; i < pendentes.length; i++) {
       const r = await criar(conta.page, conta.authorId, pendentes[i], tag, real);
       if (r) { conta.criadoEm[String(pendentes[i].produto_id)] = Date.now(); ativos.push(String(pendentes[i].produto_id)); } // passou a valer agora
       if (i < pendentes.length - 1) await sleep(STAGGER_S * 1000); // espaça os disparos (1 min)
     }
   }
-  reportarEstado(conta, ativos); // conta pro painel: por produto, quando ACABA / quando VOLTA
+  reportarEstado(conta, ativos, desejados); // painel: tempo (acaba/volta) só dos escolhidos
 }
 
 // monta e manda pro conector o estado da rotacao: por produto, quando a ⚡ ACABA
 // (ativa, = criada + DUR) ou quando ela VOLTA (espera, na fila de renovacao ~STAGGER).
 // O painel de ofertas mostra esse tempo em cada card ("acaba 14:35" / "volta 14:36").
-function reportarEstado(conta, ativos) {
+function reportarEstado(conta, ativos, lista) {
   const agora = Date.now();
   const itens = {};
   let naFila = 0;
-  conta.produtos.forEach((p) => {
+  (lista || conta.produtos).forEach((p) => {
     const id = String(p.produto_id);
     if (ativos.indexOf(id) >= 0) {
       const c = conta.criadoEm[id];
