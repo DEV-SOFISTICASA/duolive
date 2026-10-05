@@ -1228,6 +1228,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // SERVE o arquivo do robô da ⚡ pra QUALQUER PC baixar a versão nova direto da
+  // nuvem (o launcher liga-oferta-nuvem.bat puxa isto antes de ligar). Assim o robô
+  // NUNCA fica preso/velho num computador — o conector (deploy do main) é a fonte.
+  // Gated pelo login/token (o robô manda o x-duolive-token).
+  if (req.url.split('?')[0] === '/robo-oferta-relampago.js') {
+    fs.readFile(path.join(__dirname, 'robo-oferta-relampago.js'), (e, d) => {
+      if (e) { res.statusCode = 404; res.end('// robo-oferta-relampago.js nao encontrado'); return; }
+      res.setHeader('content-type', 'text/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(d);
+    });
+    return;
+  }
+
   // ofertas relampago ao vivo (VARIAS ao mesmo tempo), compartilhadas entre aparelhos.
   // POST aceita uma lista (novo) ou uma oferta so' (painel antigo). GET devolve a lista.
   // caminho EXATO: /oferta (a 1a) e /ofertas (a lista) sao JSON; NAO pega /ofertas.html
