@@ -225,6 +225,26 @@ function pegaAuthorId(page) {
   });
 }
 
+// GRAVADOR: fica escutando a janela do robô a vida toda. Quando ALGUÉM cria uma ⚡
+// aqui (inclusive VOCÊ, na mão, com "iniciar agora"), captura o corpo do create e:
+//   1) salva o author_id no BANCO (via conector) — vale pra sempre, em qualquer PC;
+//   2) manda o corpo inteiro pro conector (/oferta-captura) — pra aprendermos o
+//      formato que faz a oferta NASCER LIGADA e cravar isso no código.
+// Assim o que ele "aprende" não fica preso neste computador.
+function gravadorCreate(page, loja) {
+  page.on('request', (req) => {
+    try {
+      if (!/flash_sale\/create/.test(req.url())) return;
+      const body = req.postData(); if (!body) return;
+      let m = null; try { m = JSON.parse(body); } catch (e) {}
+      const aid = m && m.author_id ? String(m.author_id) : '';
+      console.log('\n  📸 CAPTUREI um create de ⚡ na ' + loja + (aid ? (' · author_id ' + aid) : '') + ' — guardando na nuvem (vale em qualquer PC).');
+      if (aid && /^\d{8,}$/.test(aid)) manda('/author-id', { loja: loja, author_id: aid });   // durável no banco
+      manda('/oferta-captura', { loja: loja, url: req.url(), payload: body });                 // formato, pra análise
+    } catch (e) {}
+  });
+}
+
 async function abreConta(browser, loja) {
   const sess = path.join(__dirname, 'sessao-console-' + loja + '.json');
   if (!fs.existsSync(sess)) { console.log('  ' + loja + ': sem sessao-console-' + loja + '.json — pulo'); return null; }
@@ -232,13 +252,15 @@ async function abreConta(browser, loja) {
   if (!produtos.length) { console.log('  ' + loja + ': sem preços cadastrados nas "Ofertas fixas" — pulo'); return null; }
   const ctx = await browser.newContext({ storageState: sess, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
   const page = await ctx.newPage();
+  gravadorCreate(page, loja); // grava qualquer create de ⚡ feito nesta janela (manual ou do robô)
   const pAuthor = pegaAuthorId(page);
   await page.goto('https://shop.tiktok.com/streamer/live/product/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
   if (/login|passport/i.test(page.url())) { console.log('  ' + loja + ': SESSÃO EXPIROU — puxe fresca do LiveDash. Pulo.'); await ctx.close(); return null; }
   await page.waitForTimeout(8000);
   await fechaPopups(page); // fecha os avisos/modais do console assim que abre
   let authorId = await pAuthor;
-  if (!authorId) { // captura local falhou (nenhuma req de ⚡ na abertura) -> usa o guardado no conector (o robo de VENDAS captura e guarda)
+  if (authorId && /^\d{8,}$/.test(authorId)) manda('/author-id', { loja: loja, author_id: authorId }); // guarda no banco (durável, vale em qualquer PC)
+  if (!authorId) { // captura local falhou (nenhuma req de ⚡ na abertura) -> usa o guardado no conector/banco
     try { const s = await pega(enderecoConector().replace(/\/+$/, '') + '/author-id?loja=' + encodeURIComponent(loja)); const a = s && (s.author_id || s.authorId); if (a) { authorId = String(a); console.log('  (author_id do conector: ' + authorId + ')'); } } catch (e) {}
   }
   console.log('  ✅ ' + loja + ': ' + produtos.length + ' produto(s)' + (authorId ? ' · author ' + authorId : ' · ⚠️ sem author_id (nem local nem guardado)'));

@@ -149,6 +149,9 @@ let ofertas = [];
 // ACABA (ativa) ou quando VOLTA (espera). O painel de ofertas mostra esse tempo
 // em cada card. { <loja>: { itens: { <produto_id>: {estado,acaba,volta} }, ts } }
 let agendaOferta = {};
+// capturas do CREATE da ⚡ feitas na janela do robô (manual ou automático): guardamos
+// as últimas pra APRENDER o formato que faz a oferta NASCER LIGADA (o robô manda aqui).
+let capturasOferta = [];
 // automacao da ⚡ ligada por loja (o robo da oferta no PC le isto e dispara sozinho)
 let ofertaAuto = {};
 // modo REAL da ⚡ por loja (o robo le isto): false = ENSAIO (nao cria). Padrao ENSAIO (seguro).
@@ -228,7 +231,7 @@ function liveShopeeAtual() {
 
 // Rotas que o ROBÔ usa (mandam dados de máquina). Não têm cookie de navegador;
 // quando há senha na nuvem, elas se protegem pelo token (DUOLIVE_TOKEN).
-const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos', '/oferta-estado', '/sacolinha', '/author-id'];
+const ROTAS_MAQUINA = ['/venda-auto', '/numeros-tiktok', '/eventos', '/produtos', '/oferta-estado', '/oferta-captura', '/sacolinha', '/author-id'];
 // Rotas liberadas sem login (a própria tela de senha e o que ela precisa).
 const ROTAS_LIVRES = ['/login', '/entrar', '/favicon.ico'];
 
@@ -1199,6 +1202,29 @@ const server = http.createServer((req, res) => {
     const a = agendaOferta[lj];
     if (!lj || !a || (Date.now() - a.ts) > 180000) { res.end('{"ok":true,"itens":{}}'); return; }
     res.end(JSON.stringify({ ok: true, itens: a.itens || {}, ts: a.ts }));
+    return;
+  }
+
+  // CAPTURA do create da ⚡: o robô manda o corpo de QUALQUER create feito na janela
+  // dele (inclusive o manual com "iniciar agora"). Guardamos as últimas pra aprender
+  // o formato que faz a oferta NASCER LIGADA. POST (robô) guarda; GET lê (pra análise).
+  if (req.url.split('?')[0] === '/oferta-captura') {
+    if (req.method === 'POST') {
+      let corpo = '';
+      req.on('data', (d) => { corpo += d; if (corpo.length > 262144) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const b = JSON.parse(corpo);
+          capturasOferta.unshift({ loja: String(b.loja || ''), url: String(b.url || '').slice(0, 300), payload: b.payload || null, ts: Date.now() });
+          if (capturasOferta.length > 10) capturasOferta.length = 10;
+          console.log('  📸 captura de create ⚡ recebida (' + (b.loja || '?') + ') em ' + new Date().toLocaleString('pt-BR'));
+        } catch (e) {}
+        res.setHeader('content-type', 'application/json'); res.end('{"ok":true}');
+      });
+      return;
+    }
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ ok: true, capturas: capturasOferta }));
     return;
   }
 
