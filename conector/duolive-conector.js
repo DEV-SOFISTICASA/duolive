@@ -1232,9 +1232,10 @@ const server = http.createServer((req, res) => {
   // nuvem (o launcher liga-oferta-nuvem.bat puxa isto antes de ligar). Assim o robô
   // NUNCA fica preso/velho num computador — o conector (deploy do main) é a fonte.
   // Gated pelo login/token (o robô manda o x-duolive-token).
-  if (req.url.split('?')[0] === '/robo-oferta-relampago.js') {
-    fs.readFile(path.join(__dirname, 'robo-oferta-relampago.js'), (e, d) => {
-      if (e) { res.statusCode = 404; res.end('// robo-oferta-relampago.js nao encontrado'); return; }
+  if (req.url.split('?')[0] === '/robo-oferta-relampago.js' || req.url.split('?')[0] === '/robo-shopee-live.js') {
+    const _rf = req.url.split('?')[0].replace(/^\//, '');
+    fs.readFile(path.join(__dirname, _rf), (e, d) => {
+      if (e) { res.statusCode = 404; res.end('// ' + _rf + ' nao encontrado'); return; }
       res.setHeader('content-type', 'text/javascript; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       res.end(d);
